@@ -61,10 +61,11 @@ export class Boss extends Phaser.Physics.Arcade.Sprite {
     return 'hit';
   }
 
-  poofAway(onDone: () => void): void {
+  poofAway(): void {
     this.dying = true;
     this.arcadeBody.enable = false;
-    const particles = this.scene.add.particles(this.x, this.y, 'poof-particle', {
+    const scene = this.scene;
+    const particles = scene.add.particles(this.x, this.y, 'poof-particle', {
       speed: { min: 40, max: 220 },
       scale: { start: 1.4, end: 0 },
       lifespan: 520,
@@ -72,21 +73,16 @@ export class Boss extends Phaser.Physics.Arcade.Sprite {
       emitting: false,
     });
     particles.explode(32);
-    this.scene.tweens.add({
+    scene.tweens.add({
       targets: this,
       scale: 0,
       alpha: 0,
       angle: 40,
       duration: 280,
       ease: 'Back.easeIn',
-      onComplete: () => {
-        this.destroy();
-        this.scene.time.delayedCall(200, () => {
-          particles.destroy();
-          onDone();
-        });
-      },
+      onComplete: () => this.destroy(),
     });
+    scene.time.delayedCall(500, () => particles.destroy());
   }
 
   chase(player: Phaser.Physics.Arcade.Sprite, solids: Phaser.Physics.Arcade.StaticGroup): void {

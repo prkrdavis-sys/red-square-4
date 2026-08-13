@@ -9,10 +9,27 @@ import { buildLevel, type BuiltLevel } from '../levels/builder';
 import { getLevel } from '../levels/worlds';
 import { audio } from '../systems/audio';
 import { Parallax } from '../systems/parallax';
+import { getTouchState, hideTouchControls, showTouchControls } from '../systems/touch-controls';
 import { addPanel, launchOverlay, MenuButton, MenuNav, textStyle } from '../ui/menu';
 
 interface PlayData {
   levelId?: LevelId;
+}
+
+function playerFromCollider(
+  object:
+    | Phaser.Types.Physics.Arcade.GameObjectWithBody
+    | Phaser.Physics.Arcade.Body
+    | Phaser.Physics.Arcade.StaticBody
+    | Phaser.Tilemaps.Tile,
+): Player | undefined {
+  if (object instanceof Player) {
+    return object;
+  }
+  if ('gameObject' in object && object.gameObject instanceof Player) {
+    return object.gameObject;
+  }
+  return undefined;
 }
 
 export class PlayScene extends Phaser.Scene {
@@ -85,7 +102,7 @@ export class PlayScene extends Phaser.Scene {
       player,
       oneways,
       undefined,
-      (objectA, objectB) => this.oneWayProcess(objectA as Player, objectB as Phaser.Physics.Arcade.Sprite),
+      (objectA, objectB) => this.oneWayProcess(objectA, objectB),
     );
 
     this.physics.add.collider(player, baddies, (objectA, objectB) => {
@@ -141,6 +158,10 @@ export class PlayScene extends Phaser.Scene {
     this.createHud(def.name);
     this.createPauseOverlay();
     this.bindKeys();
+    showTouchControls();
+    this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
+      hideTouchControls();
+    });
   }
 
   update(): void {
@@ -215,9 +236,10 @@ export class PlayScene extends Phaser.Scene {
   }
 
   private readInput(): PlayerInput {
-    const left = this.cursors.left.isDown || this.keyA.isDown;
-    const right = this.cursors.right.isDown || this.keyD.isDown;
-    const jump = this.cursors.up.isDown || this.keyW.isDown || this.keySpace.isDown;
+    const touch = getTouchState();
+    const left = this.cursors.left.isDown || this.keyA.isDown || touch.left;
+    const right = this.cursors.right.isDown || this.keyD.isDown || touch.right;
+    const jump = this.cursors.up.isDown || this.keyW.isDown || this.keySpace.isDown || touch.jump;
     const down = this.cursors.down.isDown || this.keyS.isDown;
     const jumpJust = jump && !this.wasJump;
     const downJust = down && !this.wasDown;
@@ -229,13 +251,23 @@ export class PlayScene extends Phaser.Scene {
     return { left, right, jump, jumpJust, down, downJust };
   }
 
-  private oneWayProcess(player: Player, platform: Phaser.Physics.Arcade.Sprite): boolean {
-    if (player.isDropping) {
+  private oneWayProcess(
+    objectA:
+      | Phaser.Types.Physics.Arcade.GameObjectWithBody
+      | Phaser.Physics.Arcade.Body
+      | Phaser.Physics.Arcade.StaticBody
+      | Phaser.Tilemaps.Tile,
+    objectB:
+      | Phaser.Types.Physics.Arcade.GameObjectWithBody
+      | Phaser.Physics.Arcade.Body
+      | Phaser.Physics.Arcade.StaticBody
+      | Phaser.Tilemaps.Tile,
+  ): boolean {
+    const player = playerFromCollider(objectA) ?? playerFromCollider(objectB);
+    if (!player || player.isDropping) {
       return false;
     }
-    const playerBody = player.arcadeBody;
-    const platBody = platform.body as Phaser.Physics.Arcade.StaticBody;
-    return playerBody.velocity.y >= 0 && playerBody.bottom <= platBody.top + 14;
+    return player.arcadeBody.velocity.y >= 0;
   }
 
   private onBaddieCollide(player: Player, baddie: Baddie): void {
@@ -283,10 +315,11 @@ export class PlayScene extends Phaser.Scene {
     this.built.player.freeze();
     markCleared(this.levelId);
     audio.play(this, 'poof');
-    boss.poofAway(() => {
+    const def = getLevel(this.levelId);
+    const message = worldBoss ? `WORLD ${def.world} CLEARED!` : `${this.levelId}  CLEAR!`;
+    boss.poofAway();
+    this.time.delayedCall(500, () => {
       audio.play(this, 'victory');
-      const def = getLevel(this.levelId);
-      const message = worldBoss ? `WORLD ${def.world} CLEARED!` : `${this.levelId}  CLEAR!`;
       this.showCompleteMenu(message);
     });
   }
@@ -342,7 +375,7 @@ export class PlayScene extends Phaser.Scene {
       .setDepth(50)
       .setVisible(false);
     const pauseHint = this.add
-      .text(GAME_WIDTH - 24, GAME_HEIGHT - 28, 'II  PAUSE', textStyle('16px'))
+      .text(GAME_WIDTH - 24, 52, 'II  PAUSE', textStyle('16px'))
       .setOrigin(1, 0.5)
       .setScrollFactor(0)
       .setDepth(50)
@@ -380,6 +413,7 @@ export class PlayScene extends Phaser.Scene {
   private showCompleteMenu(title: string): void {
     this.pauseOverlay.setVisible(false);
     this.pauseNav.setEnabled(false);
+    this.physics.world.isPaused = true;
 
     const next = nextLevelId(this.levelId);
     const items: Array<{ label: string; action: () => void }> = [];
@@ -396,12 +430,11 @@ export class PlayScene extends Phaser.Scene {
       { label: 'TITLE', action: () => this.scene.start('TitleScene') },
     );
 
-    this.add
-      .rectangle(GAME_WIDTH / 2, GAME_HEIGHT / 2, GAME_WIDTH, GAME_HEIGHT, 0x000000, 0.5)
-      .setScrollFactor(0)
-      .setDepth(80);
+    const dim = this.add.rectangle(GAME_WIDTH / 2, GAME_HEIGHT / 2, GAME_WIDTH, GAME_HEIGHT, 0x000000, 0.5);
     const panelHeight = 176 + items.length * 64;
-    addPanel(this, GAME_WIDTH / 2, GAME_HEIGHT / 2, 560, panelHeight, title);
+    const panel = addPanel(this, GAME_WIDTH / 2, GAME_HEIGHT / 2, 560, panelHeight, title);
+    this.add.container(0, 0, [dim, panel]).setScrollFactor(0).setDepth(80);
+
     const startY = GAME_HEIGHT / 2 - panelHeight / 2 + 108;
     const buttons = items.map((item, index) => {
       const button = new MenuButton(this, GAME_WIDTH / 2, startY + index * 64, item.label, item.action);

@@ -6,6 +6,10 @@ body {
   height: 100%;
   background: #0b0b12;
   overflow: hidden;
+  touch-action: none;
+  overscroll-behavior: none;
+  -webkit-user-select: none;
+  user-select: none;
 }
 
 #app {
@@ -18,4 +22,173 @@ body {
 
 #app canvas {
   display: block;
+}
+
+:root {
+  --touch-btn-size: 80px;
+  --touch-btn-gap: 12px;
+}
+
+@media (pointer: coarse) and (max-height: 500px), (hover: none) and (max-height: 500px) {
+  :root {
+    --touch-btn-size: clamp(72px, 20vmin, 96px);
+    --touch-btn-gap: clamp(10px, 2.4vmin, 16px);
+  }
+}
+
+@media (pointer: coarse) and (min-height: 501px), (hover: none) and (min-height: 501px) {
+  :root {
+    --touch-btn-size: clamp(88px, 14vmin, 128px);
+    --touch-btn-gap: clamp(12px, 1.8vmin, 20px);
+  }
+}
+
+#touch-controls {
+  display: none;
+  position: fixed;
+  inset: 0;
+  z-index: 20;
+  pointer-events: none;
+}
+
+body.touch-play #touch-controls {
+  display: block;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  body.touch-play #touch-controls {
+    display: none;
+  }
+}
+
+.touch-cluster {
+  position: absolute;
+  bottom: calc(16px + env(safe-area-inset-bottom, 0px));
+  display: flex;
+  align-items: center;
+  gap: var(--touch-btn-gap);
+}
+
+.touch-cluster-left {
+  left: calc(16px + env(safe-area-inset-left, 0px));
+}
+
+.touch-cluster-right {
+  right: calc(16px + env(safe-area-inset-right, 0px));
+}
+
+.touch-btn {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: var(--touch-btn-size);
+  height: var(--touch-btn-size);
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: rgba(255, 248, 240, 0.92);
+  pointer-events: auto;
+  cursor: pointer;
+  touch-action: none;
+  -webkit-tap-highlight-color: transparent;
+  -webkit-touch-callout: none;
+  user-select: none;
+}
+
+.touch-btn-ring {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  border: 1.5px solid rgba(255, 255, 255, 0.42);
+  background: rgba(255, 255, 255, 0.14);
+  box-shadow:
+    0 0 0 1px rgba(12, 8, 10, 0.28),
+    inset 0 1px 0 rgba(255, 255, 255, 0.28);
+  backdrop-filter: blur(14px) saturate(1.45);
+  -webkit-backdrop-filter: blur(14px) saturate(1.45);
+  -webkit-mask-image: radial-gradient(circle closest-side, transparent 56%, #000 60%);
+  mask-image: radial-gradient(circle closest-side, transparent 56%, #000 60%);
+}
+
+.touch-btn-icon {
+  position: relative;
+  z-index: 1;
+  width: 46%;
+  height: 46%;
+  display: block;
+  pointer-events: none;
+  filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.45));
+}
+
+.touch-btn.is-pressed {
+  transform: scale(0.96);
+}
+
+.touch-btn.is-pressed .touch-btn-ring {
+  background: rgba(255, 255, 255, 0.26);
+  border-color: rgba(255, 255, 255, 0.62);
+}
+
+#rotate-prompt {
+  display: none;
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: #0b0b12;
+  color: #fff8f0;
+  pointer-events: auto;
+}
+
+@media (orientation: portrait) and (pointer: coarse) and (hover: none) {
+  #rotate-prompt {
+    display: flex;
+  }
+}
+
+body.needs-landscape #rotate-prompt {
+  display: flex;
+}
+
+/* Mouse/trackpad desktops: never block play, even in a tall window. */
+@media (any-hover: hover) and (any-pointer: fine) {
+  #rotate-prompt {
+    display: none;
+  }
+}
+
+body.desktop-pointer #rotate-prompt {
+  display: none;
+}
+
+.rotate-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  max-width: 22rem;
+  text-align: center;
+}
+
+.rotate-icon {
+  width: 72px;
+  height: 72px;
+  color: #ffe9a8;
+}
+
+.rotate-title {
+  margin: 0;
+  font-family: 'Courier New', monospace;
+  font-size: 1.35rem;
+  letter-spacing: 0.04em;
+}
+
+.rotate-copy {
+  margin: 0;
+  font-family: 'Courier New', monospace;
+  font-size: 0.95rem;
+  color: #d0c0b8;
+  line-height: 1.4;
 }

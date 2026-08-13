@@ -7,6 +7,7 @@ import { PlayScene } from './scenes/PlayScene';
 import { SettingsScene } from './scenes/SettingsScene';
 import { TitleScene } from './scenes/TitleScene';
 import { WorldMapScene } from './scenes/WorldMapScene';
+import { bootTouchControls, watchLandscapePrompt } from './systems/touch-controls';
 
 const config: Phaser.Types.Core.GameConfig = {
   type: Phaser.AUTO,
@@ -30,4 +31,9 @@ const config: Phaser.Types.Core.GameConfig = {
   scene: [BootScene, TitleScene, WorldMapScene, PlayScene, SettingsScene, CreditsScene],
 };
 
-new Phaser.Game(config);
+bootTouchControls();
+const game = new Phaser.Game(config);
+watchLandscapePrompt(game);
+if (import.meta.env.DEV) {
+  Object.assign(window, { __rs4: game });
+}

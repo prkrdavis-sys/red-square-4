@@ -1,4 +1,5 @@
-import { GROUND_Y, JUMP_REACH_TILES, MAP_ROWS } from '../config';
+import { GROUND_Y, JUMP_REACH_TILES, MAP_ROWS, type Theme } from '../config';
+import { stampArena } from './arena';
 
 /** Convert tiles-above-ground to a row index. 2 is a full jump from the floor. */
 export function rowAboveGround(tilesUp: number): number {
@@ -28,6 +29,29 @@ export class Grid {
   fillGround(): void {
     for (let y = GROUND_Y; y < MAP_ROWS; y += 1) {
       this.cells[y].fill('#');
+    }
+  }
+
+  fillFloor(x: number, w: number): void {
+    for (let i = 0; i < w; i += 1) {
+      for (let y = GROUND_Y; y < MAP_ROWS; y += 1) {
+        this.set(x + i, y, '#');
+      }
+    }
+  }
+
+  arenaFloor(x: number, w: number): void {
+    this.fillFloor(x, w);
+    for (let i = 0; i < w; i += 1) {
+      this.set(x + i, GROUND_Y, '@');
+    }
+  }
+
+  clearAbove(x: number, w: number): void {
+    for (let i = 0; i < w; i += 1) {
+      for (let y = 0; y < GROUND_Y; y += 1) {
+        this.set(x + i, y, '.');
+      }
     }
   }
 
@@ -117,7 +141,7 @@ export interface CourseSpec {
   boss?: number;
 }
 
-export function buildCourse(spec: CourseSpec): string[] {
+export function buildCourse(spec: CourseSpec, theme: Theme = 'grass'): string[] {
   const grid = new Grid(spec.width);
   const playerX = spec.playerX ?? 3;
   grid.put(playerX, GROUND_Y - 1, 'P');
@@ -148,6 +172,10 @@ export function buildCourse(spec: CourseSpec): string[] {
   }
   for (const [x, tilesUp] of spec.airEnemies ?? []) {
     grid.put(x, rowAboveGround(tilesUp) - 1, 'e');
+  }
+  const fightX = spec.boss ?? spec.mini;
+  if (fightX !== undefined) {
+    stampArena(grid, fightX, theme, spec.boss !== undefined);
   }
   if (spec.mini !== undefined) {
     grid.put(spec.mini, GROUND_Y - 1, 'm');

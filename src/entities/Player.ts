@@ -25,6 +25,7 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
   private blinkUntil = 0;
   private nextBlinkAt = 0;
   private squashTween?: Phaser.Tweens.Tween;
+  private readonly view: Phaser.GameObjects.Image;
   private readonly shadow: Phaser.GameObjects.Ellipse;
   private readonly dust: Phaser.GameObjects.Particles.ParticleEmitter;
 
@@ -37,9 +38,12 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
     body.setOffset(7, 8);
     body.setMaxVelocity(340, 1400);
     body.setCollideWorldBounds(false);
+    this.setVisible(false);
     this.setDepth(20);
     this.nextBlinkAt = scene.time.now + 1400;
 
+    this.view = scene.add.image(x, y, 'player');
+    this.view.setDepth(20);
     this.shadow = scene.add.ellipse(x, y + 22, 34, 12, 0x120408, 0.32);
     this.shadow.setDepth(19);
     this.dust = scene.add.particles(0, 0, 'poof-particle', {
@@ -52,6 +56,7 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
     });
     this.dust.setDepth(19);
     this.once('destroy', () => {
+      this.view.destroy();
       this.shadow.destroy();
       this.dust.destroy();
     });
@@ -92,10 +97,16 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
     this.arcadeBody.allowGravity = false;
     this.squashTween?.stop();
     this.scene.tweens.killTweensOf(this);
+    this.scene.tweens.killTweensOf(this.view);
     this.setTexture('player');
     this.setAngle(0);
     this.setScale(1);
     this.setAlpha(1);
+    this.view.setTexture('player');
+    this.view.setAngle(0);
+    this.view.setScale(1);
+    this.view.setAlpha(1);
+    this.syncView();
   }
 
   applyTheme(theme: Theme): void {
@@ -105,6 +116,7 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
 
   tick(input: PlayerInput, theme: Theme): void {
     if (this.frozen) {
+      this.syncView();
       this.shadow.setPosition(this.x, this.y + 22);
       this.shadow.setAlpha(0.22);
       return;
@@ -159,8 +171,8 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
     }
 
     if (input.downJust && grounded) {
-      this.droppingUntil = now + 220;
-      body.setVelocityY(Math.max(body.velocity.y, 180));
+      this.droppingUntil = now + 280;
+      body.setVelocityY(Math.max(body.velocity.y, 240));
     }
 
     if (theme === 'ocean' && input.jump && !grounded && body.velocity.y > 40) {
@@ -179,14 +191,14 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
     this.visualLockUntil = this.scene.time.now + duration + 20;
     this.squashTween?.stop();
     this.squashTween = this.scene.tweens.add({
-      targets: this,
+      targets: this.view,
       scaleX,
       scaleY,
       duration: duration * 0.45,
       yoyo: true,
       ease: 'Sine.easeOut',
       onComplete: () => {
-        this.setScale(1);
+        this.view.setScale(1);
         this.squashTween = undefined;
       },
     });
@@ -212,32 +224,36 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
     } else if (running) {
       frame = Math.floor(now / 90) % 2 === 0 ? 'player-run-a' : 'player-run-b';
     }
-    if (this.texture.key !== frame) {
-      this.setTexture(frame);
-      this.arcadeBody.setSize(34, 36);
-      this.arcadeBody.setOffset(7, 8);
-    }
+    this.view.setTexture(frame);
 
     if (!this.frozen && now >= this.visualLockUntil) {
       if (running) {
         const bob = Math.sin(now / 62);
-        this.setScale(1 + bob * 0.05, 1 - bob * 0.07);
-        this.setAngle(facing * 8);
+        this.view.setScale(1 + bob * 0.05, 1 - bob * 0.07);
+        this.view.setAngle(facing * 8);
       } else if (!grounded) {
         const stretch = Phaser.Math.Clamp(Math.abs(vy) / 900, 0, 0.12);
-        this.setScale(1 - stretch, 1 + stretch);
-        this.setAngle(facing * 5);
+        this.view.setScale(1 - stretch, 1 + stretch);
+        this.view.setAngle(facing * 5);
       } else {
         const breathe = Math.sin(now / 260);
-        this.setScale(1 + breathe * 0.025, 1 - breathe * 0.02);
-        this.setAngle(0);
+        this.view.setScale(1 + breathe * 0.025, 1 - breathe * 0.02);
+        this.view.setAngle(0);
       }
     }
 
+    this.syncView();
     const planted = grounded ? 0.34 : 0.16;
     this.shadow.setPosition(this.x, this.y + 22);
-    this.shadow.setScale(this.scaleX * 1.05, 1);
+    this.shadow.setScale(this.view.scaleX * 1.05, 1);
     this.shadow.setAlpha(planted);
-    this.shadow.setVisible(this.visible);
+    this.shadow.setVisible(this.view.visible);
+  }
+
+  private syncView(): void {
+    this.view.setPosition(this.x, this.y);
+    this.view.setFlipX(this.flipX);
+    this.view.setAlpha(this.alpha);
+    this.view.setVisible(true);
   }
 }

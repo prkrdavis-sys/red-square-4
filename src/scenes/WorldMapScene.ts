@@ -4,7 +4,7 @@ import { isUnlocked, loadSave, resumeLevelId, session, setLastPlayed } from '../
 import { applySettings } from '../data/settings';
 import { getLevel } from '../levels/worlds';
 import { audio } from '../systems/audio';
-import { MenuButton, textStyle } from '../ui/menu';
+import { MenuButton, textStyle, UI } from '../ui/menu';
 
 interface NodeView {
   id: LevelId;
@@ -46,10 +46,11 @@ export class WorldMapScene extends Phaser.Scene {
       return { id, x: pos.x, y: pos.y, world: level.world, stage: level.stage };
     });
 
+    const footerTop = GAME_HEIGHT - 120;
     for (let world = 1; world <= 5; world += 1) {
       const theme = WORLD_THEMES[world - 1] ?? 'grass';
       const x = 48 + (world - 1) * 242;
-      this.add.rectangle(x, 120, 230, 520, themeSky(theme), 0.55).setOrigin(0, 0);
+      this.add.rectangle(x, 120, 230, footerTop - 128, themeSky(theme), 0.55).setOrigin(0, 0);
       this.add
         .text(x + 115, 148, `WORLD ${world}`, {
           fontFamily: 'Courier New, monospace',
@@ -122,9 +123,20 @@ export class WorldMapScene extends Phaser.Scene {
       })
       .setOrigin(0.5);
 
+    this.add.rectangle(0, footerTop, GAME_WIDTH, GAME_HEIGHT - footerTop, 0x10161c, 1).setOrigin(0, 0);
+    this.add.rectangle(GAME_WIDTH / 2, footerTop + 1, GAME_WIDTH, 2, UI.panelStroke, 0.8);
+
     this.add
-      .text(24, GAME_HEIGHT - 84, `Lives  ${session.lives}     Arrows move     Enter play`, textStyle('18px'))
-      .setOrigin(0, 0.5);
+      .text(32, footerTop + 16, `Lives  ${session.lives}`, textStyle('18px'))
+      .setOrigin(0, 0);
+
+    this.add
+      .text(GAME_WIDTH - 32, footerTop + 16, 'Arrows move\nEnter play', {
+        ...textStyle('16px', UI.muted),
+        align: 'right',
+        lineSpacing: 6,
+      })
+      .setOrigin(1, 0);
 
     new MenuButton(
       this,
@@ -141,12 +153,16 @@ export class WorldMapScene extends Phaser.Scene {
     );
 
     this.hint = this.add
-      .text(GAME_WIDTH / 2, 640, '', {
-        fontFamily: 'Courier New, monospace',
-        fontSize: '20px',
-        color: '#fff4d6',
+      .text(GAME_WIDTH / 2, footerTop + 16, '', {
+        fontFamily: UI.font,
+        fontSize: '18px',
+        color: UI.gold,
+        stroke: '#12080a',
+        strokeThickness: 4,
+        align: 'center',
+        lineSpacing: 6,
       })
-      .setOrigin(0.5);
+      .setOrigin(0.5, 0);
 
     this.refreshHint();
 
@@ -203,8 +219,9 @@ export class WorldMapScene extends Phaser.Scene {
     }
     const level = getLevel(node.id);
     const cleared = loadSave().cleared.includes(node.id);
-    const boss = level.stage === 4 ? '  ·  world boss' : '  ·  mini-boss';
-    this.hint.setText(`${node.id}  ${level.name}${boss}${cleared ? '  ·  cleared' : ''}`);
+    const boss = level.stage === 4 ? 'world boss' : 'mini-boss';
+    const meta = cleared ? `${boss}   ·   cleared` : boss;
+    this.hint.setText(`${node.id}   ${level.name}\n${meta}`);
   }
 
   private playSelected(): void {

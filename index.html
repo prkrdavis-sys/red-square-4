@@ -2,11 +2,53 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover"
+    />
     <title>Red Square 4</title>
   </head>
   <body>
     <div id="app"></div>
+
+    <div id="touch-controls" aria-hidden="true">
+      <div class="touch-cluster touch-cluster-left">
+        <button type="button" class="touch-btn" data-touch="left" aria-label="Move left">
+          <span class="touch-btn-ring"></span>
+          <svg class="touch-btn-icon" viewBox="0 0 48 48" fill="none" aria-hidden="true">
+            <path d="M29 10 L15 24 L29 38" stroke="currentColor" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round" />
+          </svg>
+        </button>
+        <button type="button" class="touch-btn" data-touch="right" aria-label="Move right">
+          <span class="touch-btn-ring"></span>
+          <svg class="touch-btn-icon" viewBox="0 0 48 48" fill="none" aria-hidden="true">
+            <path d="M19 10 L33 24 L19 38" stroke="currentColor" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round" />
+          </svg>
+        </button>
+      </div>
+      <div class="touch-cluster touch-cluster-right">
+        <button type="button" class="touch-btn" data-touch="jump" aria-label="Jump">
+          <span class="touch-btn-ring"></span>
+          <svg class="touch-btn-icon" viewBox="0 0 48 48" fill="none" aria-hidden="true">
+            <path d="M12 30 L24 14 L36 30" stroke="currentColor" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round" />
+            <path d="M16 38 H32" stroke="currentColor" stroke-width="3.2" stroke-linecap="round" />
+          </svg>
+        </button>
+      </div>
+    </div>
+
+    <div id="rotate-prompt" role="dialog" aria-live="polite" aria-label="Rotate your device to landscape">
+      <div class="rotate-card">
+        <svg class="rotate-icon" viewBox="0 0 72 72" fill="none" aria-hidden="true">
+          <rect x="18" y="10" width="28" height="48" rx="5" stroke="currentColor" stroke-width="2.6" />
+          <path d="M46 22 L62 30 L46 38" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" />
+          <path d="M24 50 H40" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" />
+        </svg>
+        <p class="rotate-title">Rotate to landscape</p>
+        <p class="rotate-copy">Phones and tablets play this game sideways.</p>
+      </div>
+    </div>
+
     <script type="module" src="/src/main.ts"></script>
   </body>
 </html>

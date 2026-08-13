@@ -18,6 +18,7 @@ Open the URL Vite prints (usually `http://localhost:5173`).
 - **Move:** Arrow keys or A / D
 - **Jump:** Up, W, or Space
 - **Drop through a platform:** Down or S
+- **Touch (phone / tablet):** rotate to landscape. On-screen Left, Right, and Jump appear during play
 - **World map:** Arrows / WASD, Enter to play, Title button or Esc for the main menu
 - **Pause:** P, Esc, or the Pause control — Resume, Settings, World Map, Title
 

@@ -3,7 +3,8 @@ import { MAP_ROWS, TILE, type Theme } from '../config';
 import { Baddie } from '../entities/Baddie';
 import { Boss } from '../entities/Boss';
 import { Player } from '../entities/Player';
-import { onewayTileKey, solidTileKey } from '../systems/textures';
+import { arenaTileKey, onewayTileKey, solidTileKey } from '../systems/textures';
+import { decorateArena } from './arena';
 import { getWorldBossKind } from './worlds';
 
 export interface BuiltLevel {
@@ -18,21 +19,27 @@ export interface BuiltLevel {
   worldBoss: Boss | undefined;
 }
 
+const ONEWAY_HEIGHT = 18;
+
 function addStatic(
   group: Phaser.Physics.Arcade.StaticGroup,
   x: number,
   y: number,
   key: string,
-  bodyHeight?: number,
+  oneWay = false,
 ): Phaser.Physics.Arcade.Sprite {
   const sprite = group.create(x, y, key) as Phaser.Physics.Arcade.Sprite;
   sprite.setOrigin(0, 0);
-  const height = bodyHeight ?? TILE;
+  const height = oneWay ? ONEWAY_HEIGHT : TILE;
   sprite.setDisplaySize(TILE, height);
   const body = sprite.body as Phaser.Physics.Arcade.StaticBody;
-  body.setSize(TILE, height);
-  body.setOffset(0, 0);
   body.updateFromGameObject();
+  if (oneWay) {
+    body.checkCollision.up = true;
+    body.checkCollision.down = false;
+    body.checkCollision.left = false;
+    body.checkCollision.right = false;
+  }
   return sprite;
 }
 
@@ -57,8 +64,11 @@ export function buildLevel(scene: Phaser.Scene, rows: string[], theme: Theme, wo
         case '#':
           addStatic(solids, px, py, pickTile(scene, solidTileKey(theme), `kenney-${theme}-solid`));
           break;
+        case '@':
+          addStatic(solids, px, py, arenaTileKey(theme));
+          break;
         case '=':
-          addStatic(oneways, px, py, pickTile(scene, onewayTileKey(theme), `kenney-${theme}-oneway`), 18);
+          addStatic(oneways, px, py, pickTile(scene, onewayTileKey(theme), `kenney-${theme}-oneway`), true);
           break;
         case '~':
           addStatic(hazards, px, py, 'tile-lava');
@@ -91,6 +101,11 @@ export function buildLevel(scene: Phaser.Scene, rows: string[], theme: Theme, wo
   }
 
   player.applyTheme(theme);
+
+  const boss = worldBoss ?? miniBoss;
+  if (boss) {
+    decorateArena(scene, boss.x, theme, Boolean(worldBoss), cols);
+  }
 
   return {
     widthPx: cols * TILE,

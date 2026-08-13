@@ -377,6 +377,96 @@ function drawSolidTile(scene: Phaser.Scene, theme: Theme): void {
   commit(g, `tile-${theme}-solid`, TILE, TILE);
 }
 
+function arenaPalette(theme: Theme): { floor: number; inlay: number; line: number; flag: number; pole: number } {
+  switch (theme) {
+    case 'grass':
+      return { floor: 0x5a3a18, inlay: 0x3d6b1e, line: 0xc4a05a, flag: 0x3d9e2f, pole: 0x6b4423 };
+    case 'snow':
+      return { floor: 0xb9d7ea, inlay: 0x7eb0d0, line: 0xffffff, flag: 0x4a88b8, pole: 0x8aa7c2 };
+    case 'desert':
+      return { floor: 0xc9953f, inlay: 0x8a5a22, line: 0xe8c36a, flag: 0xc45a22, pole: 0x8a5a22 };
+    case 'ocean':
+      return { floor: 0x1b4a58, inlay: 0x2a8aaa, line: 0x49b8c9, flag: 0x2f6f88, pole: 0x163b45 };
+    case 'castle':
+      return { floor: 0x2a1c32, inlay: 0x6e4a7a, line: 0x8a3048, flag: 0x8a2030, pole: 0x3e2948 };
+    default: {
+      const neverTheme: never = theme;
+      return neverTheme;
+    }
+  }
+}
+
+function drawArenaTile(scene: Phaser.Scene, theme: Theme): void {
+  const c = tileColors(theme);
+  const a = arenaPalette(theme);
+  const g = gfx(scene);
+  g.fillStyle(c.dark, 1);
+  g.fillRect(0, 0, TILE, TILE);
+  g.fillStyle(a.floor, 1);
+  g.fillRect(2, 2, TILE - 4, TILE - 4);
+  g.fillStyle(c.dirt, 1);
+  g.fillRect(4, 22, TILE - 8, TILE - 26);
+  g.fillStyle(a.inlay, 1);
+  g.fillRect(8, 8, TILE - 16, 10);
+  g.lineStyle(2, a.line, 0.7);
+  g.strokeRect(6, 6, TILE - 12, TILE - 12);
+  if (theme === 'castle') {
+    g.fillStyle(0x6a1828, 0.85);
+    g.fillRect(2, 28, TILE - 4, 10);
+  } else if (theme === 'snow') {
+    g.lineStyle(1, 0xffffff, 0.55);
+    g.lineBetween(10, 18, 22, 40);
+    g.lineBetween(40, 14, 52, 36);
+  } else if (theme === 'ocean') {
+    g.fillStyle(0x49b8c9, 0.35);
+    g.fillEllipse(TILE / 2, 38, 28, 10);
+  }
+  commit(g, `tile-${theme}-arena`, TILE, TILE);
+}
+
+function drawArenaRing(scene: Phaser.Scene, theme: Theme): void {
+  const a = arenaPalette(theme);
+  const w = 420;
+  const h = 72;
+  const g = gfx(scene);
+  g.lineStyle(6, a.line, 0.95);
+  g.strokeEllipse(w / 2, h / 2, 390, 52);
+  g.lineStyle(3, a.inlay, 0.8);
+  g.strokeEllipse(w / 2, h / 2, 360, 38);
+  g.lineStyle(2, a.flag, 0.55);
+  g.strokeEllipse(w / 2, h / 2, 240, 22);
+  commit(g, `arena-ring-${theme}`, w, h);
+}
+
+function drawArenaBanner(scene: Phaser.Scene, theme: Theme): void {
+  const a = arenaPalette(theme);
+  const g = gfx(scene);
+  g.fillStyle(a.pole, 1);
+  g.fillRect(12, 0, 4, 70);
+  g.fillStyle(0x1a1010, 1);
+  g.fillRect(11, 0, 6, 4);
+  g.fillStyle(a.flag, 1);
+  g.fillTriangle(16, 6, 40, 16, 16, 28);
+  g.fillStyle(a.line, 1);
+  g.fillTriangle(16, 10, 32, 16, 16, 22);
+  commit(g, `arena-banner-${theme}`, 42, 72);
+}
+
+function drawArenaTorch(scene: Phaser.Scene, theme: Theme): void {
+  const g = gfx(scene);
+  g.fillStyle(0x3a2418, 1);
+  g.fillRect(10, 28, 8, 36);
+  g.fillStyle(theme === 'castle' ? 0x5a3d66 : 0x8a5a22, 1);
+  g.fillRect(8, 24, 12, 8);
+  g.fillStyle(0xffcc33, 1);
+  g.fillEllipse(14, 16, 14, 18);
+  g.fillStyle(0xff6622, 1);
+  g.fillEllipse(14, 14, 8, 12);
+  g.fillStyle(0xfff1a8, 0.9);
+  g.fillCircle(14, 10, 3);
+  commit(g, `arena-torch-${theme}`, 28, 64);
+}
+
 function drawOnewayTile(scene: Phaser.Scene, theme: Theme): void {
   const c = tileColors(theme);
   const g = gfx(scene);
@@ -518,6 +608,10 @@ export function createGameTextures(scene: Phaser.Scene): void {
   for (const theme of themes) {
     drawSolidTile(scene, theme);
     drawOnewayTile(scene, theme);
+    drawArenaTile(scene, theme);
+    drawArenaRing(scene, theme);
+    drawArenaBanner(scene, theme);
+    drawArenaTorch(scene, theme);
   }
 }
 
@@ -527,6 +621,22 @@ export function solidTileKey(theme: Theme): string {
 
 export function onewayTileKey(theme: Theme): string {
   return `tile-${theme}-oneway`;
+}
+
+export function arenaTileKey(theme: Theme): string {
+  return `tile-${theme}-arena`;
+}
+
+export function arenaRingKey(theme: Theme): string {
+  return `arena-ring-${theme}`;
+}
+
+export function arenaBannerKey(theme: Theme): string {
+  return `arena-banner-${theme}`;
+}
+
+export function arenaTorchKey(theme: Theme): string {
+  return `arena-torch-${theme}`;
 }
 
 export function bossTextureKey(kind: 'hopper' | 'slider' | 'slam' | 'swimmer' | 'charger'): string {
