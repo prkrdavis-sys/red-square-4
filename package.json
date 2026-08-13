@@ -1,0 +1,19 @@
+{
+  "name": "red-square-4",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview",
+    "assets": "bash scripts/fetch-assets.sh"
+  },
+  "dependencies": {
+    "phaser": "^3.88.2"
+  },
+  "devDependencies": {
+    "typescript": "^5.8.2",
+    "vite": "^6.3.5"
+  }
+}

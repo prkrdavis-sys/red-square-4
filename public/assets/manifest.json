@@ -1,0 +1,28 @@
+{
+  "images": {
+    "kenney-grass-solid": "assets/tiles/grass-mid.png",
+    "kenney-grass-oneway": "assets/tiles/grass-half.png",
+    "kenney-snow-solid": "assets/tiles/snow-mid.png",
+    "kenney-snow-oneway": "assets/tiles/snow-half.png",
+    "kenney-desert-solid": "assets/tiles/sand-mid.png",
+    "kenney-desert-oneway": "assets/tiles/sand-half.png",
+    "kenney-castle-solid": "assets/tiles/castle-mid.png",
+    "kenney-castle-oneway": "assets/tiles/castle-half.png",
+    "kenney-ocean-solid": "assets/tiles/ocean-mid.png",
+    "kenney-ocean-oneway": "assets/tiles/ocean-half.png",
+    "bg-grass": "assets/bg/grass.png",
+    "bg-snow": "assets/bg/snow.png",
+    "bg-desert": "assets/bg/sand.png",
+    "bg-ocean": "assets/bg/ocean.png",
+    "bg-castle": "assets/bg/castle.png"
+  },
+  "audio": {
+    "sfx-victory": "assets/audio/victory.ogg",
+    "sfx-jump": "assets/audio/jump.ogg",
+    "sfx-stomp": "assets/audio/stomp.ogg",
+    "sfx-hurt": "assets/audio/hurt.ogg",
+    "sfx-poof": "assets/audio/poof.ogg",
+    "sfx-select": "assets/audio/select.ogg",
+    "sfx-map": "assets/audio/map.ogg"
+  }
+}
