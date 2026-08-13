@@ -14,12 +14,12 @@ Open the URL Vite prints (usually `http://localhost:5173`).
 
 ## Controls
 
-- **Menus:** Arrows / WASD to move, Enter or click to confirm, Esc to go back
+- **Menus:** Tap a button, or Arrows / WASD and Enter. Esc to go back
 - **Move:** Arrow keys or A / D
 - **Jump:** Up, W, or Space
 - **Drop through a platform:** Down or S
 - **Touch (phone / tablet):** rotate to landscape. On-screen Left, Right, and Jump appear during play
-- **World map:** Arrows / WASD, Enter to play, Title button or Esc for the main menu
+- **World map:** Tap a course to select, tap it again or Play to start. Arrows / WASD and Enter still work. Title goes back to the main menu
 - **Pause:** P, Esc, or the Pause control — Resume, Settings, World Map, Title
 
 ## Campaign

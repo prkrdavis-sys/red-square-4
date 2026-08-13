@@ -327,7 +327,7 @@ const COURSES: Record<LevelId, string[]> = {
     ],
     stairs: [[70, 4]],
     hills: [[74, 14, mid]],
-    walls: [[148, 5]],
+    walls: [[148, 4]],
     solids: [
       [142, low, 4],
       [148, mid, 4],
@@ -579,9 +579,9 @@ const COURSES: Record<LevelId, string[]> = {
       [172, 8],
     ],
     walls: [
-      [40, 5],
+      [40, 4],
       [84, 4],
-      [160, 5],
+      [160, 4],
     ],
     solids: [
       [36, low, 3],

@@ -85,16 +85,31 @@ export class MenuButton extends Phaser.GameObjects.Container {
     this.add([this.bg, this.border, this.labelText]);
     this.setSize(width, height);
     this.setScrollFactor(0);
-    this.setInteractive({ useHandCursor: true });
+    this.enablePointer();
     this.on('pointerover', () => this.emit('menu-focus'));
-    this.on('pointerdown', () => this.setScale(0.97));
+    this.on('pointerdown', () => {
+      this.bg.setScale(0.97);
+      this.border.setScale(0.97);
+    });
     this.on('pointerup', () => {
-      this.setScale(this.focused ? 1.05 : 1);
+      this.bg.setScale(1);
+      this.border.setScale(1);
       audio.play(this.scene, 'select');
       this.onActivate();
     });
-    this.on('pointerout', () => this.setScale(this.focused ? 1.05 : 1));
+    this.on('pointerout', () => {
+      this.bg.setScale(1);
+      this.border.setScale(1);
+    });
     scene.add.existing(this);
+  }
+
+  enablePointer(): void {
+    this.setInteractive({
+      hitArea: new Phaser.Geom.Rectangle(-12, -12, this.widthPx + 24, this.heightPx + 24),
+      hitAreaCallback: Phaser.Geom.Rectangle.Contains,
+      useHandCursor: true,
+    });
   }
 
   setLabel(label: string): void {
@@ -159,7 +174,7 @@ export class MenuNav {
     for (const button of this.buttons) {
       button.setVisible(enabled);
       if (enabled) {
-        button.setInteractive();
+        button.enablePointer();
       } else {
         button.disableInteractive();
       }

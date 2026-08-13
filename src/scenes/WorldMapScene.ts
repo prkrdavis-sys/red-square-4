@@ -82,7 +82,7 @@ export class WorldMapScene extends Phaser.Scene {
       pathGfx.lineBetween(a.x, a.y, b.x, b.y);
     }
 
-    for (const node of this.nodes) {
+    this.nodes.forEach((node, index) => {
       const unlocked = isUnlocked(node.id);
       const cleared = save.cleared.includes(node.id);
       const img = this.add.image(node.x, node.y, unlocked ? 'map-node' : 'map-node-locked');
@@ -96,7 +96,12 @@ export class WorldMapScene extends Phaser.Scene {
           color: unlocked ? '#222222' : '#888888',
         })
         .setOrigin(0.5);
-    }
+      if (unlocked) {
+        const hit = this.add.zone(node.x, node.y, 88, 88);
+        hit.setInteractive({ useHandCursor: true });
+        hit.on('pointerup', () => this.onNodeTap(index));
+      }
+    });
 
     const startId = resumeLevelId(save);
     this.cursor = Math.max(0, this.nodes.findIndex((n) => n.id === startId));
@@ -131,10 +136,9 @@ export class WorldMapScene extends Phaser.Scene {
       .setOrigin(0, 0);
 
     this.add
-      .text(GAME_WIDTH - 32, footerTop + 16, 'Arrows move\nEnter play', {
+      .text(GAME_WIDTH - 32, footerTop + 16, 'Tap a course', {
         ...textStyle('16px', UI.muted),
         align: 'right',
-        lineSpacing: 6,
       })
       .setOrigin(1, 0);
 
@@ -146,6 +150,20 @@ export class WorldMapScene extends Phaser.Scene {
       () => {
         if (!this.scene.isPaused()) {
           this.scene.start('TitleScene');
+        }
+      },
+      200,
+      44,
+    );
+
+    new MenuButton(
+      this,
+      GAME_WIDTH - 130,
+      GAME_HEIGHT - 36,
+      'PLAY',
+      () => {
+        if (!this.scene.isPaused()) {
+          this.playSelected();
         }
       },
       200,
@@ -185,31 +203,50 @@ export class WorldMapScene extends Phaser.Scene {
   }
 
   private move(dir: number): void {
-    if (this.moving) {
-      return;
-    }
     let next = this.cursor + dir;
     while (next >= 0 && next < this.nodes.length) {
       const node = this.nodes[next];
       if (node && isUnlocked(node.id)) {
-        this.cursor = next;
-        setLastPlayed(node.id);
-        audio.play(this, 'map');
-        this.moving = true;
-        this.tweens.add({
-          targets: this.token,
-          x: node.x,
-          y: node.y - 32,
-          duration: 180,
-          onComplete: () => {
-            this.moving = false;
-          },
-        });
-        this.refreshHint();
+        this.selectNode(next);
         return;
       }
       next += dir;
     }
+  }
+
+  private selectNode(index: number): void {
+    if (this.moving || this.scene.isPaused()) {
+      return;
+    }
+    const node = this.nodes[index];
+    if (!node || !isUnlocked(node.id) || index === this.cursor) {
+      return;
+    }
+    this.cursor = index;
+    setLastPlayed(node.id);
+    audio.play(this, 'map');
+    this.moving = true;
+    this.tweens.add({
+      targets: this.token,
+      x: node.x,
+      y: node.y - 32,
+      duration: 180,
+      onComplete: () => {
+        this.moving = false;
+      },
+    });
+    this.refreshHint();
+  }
+
+  private onNodeTap(index: number): void {
+    if (this.scene.isPaused()) {
+      return;
+    }
+    if (index === this.cursor) {
+      this.playSelected();
+      return;
+    }
+    this.selectNode(index);
   }
 
   private refreshHint(): void {

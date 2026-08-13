@@ -113,11 +113,20 @@ function cliffCap(theme: Theme, x: number): boolean {
   }
 }
 
+/** Pillar that leaves ground-level headroom so the player can run through. */
+function stampArch(grid: Grid, x: number, tilesHigh: number): void {
+  const top = rowAboveGround(tilesHigh);
+  const bottom = GROUND_Y - 3;
+  if (top <= bottom) {
+    grid.column(x, top, bottom);
+  }
+}
+
 function stampGate(grid: Grid, layout: ArenaLayout): void {
   const { gateX, pillarW, gap, pillarH } = layout;
   for (let i = 0; i < pillarW; i += 1) {
-    grid.wall(gateX + i, pillarH);
-    grid.wall(gateX + pillarW + gap + i, pillarH);
+    stampArch(grid, gateX + i, pillarH);
+    stampArch(grid, gateX + pillarW + gap + i, pillarH);
   }
   grid.plat(gateX, rowAboveGround(pillarH), pillarW * 2 + gap, false);
 }
@@ -148,18 +157,16 @@ function stampThemeArena(grid: Grid, layout: ArenaLayout, theme: Theme): void {
 }
 
 function stampGrassArena(grid: Grid, floorStart: number, floorEnd: number): void {
-  grid.hill(floorStart, 3, hop);
+  grid.hill(floorStart + 2, 3, hop);
   grid.hill(floorEnd - 3, 3, hop);
-  grid.plat(floorStart, rowAboveGround(low), 3, true);
+  grid.plat(floorStart + 2, rowAboveGround(low), 3, true);
   grid.plat(floorEnd - 3, rowAboveGround(low), 3, true);
-  grid.wall(floorStart, 3);
   grid.wall(floorEnd - 1, 3);
 }
 
 function stampSnowArena(grid: Grid, floorStart: number, floorEnd: number, wallStart: number): void {
-  grid.hill(floorStart, 4, hop);
+  grid.hill(floorStart + 2, 4, hop);
   grid.hill(floorEnd - 3, 3, hop);
-  grid.wall(floorStart, 4);
   grid.wall(floorEnd - 1, 4);
   for (let x = floorStart + 2; x < wallStart; x += 4) {
     grid.set(x, 0, '#');
@@ -170,10 +177,9 @@ function stampSnowArena(grid: Grid, floorStart: number, floorEnd: number, wallSt
 }
 
 function stampDesertArena(grid: Grid, floorStart: number, floorEnd: number): void {
-  grid.hill(floorStart, 2, hop);
+  grid.hill(floorStart + 2, 2, hop);
   grid.hill(floorEnd - 2, 2, hop);
-  grid.stairs(floorStart + 1, 3, 1);
-  grid.wall(floorStart, 4);
+  grid.stairs(floorEnd - 4, 3, 1);
   grid.wall(floorEnd - 1, 5);
 }
 
@@ -181,19 +187,17 @@ function stampOceanArena(grid: Grid, floorStart: number, floorEnd: number, wallS
   for (let x = floorStart; x < grid.width; x += 1) {
     grid.set(x, 0, '#');
   }
-  grid.wall(floorStart, 5);
   grid.wall(floorEnd - 1, 5);
-  grid.plat(floorStart + 1, rowAboveGround(low), 3, true);
-  grid.plat(Math.max(floorStart + 4, wallStart - 5), rowAboveGround(low), 3, true);
+  grid.plat(floorStart + 2, rowAboveGround(low), 3, true);
+  grid.plat(Math.max(floorStart + 6, wallStart - 5), rowAboveGround(low), 3, true);
 }
 
 function stampCastleArena(grid: Grid, floorStart: number, floorEnd: number, wallStart: number): void {
   for (let x = floorStart; x < grid.width; x += 1) {
     grid.set(x, 0, '#');
   }
-  grid.plat(floorStart + 1, rowAboveGround(low), 4, false);
-  grid.plat(Math.max(floorStart + 5, wallStart - 6), rowAboveGround(low), 4, false);
-  grid.wall(floorStart, 6);
+  grid.plat(floorStart + 2, rowAboveGround(low), 4, false);
+  grid.plat(Math.max(floorStart + 6, wallStart - 6), rowAboveGround(low), 4, false);
   grid.wall(floorEnd - 1, 6);
 }
 

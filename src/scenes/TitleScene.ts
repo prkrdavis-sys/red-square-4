@@ -116,7 +116,7 @@ export class TitleScene extends Phaser.Scene {
     new MenuNav(this, buttons);
 
     this.add
-      .text(GAME_WIDTH / 2, 678, 'Arrows / WASD select     Enter / click confirm', textStyle('16px', '#e8f0ff'))
+      .text(GAME_WIDTH / 2, 678, 'Tap a button     Arrows / WASD     Enter confirm', textStyle('16px', '#e8f0ff'))
       .setOrigin(0.5);
   }
 

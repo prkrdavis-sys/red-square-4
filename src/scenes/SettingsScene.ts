@@ -45,7 +45,7 @@ export class SettingsScene extends Phaser.Scene {
     new MenuNav(this, [this.volumeBtn, this.muteBtn, this.shakeBtn, this.fullBtn, back], () => this.goBack());
 
     this.add
-      .text(GAME_WIDTH / 2, 188, 'Arrows / WASD  ·  Enter confirm  ·  Esc back', textStyle('16px', '#d0c0b8'))
+      .text(GAME_WIDTH / 2, 188, 'Tap to change  ·  Arrows / Enter  ·  Esc back', textStyle('16px', '#d0c0b8'))
       .setOrigin(0.5)
       .setDepth(80);
 
