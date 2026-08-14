@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
 import { TILE, type Theme } from '../config';
+import { createLandscapeTextures } from './landscapes';
 
 function gfx(scene: Phaser.Scene): Phaser.GameObjects.Graphics {
   return scene.make.graphics({ x: 0, y: 0 });
@@ -504,32 +505,6 @@ function drawParticle(scene: Phaser.Scene): void {
   commit(g, 'poof-particle', 16, 16);
 }
 
-function drawCloud(scene: Phaser.Scene): void {
-  const g = gfx(scene);
-  g.fillStyle(0xffffff, 0.92);
-  g.fillCircle(40, 36, 24);
-  g.fillCircle(70, 32, 28);
-  g.fillCircle(100, 38, 22);
-  g.fillCircle(70, 48, 26);
-  commit(g, 'cloud', 140, 80);
-}
-
-function drawHill(scene: Phaser.Scene, key: string, color: number, w: number, h: number): void {
-  const g = gfx(scene);
-  g.fillStyle(color, 1);
-  g.fillEllipse(w / 2, h, w, h * 1.6);
-  commit(g, key, w, h);
-}
-
-function drawMountain(scene: Phaser.Scene, key: string, color: number, cap: number): void {
-  const g = gfx(scene);
-  g.fillStyle(color, 1);
-  g.fillTriangle(10, 160, 110, 12, 210, 160);
-  g.fillStyle(cap, 1);
-  g.fillTriangle(88, 40, 110, 12, 132, 40);
-  commit(g, key, 220, 160);
-}
-
 function drawMapToken(scene: Phaser.Scene): void {
   const g = gfx(scene);
   g.fillStyle(0x3a070a, 1);
@@ -589,17 +564,7 @@ export function createGameTextures(scene: Phaser.Scene): void {
   drawSpikedBoss(scene, 'boss-charger', 104, 0x2a1020, 0x6a2040);
   drawLavaTile(scene);
   drawParticle(scene);
-  drawCloud(scene);
-  drawHill(scene, 'hill-grass', 0x3d9e2f, 280, 110);
-  drawHill(scene, 'hill-snow', 0xe8f4ff, 280, 110);
-  drawHill(scene, 'hill-desert', 0xd2a054, 300, 90);
-  drawHill(scene, 'hill-ocean', 0x1b5f78, 300, 100);
-  drawHill(scene, 'hill-castle', 0x241428, 260, 120);
-  drawMountain(scene, 'mtn-grass', 0x4f7d4a, 0xdfeee0);
-  drawMountain(scene, 'mtn-snow', 0x8aa7c2, 0xffffff);
-  drawMountain(scene, 'mtn-desert', 0xb07a3a, 0xf0d9a0);
-  drawMountain(scene, 'mtn-ocean', 0x16344a, 0x7ec8e3);
-  drawMountain(scene, 'mtn-castle', 0x1a0e22, 0x5a3048);
+  createLandscapeTextures(scene);
   drawMapToken(scene);
   drawNode(scene);
   drawLockedNode(scene);
@@ -658,40 +623,3 @@ export function bossTextureKey(kind: 'hopper' | 'slider' | 'slam' | 'swimmer' | 
   }
 }
 
-export function hillKey(theme: Theme): string {
-  switch (theme) {
-    case 'grass':
-      return 'hill-grass';
-    case 'snow':
-      return 'hill-snow';
-    case 'desert':
-      return 'hill-desert';
-    case 'ocean':
-      return 'hill-ocean';
-    case 'castle':
-      return 'hill-castle';
-    default: {
-      const neverTheme: never = theme;
-      return neverTheme;
-    }
-  }
-}
-
-export function mountainKey(theme: Theme): string {
-  switch (theme) {
-    case 'grass':
-      return 'mtn-grass';
-    case 'snow':
-      return 'mtn-snow';
-    case 'desert':
-      return 'mtn-desert';
-    case 'ocean':
-      return 'mtn-ocean';
-    case 'castle':
-      return 'mtn-castle';
-    default: {
-      const neverTheme: never = theme;
-      return neverTheme;
-    }
-  }
-}

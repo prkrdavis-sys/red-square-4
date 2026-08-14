@@ -1,14 +1,13 @@
 import Phaser from 'phaser';
-import { GAME_HEIGHT, GAME_WIDTH } from '../config';
+import { GAME_WIDTH } from '../config';
 import { loadSave, resetSave, resetSessionLives, resumeLevelId } from '../data/progress';
 import { applySettings } from '../data/settings';
 import { audio } from '../systems/audio';
+import { Parallax } from '../systems/parallax';
 import { launchOverlay, MenuButton, MenuNav, textStyle, UI } from '../ui/menu';
 
 export class TitleScene extends Phaser.Scene {
-  private far!: Phaser.GameObjects.TileSprite;
-  private mid!: Phaser.GameObjects.TileSprite;
-  private clouds!: Phaser.GameObjects.TileSprite;
+  private parallax!: Parallax;
   private drift = 0;
 
   constructor() {
@@ -18,9 +17,7 @@ export class TitleScene extends Phaser.Scene {
   create(): void {
     applySettings(this);
     this.cameras.main.setBackgroundColor(0x5c94fc);
-    this.far = this.add.tileSprite(0, 80, GAME_WIDTH, 220, 'mtn-grass').setOrigin(0, 0).setTint(0x9ecb8c);
-    this.mid = this.add.tileSprite(0, GAME_HEIGHT - 200, GAME_WIDTH, 160, 'hill-grass').setOrigin(0, 0);
-    this.clouds = this.add.tileSprite(0, 40, GAME_WIDTH, 120, 'cloud').setOrigin(0, 0).setAlpha(0.9);
+    this.parallax = new Parallax(this, 'grass');
 
     const heroX = GAME_WIDTH / 2;
     const shadow = this.add.ellipse(heroX, 216, 92, 22, 0x3a1010, 0.28);
@@ -123,8 +120,6 @@ export class TitleScene extends Phaser.Scene {
   update(time: number, delta: number): void {
     void time;
     this.drift += delta * 0.02;
-    this.clouds.tilePositionX = this.drift * 0.6;
-    this.far.tilePositionX = this.drift * 0.12;
-    this.mid.tilePositionX = this.drift * 0.28;
+    this.parallax.update(this.drift);
   }
 }

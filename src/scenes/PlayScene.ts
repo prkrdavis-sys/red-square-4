@@ -72,16 +72,7 @@ export class PlayScene extends Phaser.Scene {
     const def = getLevel(this.levelId);
     this.cameras.main.setBackgroundColor(themeSky(def.theme));
     this.built = buildLevel(this, def.rows, def.theme, def.world);
-    this.parallax = new Parallax(this, def.theme, this.built.widthPx);
-
-    if (this.textures.exists(`bg-${def.theme}`)) {
-      this.add
-        .tileSprite(0, 0, GAME_WIDTH, GAME_HEIGHT, `bg-${def.theme}`)
-        .setOrigin(0, 0)
-        .setScrollFactor(0)
-        .setDepth(-35)
-        .setAlpha(0.55);
-    }
+    this.parallax = new Parallax(this, def.theme);
 
     this.physics.world.setBounds(0, 0, this.built.widthPx, this.built.heightPx);
     this.physics.world.TILE_BIAS = 40;

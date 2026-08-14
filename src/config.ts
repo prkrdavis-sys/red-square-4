@@ -51,7 +51,7 @@ export function themeSky(theme: Theme): number {
     case 'desert':
       return 0xf0c27b;
     case 'ocean':
-      return 0x0a3a5c;
+      return 0x62b0e0;
     case 'castle':
       return 0x140e1c;
     default: {
