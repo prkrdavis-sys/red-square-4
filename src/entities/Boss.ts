@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 import { type BossKind } from '../config';
 import { maybeShake } from '../data/settings';
+import type { ArenaKeep } from '../levels/arena';
 import { bossTextureKey } from '../systems/textures';
 
 export class Boss extends Phaser.Physics.Arcade.Sprite {
@@ -8,11 +9,13 @@ export class Boss extends Phaser.Physics.Arcade.Sprite {
   hp: number;
   maxHp: number;
   dying = false;
+  engaged = false;
   invulnUntil = 0;
   private hopUntil = 0;
   private slamPhase: 'idle' | 'up' | 'down' = 'idle';
   private chargeDir = -1;
   private spawnY: number;
+  private arena: ArenaKeep | undefined;
 
   constructor(scene: Phaser.Scene, x: number, y: number, kind: BossKind, hp: number) {
     super(scene, x, y, hp === 1 ? 'mini-boss' : bossTextureKey(kind));
@@ -38,6 +41,58 @@ export class Boss extends Phaser.Physics.Arcade.Sprite {
 
   get isInvulnerable(): boolean {
     return this.scene.time.now < this.invulnUntil;
+  }
+
+  setArena(arena: ArenaKeep): void {
+    this.arena = arena;
+    this.contain();
+  }
+
+  engage(): void {
+    this.engaged = true;
+  }
+
+  /** Wait in the arena until the player arrives. */
+  guard(): void {
+    if (this.dying) {
+      return;
+    }
+    const body = this.arcadeBody;
+    const now = this.scene.time.now;
+    switch (this.kind) {
+      case 'hopper': {
+        body.setVelocityX(0);
+        if (body.blocked.down && now > this.hopUntil) {
+          body.setVelocityY(-280);
+          this.hopUntil = now + 1400;
+        }
+        break;
+      }
+      case 'slider': {
+        body.setAccelerationX(0);
+        body.setDragX(240);
+        break;
+      }
+      case 'slam': {
+        body.setVelocityX(0);
+        break;
+      }
+      case 'swimmer': {
+        body.allowGravity = false;
+        body.setVelocityX(0);
+        body.setVelocityY((this.swimTargetY(now) - this.y) * 2.4);
+        break;
+      }
+      case 'charger': {
+        body.setVelocityX(0);
+        break;
+      }
+      default: {
+        const neverKind: never = this.kind;
+        return neverKind;
+      }
+    }
+    this.contain();
   }
 
   takeStomp(): 'hit' | 'dead' | 'ignored' {
@@ -92,11 +147,11 @@ export class Boss extends Phaser.Physics.Arcade.Sprite {
     const body = this.arcadeBody;
     const now = this.scene.time.now;
     const dx = player.x - this.x;
-    const dir = Math.sign(dx) || -1;
+    const dir = this.chaseDir(player.x);
 
     switch (this.kind) {
       case 'hopper': {
-        body.setVelocityX(Phaser.Math.Clamp(dir * 90 + Math.sin(now / 180) * 20, -140, 140));
+        body.setVelocityX(dir === 0 ? 0 : Phaser.Math.Clamp(dir * 90 + Math.sin(now / 180) * 20, -140, 140));
         if (body.blocked.down && now > this.hopUntil) {
           body.setVelocityY(-420);
           this.hopUntil = now + 900;
@@ -105,9 +160,9 @@ export class Boss extends Phaser.Physics.Arcade.Sprite {
       }
       case 'slider': {
         body.setAccelerationX(dir * 420);
-        body.setDragX(40);
+        body.setDragX(dir === 0 ? 240 : 40);
         if (body.blocked.left || body.blocked.right) {
-          body.setVelocityX(-dir * 220);
+          body.setVelocityX(-Math.sign(body.velocity.x || dir) * 220);
         }
         break;
       }
@@ -128,14 +183,13 @@ export class Boss extends Phaser.Physics.Arcade.Sprite {
       }
       case 'swimmer': {
         body.allowGravity = false;
-        const targetY = this.spawnY + Math.sin(now / 280) * 70;
         body.setVelocityX(dir * 110);
-        body.setVelocityY((targetY - this.y) * 2.4);
+        body.setVelocityY((this.swimTargetY(now) - this.y) * 2.4);
         break;
       }
       case 'charger': {
         if (now > this.hopUntil) {
-          this.chargeDir = dir;
+          this.chargeDir = dir === 0 ? this.chargeDir * -1 : dir;
           this.hopUntil = now + 1400;
           body.setVelocityX(this.chargeDir * 280);
         }
@@ -156,5 +210,78 @@ export class Boss extends Phaser.Physics.Arcade.Sprite {
 
     void solids;
     this.setFlipX(dx > 0);
+    this.contain();
+  }
+
+  private swimTargetY(now: number): number {
+    const raw = this.spawnY + Math.sin(now / 280) * 70;
+    const edges = this.edges();
+    if (!edges) {
+      return raw;
+    }
+    return Phaser.Math.Clamp(raw, edges.minY, edges.maxY);
+  }
+
+  private chaseDir(playerX: number): number {
+    const want = Math.sign(playerX - this.x) || -1;
+    const edges = this.edges();
+    if (!edges) {
+      return want;
+    }
+    if (want < 0 && this.x <= edges.minX + 4) {
+      return 0;
+    }
+    if (want > 0 && this.x >= edges.maxX - 4) {
+      return 0;
+    }
+    return want;
+  }
+
+  private contain(): void {
+    const edges = this.edges();
+    if (!edges) {
+      return;
+    }
+    const body = this.arcadeBody;
+    if (this.x < edges.minX) {
+      this.setX(edges.minX);
+      if (body.velocity.x < 0) {
+        body.setVelocityX(this.kind === 'charger' || this.kind === 'slider' ? -body.velocity.x * 0.65 : 0);
+      }
+    } else if (this.x > edges.maxX) {
+      this.setX(edges.maxX);
+      if (body.velocity.x > 0) {
+        body.setVelocityX(this.kind === 'charger' || this.kind === 'slider' ? -body.velocity.x * 0.65 : 0);
+      }
+    }
+    if (this.kind !== 'swimmer') {
+      return;
+    }
+    if (this.y < edges.minY) {
+      this.setY(edges.minY);
+      if (body.velocity.y < 0) {
+        body.setVelocityY(0);
+      }
+    } else if (this.y > edges.maxY) {
+      this.setY(edges.maxY);
+      if (body.velocity.y > 0) {
+        body.setVelocityY(0);
+      }
+    }
+  }
+
+  private edges(): { minX: number; maxX: number; minY: number; maxY: number } | undefined {
+    if (!this.arena) {
+      return undefined;
+    }
+    const body = this.arcadeBody;
+    const halfW = Math.max(12, body.width * 0.5);
+    const halfH = Math.max(12, body.height * 0.5);
+    return {
+      minX: this.arena.left + halfW,
+      maxX: this.arena.right - halfW,
+      minY: this.arena.top + halfH,
+      maxY: this.arena.bottom - halfH,
+    };
   }
 }

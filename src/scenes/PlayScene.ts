@@ -10,6 +10,7 @@ import { getLevel } from '../levels/worlds';
 import { audio } from '../systems/audio';
 import { Parallax } from '../systems/parallax';
 import { getTouchState, hideTouchControls, showTouchControls } from '../systems/touch-controls';
+import { showBossFightBanner } from '../ui/boss-fight';
 import { addPanel, launchOverlay, MenuButton, MenuNav, textStyle } from '../ui/menu';
 
 interface PlayData {
@@ -42,7 +43,6 @@ export class PlayScene extends Phaser.Scene {
   private keyW!: Phaser.Input.Keyboard.Key;
   private keyS!: Phaser.Input.Keyboard.Key;
   private keySpace!: Phaser.Input.Keyboard.Key;
-  private leftLock = 0;
   private paused = false;
   private completing = false;
   private hudLives!: Phaser.GameObjects.Text;
@@ -52,6 +52,7 @@ export class PlayScene extends Phaser.Scene {
   private pauseNav!: MenuNav;
   private wasJump = false;
   private wasDown = false;
+  private fightEngaged = false;
 
   constructor() {
     super('PlayScene');
@@ -61,9 +62,9 @@ export class PlayScene extends Phaser.Scene {
     this.levelId = data.levelId ?? '1-1';
     this.paused = false;
     this.completing = false;
-    this.leftLock = 0;
     this.wasJump = false;
     this.wasDown = false;
+    this.fightEngaged = false;
   }
 
   create(): void {
@@ -74,19 +75,25 @@ export class PlayScene extends Phaser.Scene {
     this.built = buildLevel(this, def.rows, def.theme, def.world);
     this.parallax = new Parallax(this, def.theme);
 
-    this.physics.world.setBounds(0, 0, this.built.widthPx, this.built.heightPx);
+    this.physics.world.setBounds(0, 0, this.built.widthPx, this.built.heightPx + 400);
     this.physics.world.TILE_BIAS = 40;
 
-    const { player, solids, oneways, hazards, baddies, miniBoss, worldBoss } = this.built;
+    const { player, solids, oneways, hazards, baddies, miniBoss, worldBoss, bossFences } = this.built;
 
     this.physics.add.collider(player, solids);
     this.physics.add.collider(baddies, solids);
     this.physics.add.collider(baddies, oneways);
     if (miniBoss) {
       this.physics.add.collider(miniBoss, solids);
+      for (const fence of bossFences) {
+        this.physics.add.collider(miniBoss, fence);
+      }
     }
     if (worldBoss) {
       this.physics.add.collider(worldBoss, solids);
+      for (const fence of bossFences) {
+        this.physics.add.collider(worldBoss, fence);
+      }
     }
 
     this.physics.add.collider(
@@ -169,36 +176,53 @@ export class PlayScene extends Phaser.Scene {
     for (const child of baddies.getChildren()) {
       (child as Baddie).patrol(this.built.solids, this.built.oneways);
     }
-    if (miniBoss && miniBoss.active) {
-      miniBoss.chase(player, this.built.solids);
-    }
-    if (worldBoss && worldBoss.active) {
-      worldBoss.chase(player, this.built.solids);
-    }
+    this.tickBoss(miniBoss, player);
+    this.tickBoss(worldBoss, player);
 
     if (player.y > this.built.heightPx + 20) {
       this.killPlayer('pit');
       return;
     }
 
-    const cam = this.cameras.main;
-    if (cam.scrollX > this.leftLock) {
-      this.leftLock = cam.scrollX;
-    }
-    cam.setBounds(this.leftLock, 0, this.built.widthPx - this.leftLock, Math.max(GAME_HEIGHT, this.built.heightPx));
-    this.parallax.update(cam.scrollX);
+    this.parallax.update(this.cameras.main.scrollX);
 
     this.hudLives.setText('Lives');
     this.hudLifeIcons.forEach((icon, index) => {
       icon.setVisible(index < session.lives);
     });
     const boss = worldBoss?.active ? worldBoss : miniBoss?.active ? miniBoss : undefined;
-    if (boss && !boss.dying) {
+    if (boss && !boss.dying && boss.engaged) {
       this.hudBoss.setText(`Boss  ${'♥'.repeat(boss.hp)}${'·'.repeat(Math.max(0, boss.maxHp - boss.hp))}`);
       this.hudBoss.setVisible(true);
     } else {
       this.hudBoss.setVisible(false);
     }
+  }
+
+  private tickBoss(boss: Boss | undefined, player: Player): void {
+    if (!boss?.active) {
+      return;
+    }
+    this.tryStartBossFight(player);
+    if (boss.engaged) {
+      boss.chase(player, this.built.solids);
+      return;
+    }
+    boss.guard();
+  }
+
+  private tryStartBossFight(player: Player): void {
+    if (this.fightEngaged || !this.built.arena) {
+      return;
+    }
+    if (player.x < this.built.arena.enterX) {
+      return;
+    }
+    this.fightEngaged = true;
+    this.built.miniBoss?.engage();
+    this.built.worldBoss?.engage();
+    audio.play(this, 'boss');
+    showBossFightBanner(this);
   }
 
   private bindKeys(): void {

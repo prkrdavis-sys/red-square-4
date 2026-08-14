@@ -22,6 +22,25 @@ export interface ArenaLayout {
   pillarH: number;
 }
 
+/** Pixel box bosses must stay inside, plus the X the player crosses to start the fight. */
+export interface ArenaKeep {
+  left: number;
+  right: number;
+  top: number;
+  bottom: number;
+  enterX: number;
+}
+
+export function arenaKeepBounds(layout: ArenaLayout): ArenaKeep {
+  return {
+    left: layout.floorStart * TILE,
+    right: (layout.floorEnd - 1) * TILE,
+    top: TILE * 0.5,
+    bottom: GROUND_Y * TILE,
+    enterX: layout.floorStart * TILE + 24,
+  };
+}
+
 interface GateSpec {
   pillarW: number;
   gap: number;

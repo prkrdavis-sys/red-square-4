@@ -4,7 +4,7 @@ import { Baddie } from '../entities/Baddie';
 import { Boss } from '../entities/Boss';
 import { Player } from '../entities/Player';
 import { arenaTileKey, onewayTileKey, solidTileKey } from '../systems/textures';
-import { decorateArena } from './arena';
+import { arenaKeepBounds, decorateArena, getArenaLayout, type ArenaKeep } from './arena';
 import { getWorldBossKind } from './worlds';
 
 export interface BuiltLevel {
@@ -17,6 +17,8 @@ export interface BuiltLevel {
   baddies: Phaser.Physics.Arcade.Group;
   miniBoss: Boss | undefined;
   worldBoss: Boss | undefined;
+  arena: ArenaKeep | undefined;
+  bossFences: Phaser.GameObjects.Rectangle[];
 }
 
 const ONEWAY_HEIGHT = 18;
@@ -102,14 +104,23 @@ export function buildLevel(scene: Phaser.Scene, rows: string[], theme: Theme, wo
 
   player.applyTheme(theme);
 
+  const heightPx = MAP_ROWS * TILE;
   const boss = worldBoss ?? miniBoss;
+  let arena: ArenaKeep | undefined;
+  const bossFences: Phaser.GameObjects.Rectangle[] = [];
   if (boss) {
-    decorateArena(scene, boss.x, theme, Boolean(worldBoss), cols);
+    const grand = Boolean(worldBoss);
+    const layout = getArenaLayout(Math.floor(boss.x / TILE), theme, grand, cols);
+    arena = arenaKeepBounds(layout);
+    boss.setArena(arena);
+    decorateArena(scene, boss.x, theme, grand, cols);
+    bossFences.push(addBossFence(scene, arena.left - 12, heightPx));
+    bossFences.push(addBossFence(scene, arena.right + 12, heightPx));
   }
 
   return {
     widthPx: cols * TILE,
-    heightPx: MAP_ROWS * TILE,
+    heightPx,
     player,
     solids,
     oneways,
@@ -117,7 +128,18 @@ export function buildLevel(scene: Phaser.Scene, rows: string[], theme: Theme, wo
     baddies,
     miniBoss,
     worldBoss,
+    arena,
+    bossFences,
   };
+}
+
+function addBossFence(scene: Phaser.Scene, centerX: number, heightPx: number): Phaser.GameObjects.Rectangle {
+  const fence = scene.add.rectangle(centerX, heightPx / 2, 24, heightPx, 0x000000, 0);
+  scene.physics.add.existing(fence, true);
+  const body = fence.body as Phaser.Physics.Arcade.StaticBody;
+  body.setSize(24, heightPx);
+  body.updateFromGameObject();
+  return fence;
 }
 
 function pickTile(scene: Phaser.Scene, generated: string, kenney: string): string {

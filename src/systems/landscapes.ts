@@ -195,27 +195,123 @@ function fillBand(ctx: CanvasRenderingContext2D, heights: number[], texH: number
   ctx.fill();
 }
 
-function paintCaps(ctx: CanvasRenderingContext2D, heights: number[], texH: number, width: number, color: number, minH: number): void {
-  ctx.fillStyle = css(color);
-  for (let x = 32; x < width - 32; x += 14) {
+function sampleHeight(heights: number[], x: number, width: number): number {
+  return heights[((x % width) + width) % width] ?? 0;
+}
+
+function findSnowPeaks(heights: number[], width: number, minH: number): number[] {
+  const candidates: { x: number; h: number }[] = [];
+  for (let x = 0; x < width; x += 1) {
     const h = heights[x] ?? 0;
     if (h < minH) {
       continue;
     }
-    const left = heights[x - 28] ?? 0;
-    const right = heights[x + 28] ?? 0;
-    if (h < left || h < right) {
+    const left = sampleHeight(heights, x - 1, width);
+    const right = sampleHeight(heights, x + 1, width);
+    const prominence =
+      h - Math.min(sampleHeight(heights, x - 64, width), sampleHeight(heights, x + 64, width));
+    if (h >= left && h > right && prominence >= 38) {
+      candidates.push({ x, h });
+    }
+  }
+  candidates.sort((a, b) => b.h - a.h);
+  const kept: number[] = [];
+  for (const candidate of candidates) {
+    const tooClose = kept.some((peakX) => {
+      const dist = Math.abs(candidate.x - peakX);
+      return Math.min(dist, width - dist) < 88;
+    });
+    if (!tooClose) {
+      kept.push(candidate.x);
+    }
+  }
+  return kept;
+}
+
+function walkCapEdge(
+  heights: number[],
+  peakX: number,
+  peakH: number,
+  width: number,
+  dir: -1 | 1,
+): number {
+  const snowFloor = peakH - Math.max(22, Math.min(34, peakH * 0.12));
+  let x = peakX;
+  let prev = peakH;
+  for (let step = 0; step < 90; step += 1) {
+    const nextH = sampleHeight(heights, x + dir, width);
+    if (nextH < snowFloor || nextH > prev + 0.2) {
+      break;
+    }
+    x += dir;
+    prev = nextH;
+  }
+  return x;
+}
+
+function paintCaps(
+  ctx: CanvasRenderingContext2D,
+  heights: number[],
+  texH: number,
+  width: number,
+  color: number,
+  minH: number,
+): void {
+  const depth = new Float64Array(width + 1);
+  for (const peakX of findSnowPeaks(heights, width, minH)) {
+    const peakH = heights[peakX] ?? 0;
+    const left = walkCapEdge(heights, peakX, peakH, width, -1);
+    const right = walkCapEdge(heights, peakX, peakH, width, 1);
+    const span = right - left;
+    if (span < 16) {
       continue;
     }
-    const peakY = texH - h;
-    const spread = 16 + (h - minH) * 0.18;
+    const base = 18 + Math.min(span, 110) * 0.07;
+    for (let x = left; x <= right; x += 1) {
+      const i = ((x % width) + width) % width;
+      const t = (x - left) / span;
+      const snowline = peakH - base * (0.96 + 0.04 * Math.sin(t * Math.PI * 2));
+      const h = sampleHeight(heights, x, width);
+      if (h > snowline) {
+        depth[i] = Math.max(depth[i], h - snowline);
+      }
+    }
+  }
+  depth[0] = Math.max(depth[0], depth[width]);
+  depth[width] = depth[0];
+
+  ctx.save();
+  ctx.globalCompositeOperation = 'source-atop';
+  ctx.fillStyle = css(color);
+  let x = 0;
+  while (x < width) {
+    while (x < width && depth[x] < 1) {
+      x += 1;
+    }
+    if (x >= width) {
+      break;
+    }
+    const start = x;
+    while (x < width && depth[x] >= 1) {
+      x += 1;
+    }
+    const end = x - 1;
     ctx.beginPath();
-    ctx.moveTo(x - spread, peakY + 26);
-    ctx.lineTo(x, peakY);
-    ctx.lineTo(x + spread, peakY + 26);
+    for (let i = start; i <= end; i += 1) {
+      const y = texH - (heights[i] ?? 0) - 1.5;
+      if (i === start) {
+        ctx.moveTo(i, y);
+      } else {
+        ctx.lineTo(i, y);
+      }
+    }
+    for (let i = end; i >= start; i -= 1) {
+      ctx.lineTo(i, texH - (heights[i] ?? 0) + depth[i]);
+    }
     ctx.closePath();
     ctx.fill();
   }
+  ctx.restore();
 }
 
 function fillCircle(ctx: CanvasRenderingContext2D, x: number, y: number, r: number, width: number): void {
@@ -597,7 +693,7 @@ function drawRange(scene: Phaser.Scene, key: string, theme: Theme, colors: Lands
     ctx.fillStyle = css(far ? colors.far : colors.mountainShade, 0.42);
     fillBand(ctx, ridge, texH, width, far ? 48 : 80);
     if (theme === 'snow') {
-      paintCaps(ctx, ridge, texH, width, far ? colors.farCap : colors.cap, texH * 0.8);
+      paintCaps(ctx, ridge, texH, width, far ? colors.farCap : colors.cap, texH * 0.74);
     }
   });
 }

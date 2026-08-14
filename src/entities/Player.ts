@@ -37,7 +37,7 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
     body.setSize(34, 36);
     body.setOffset(7, 8);
     body.setMaxVelocity(340, 1400);
-    body.setCollideWorldBounds(false);
+    body.setCollideWorldBounds(true);
     this.setVisible(false);
     this.setDepth(20);
     this.nextBlinkAt = scene.time.now + 1400;
