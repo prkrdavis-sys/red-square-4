@@ -10,7 +10,7 @@ import {
   parseLevelId,
 } from '../config';
 import { getLevel } from './worlds';
-import { bossSafeLandingX, type ArenaKeep } from './arena';
+import { bossSafeLandingX, getArenaLayout, type ArenaKeep } from './arena';
 
 describe('biome campaign compilation', () => {
   it('compiles every course with complete progression features', () => {
@@ -27,6 +27,22 @@ describe('biome campaign compilation', () => {
       expect(level.rows[GROUND_Y]?.[level.course.checkpoint.x]).toMatch(/[#@]/);
       expect(level.course.miniVariant).toBe(level.stage < 4 ? level.stage : undefined);
       expect(level.rows.join('')).toContain(level.stage < 4 ? 'm' : 'B');
+      expect(level.rows.join('')).toContain('G');
+      expect(level.rows.join('')).toContain('W');
+    }
+  });
+
+  it('leaves the arena gate as open air the player can walk through', () => {
+    for (const id of ALL_LEVEL_IDS) {
+      const level = getLevel(id);
+      const bossCh = level.stage < 4 ? 'm' : 'B';
+      const bossX = level.rows[GROUND_Y - 1]?.indexOf(bossCh) ?? -1;
+      const layout = getArenaLayout(bossX, level.theme, level.stage === 4, level.rows[0]?.length ?? 0);
+      for (let x = layout.gateX; x < layout.floorStart; x += 1) {
+        for (let y = 0; y < GROUND_Y; y += 1) {
+          expect(level.rows[y]?.[x]).toBe('.');
+        }
+      }
     }
   });
 
@@ -42,6 +58,31 @@ describe('biome campaign compilation', () => {
         expect(roles).toEqual(new Set(['movement', 'ranged', 'terrain']));
       }
     }
+  });
+
+  it('keeps spawn, checkpoint, and solid puzzles off ground enemies', () => {
+    for (const id of ALL_LEVEL_IDS) {
+      const level = getLevel(id);
+      const spawnX = level.rows[GROUND_Y - 1]?.indexOf('P') ?? 3;
+      const groundEnemies = level.course.enemies.filter((enemy) => enemy.tilesUp === 0);
+      expect(groundEnemies.some((enemy) => enemy.x === spawnX), id).toBe(false);
+      expect(
+        groundEnemies.some((enemy) => Math.abs(enemy.x - level.course.checkpoint.x) <= 1),
+        id,
+      ).toBe(false);
+      for (const puzzle of level.course.puzzles) {
+        if (puzzle.kind !== 'ice-wall' && puzzle.kind !== 'sand-wall' && puzzle.kind !== 'shadow-wall') {
+          continue;
+        }
+        expect(groundEnemies.some((enemy) => enemy.x === puzzle.x), id).toBe(false);
+        expect(puzzle.x, id).not.toBe(level.course.checkpoint.x);
+        expect(puzzle.x, id).not.toBe(spawnX);
+      }
+    }
+    const keep = getLevel('5-3');
+    expect(keep.course.checkpoint.x).toBe(108);
+    expect(keep.course.enemies.some((enemy) => enemy.x === 108 && enemy.tilesUp === 0)).toBe(false);
+    expect(keep.course.puzzles.some((puzzle) => puzzle.x === 108)).toBe(false);
   });
 
   it('keeps each enemy roster exclusive to its biome', () => {

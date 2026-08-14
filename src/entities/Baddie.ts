@@ -156,8 +156,8 @@ export class Baddie extends Phaser.Physics.Arcade.Sprite {
     const speed = terrainShot ? 190 : 240;
     const shot = new EnemyProjectile(
       this.scene,
-      this.x + Math.sign(dx) * 20,
-      this.y - 4,
+      this.x + Math.sign(dx || this.dir) * Math.max(28, this.width * 0.45),
+      this.y - 10,
       `projectile-${this.kind}`,
       this.kind,
       (dx / magnitude) * speed,
@@ -165,6 +165,7 @@ export class Baddie extends Phaser.Physics.Arcade.Sprite {
       terrainShot,
     );
     projectiles.add(shot);
+    shot.launch();
     audio.play(this.scene, 'enemy-shot');
     this.present('attack');
     this.scene.time.delayedCall(220, () => this.present('idle'));

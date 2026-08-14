@@ -105,6 +105,35 @@ copy_first "$TILES/castle-half.png" "castleHalf.png" "castle_half.png" "terrain_
 copy_first "$TILES/ocean-mid.png" "terrain_stone_block.png" "tile_0072.png" "tile_0073.png"
 copy_first "$TILES/ocean-half.png" "terrain_stone_horizontal_middle.png" "terrain_sand_horizontal.png" "tile_0071.png"
 
+copy_kenney_tile() {
+  local dest="$1"
+  local name="$2"
+  local found
+  found="$(find "$VENDOR" -path "*Tiles/Default/${name}.png" -type f 2>/dev/null | head -n 1 || true)"
+  if [[ -z "$found" ]]; then
+    copy_first "$dest" "${name}.png"
+    return 0
+  fi
+  cp "$found" "$dest"
+  echo "copied $(basename "$found") -> $dest"
+}
+
+copy_kenney_tile "$TILES/brick-brown.png" "brick_brown"
+copy_kenney_tile "$TILES/brick-grey.png" "brick_grey"
+copy_kenney_tile "$TILES/bricks-brown.png" "bricks_brown"
+copy_kenney_tile "$TILES/bricks-grey.png" "bricks_grey"
+copy_kenney_tile "$TILES/flag-red-a.png" "flag_red_a"
+copy_kenney_tile "$TILES/flag-red-b.png" "flag_red_b"
+copy_kenney_tile "$TILES/flag-green-a.png" "flag_green_a"
+copy_kenney_tile "$TILES/flag-green-b.png" "flag_green_b"
+copy_kenney_tile "$TILES/flag-blue-a.png" "flag_blue_a"
+copy_kenney_tile "$TILES/flag-blue-b.png" "flag_blue_b"
+copy_kenney_tile "$TILES/flag-yellow-a.png" "flag_yellow_a"
+copy_kenney_tile "$TILES/flag-yellow-b.png" "flag_yellow_b"
+copy_kenney_tile "$TILES/torch-a.png" "torch_on_a"
+copy_kenney_tile "$TILES/torch-b.png" "torch_on_b"
+copy_kenney_tile "$TILES/window.png" "window"
+
 copy_first "$BG/grass.png" "colored_grass.png" "blue_grass.png" "hills1.png" "background_color_hills.png" "grass1.png" "bg.png"
 copy_first "$BG/snow.png" "blue_land.png" "pointy_mountains.png" "mountain1.png"
 copy_first "$BG/sand.png" "blue_desert.png" "colored_desert.png" "piramid.png" "hills1.png"
@@ -139,6 +168,21 @@ mapping = {
     "tiles/castle-half.png": "kenney-castle-oneway",
     "tiles/ocean-mid.png": "kenney-ocean-solid",
     "tiles/ocean-half.png": "kenney-ocean-oneway",
+    "tiles/brick-brown.png": "kenney-brick-brown",
+    "tiles/brick-grey.png": "kenney-brick-grey",
+    "tiles/bricks-brown.png": "kenney-bricks-brown",
+    "tiles/bricks-grey.png": "kenney-bricks-grey",
+    "tiles/flag-red-a.png": "kenney-flag-red-a",
+    "tiles/flag-red-b.png": "kenney-flag-red-b",
+    "tiles/flag-green-a.png": "kenney-flag-green-a",
+    "tiles/flag-green-b.png": "kenney-flag-green-b",
+    "tiles/flag-blue-a.png": "kenney-flag-blue-a",
+    "tiles/flag-blue-b.png": "kenney-flag-blue-b",
+    "tiles/flag-yellow-a.png": "kenney-flag-yellow-a",
+    "tiles/flag-yellow-b.png": "kenney-flag-yellow-b",
+    "tiles/torch-a.png": "kenney-torch-a",
+    "tiles/torch-b.png": "kenney-torch-b",
+    "tiles/window.png": "kenney-window",
     "bg/grass.png": "bg-grass",
     "bg/snow.png": "bg-snow",
     "bg/sand.png": "bg-desert",

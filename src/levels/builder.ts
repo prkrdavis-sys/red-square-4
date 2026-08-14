@@ -3,7 +3,15 @@ import { GROUND_Y, MAP_ROWS, TILE, type Theme } from '../config';
 import { Baddie } from '../entities/Baddie';
 import { Boss } from '../entities/Boss';
 import { Player } from '../entities/Player';
-import { arenaTileKey, onewayTileKey, solidTileKey } from '../systems/textures';
+import {
+  arenaGateTileKey,
+  arenaTileKey,
+  arenaWallTileKey,
+  kenneyArenaGateKey,
+  kenneyArenaWallKey,
+  onewayTileKey,
+  solidTileKey,
+} from '../systems/textures';
 import { arenaKeepBounds, decorateArena, getArenaLayout, type ArenaKeep } from './arena';
 import type { CompiledCourse } from './grid';
 import { getWorldBossKind } from './worlds';
@@ -87,6 +95,12 @@ export function buildLevel(
           break;
         case '@':
           addStatic(solids, px, py, arenaTileKey(theme));
+          break;
+        case 'G':
+          addStatic(solids, px, py, pickTile(scene, arenaGateTileKey(theme), kenneyArenaGateKey(theme)));
+          break;
+        case 'W':
+          addStatic(solids, px, py, pickTile(scene, arenaWallTileKey(theme), kenneyArenaWallKey(theme)));
           break;
         case '=':
           addStatic(oneways, px, py, pickTile(scene, onewayTileKey(theme), `kenney-${theme}-oneway`), true);

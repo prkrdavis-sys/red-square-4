@@ -75,6 +75,7 @@ export class Boss extends Phaser.Physics.Arcade.Sprite {
     } else {
       this.setScale(2.15);
     }
+    this.fitHitbox();
   }
 
   get arcadeBody(): Phaser.Physics.Arcade.Body {
@@ -304,7 +305,23 @@ export class Boss extends Phaser.Physics.Arcade.Sprite {
     const texture = this.miniVariant
       ? miniBossTextureKey(this.theme, this.miniVariant, pose)
       : worldBossTextureKey(this.kind, pose);
+    if (this.texture.key === texture) {
+      return;
+    }
     this.setTexture(texture);
+    this.fitHitbox();
+  }
+
+  /** Keep the hurtbox on the visible torso, not the padded Kenney frame. */
+  private fitHitbox(): void {
+    const body = this.arcadeBody;
+    const frameW = this.width;
+    const frameH = this.height;
+    const padded = frameW >= 96;
+    const hitW = Math.max(22, frameW * (padded ? 0.4 : 0.62));
+    const hitH = Math.max(24, frameH * (padded ? 0.55 : 0.7));
+    body.setSize(hitW, hitH, false);
+    body.setOffset((frameW - hitW) * 0.5, frameH - hitH);
   }
 
   private swimTargetY(now: number): number {

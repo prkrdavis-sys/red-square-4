@@ -5,6 +5,9 @@ export class EnemyProjectile extends Phaser.Physics.Arcade.Sprite {
   readonly ownerKind: EnemyKind;
   readonly spawnedAt: number;
   neutralized = false;
+  private readonly launchVelocityX: number;
+  private readonly launchVelocityY: number;
+  private readonly launchGravity: boolean;
 
   constructor(
     scene: Phaser.Scene,
@@ -21,12 +24,27 @@ export class EnemyProjectile extends Phaser.Physics.Arcade.Sprite {
     scene.physics.add.existing(this);
     this.ownerKind = ownerKind;
     this.spawnedAt = scene.time.now;
+    this.launchVelocityX = velocityX;
+    this.launchVelocityY = velocityY;
+    this.launchGravity = gravity;
     this.setDepth(17);
-    this.setVelocity(velocityX, velocityY);
     this.setDataEnabled();
-    const body = this.body as Phaser.Physics.Arcade.Body;
-    body.allowGravity = gravity;
+    this.launch();
+  }
+
+  /** Physics groups apply velocity 0 / gravity defaults on add; call again after `group.add`. */
+  launch(): void {
+    const body = this.body as Phaser.Physics.Arcade.Body | null;
+    if (!body) {
+      return;
+    }
+    body.setAllowGravity(this.launchGravity);
+    body.setImmovable(false);
+    body.setBounce(0, 0);
+    body.setDrag(0, 0);
+    body.setFriction(0, 0);
     body.setSize(Math.max(12, this.width * 0.65), Math.max(12, this.height * 0.65));
+    body.setVelocity(this.launchVelocityX, this.launchVelocityY);
   }
 
   tick(): void {

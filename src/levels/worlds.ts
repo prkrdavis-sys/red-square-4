@@ -614,7 +614,7 @@ const COURSES: Record<LevelId, CompiledCourse> = {
       [176, mid, 4],
       [184, low, 4],
     ],
-    enemies: [12, 32, 76, 108, 166, 196],
+    enemies: [12, 32, 76, 118, 166, 196],
     airEnemies: [
       [58, high],
       [136, high],

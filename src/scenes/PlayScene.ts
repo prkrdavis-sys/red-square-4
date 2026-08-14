@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import { GAME_HEIGHT, GAME_WIDTH, START_LIVES, type LevelId, themeSky } from '../config';
+import { GAME_HEIGHT, GAME_WIDTH, START_LIVES, TILE, type LevelId, themeSky } from '../config';
 import {
   collectMemory,
   collectibleMask,
@@ -65,6 +65,14 @@ function flakFromCollider(
   return undefined;
 }
 
+function checkpointSpawnIsSafe(
+  enemies: Array<{ x: number; tilesUp: number }>,
+  saved: { x: number; y: number },
+): boolean {
+  const tileX = Math.round((saved.x - TILE / 2) / TILE);
+  return !enemies.some((enemy) => enemy.tilesUp === 0 && Math.abs(enemy.x - tileX) <= 1);
+}
+
 export class PlayScene extends Phaser.Scene {
   private levelId: LevelId = '1-1';
   private built!: BuiltLevel;
@@ -119,7 +127,7 @@ export class PlayScene extends Phaser.Scene {
     this.parallax = new Parallax(this, def.theme);
     this.special = new WorldSpecial(this, this.built, def.theme, def.course.special);
     const savedCheckpoint = getCheckpoint(this.levelId);
-    if (savedCheckpoint) {
+    if (savedCheckpoint && checkpointSpawnIsSafe(def.course.enemies, savedCheckpoint)) {
       this.built.player.setPosition(savedCheckpoint.x, savedCheckpoint.y);
     }
 

@@ -1,6 +1,15 @@
 import Phaser from 'phaser';
 import { GROUND_Y, JUMP_REACH_TILES, TILE, type Theme } from '../config';
-import { arenaBannerKey, arenaRingKey, arenaTorchKey } from '../systems/textures';
+import {
+  arenaBannerKey,
+  arenaFlagColor,
+  arenaGateKey,
+  arenaRingKey,
+  arenaTorchKey,
+  kenneyArenaFlagKeys,
+  kenneyTorchKeys,
+  kenneyWindowKey,
+} from '../systems/textures';
 import type { Grid } from './grid';
 
 const hop = 1;
@@ -104,125 +113,63 @@ export function stampArena(grid: Grid, bossX: number, theme: Theme, grand: boole
   grid.fillFloor(gateX, span);
   grid.arenaFloor(floorStart, Math.max(1, floorEnd - floorStart));
   stampCliff(grid, wallStart, theme);
-  stampGate(grid, layout);
   stampThemeArena(grid, layout, theme);
 }
 
 function stampCliff(grid: Grid, fromX: number, theme: Theme): void {
   for (let x = fromX; x < grid.width; x += 1) {
-    grid.column(x, 1, GROUND_Y - 1);
-    const cap = cliffCap(theme, x);
-    if (cap) {
-      grid.set(x, 0, '#');
+    grid.column(x, 1, GROUND_Y - 1, 'W');
+    if (merlon(theme, x - fromX)) {
+      grid.set(x, 0, 'W');
     }
   }
 }
 
-function cliffCap(theme: Theme, x: number): boolean {
+function merlon(theme: Theme, offset: number): boolean {
   switch (theme) {
     case 'grass':
-      return x % 3 !== 1;
-    case 'snow':
-      return true;
     case 'desert':
-      return x % 3 !== 2;
+      return offset % 2 === 0;
+    case 'snow':
     case 'ocean':
-      return true;
+      return offset % 3 !== 1;
     case 'castle':
-      return x % 2 === 0;
+      return offset % 2 === 0;
     default: {
       const neverTheme: never = theme;
       return neverTheme;
     }
   }
-}
-
-/** Pillar that leaves ground-level headroom so the player can run through. */
-function stampArch(grid: Grid, x: number, tilesHigh: number): void {
-  const top = rowAboveGround(tilesHigh);
-  const bottom = GROUND_Y - 3;
-  if (top <= bottom) {
-    grid.column(x, top, bottom);
-  }
-}
-
-function stampGate(grid: Grid, layout: ArenaLayout): void {
-  const { gateX, pillarW, gap, pillarH } = layout;
-  for (let i = 0; i < pillarW; i += 1) {
-    stampArch(grid, gateX + i, pillarH);
-    stampArch(grid, gateX + pillarW + gap + i, pillarH);
-  }
-  grid.plat(gateX, rowAboveGround(pillarH), pillarW * 2 + gap, false);
 }
 
 function stampThemeArena(grid: Grid, layout: ArenaLayout, theme: Theme): void {
   const { floorStart, floorEnd, wallStart } = layout;
+  grid.hill(floorStart + 2, 3, hop, 'G');
+  grid.hill(Math.max(floorStart + 6, floorEnd - 5), 3, hop, 'G');
+  grid.plat(floorStart + 2, rowAboveGround(low), 3, true);
+  grid.plat(Math.max(floorStart + 6, wallStart - 6), rowAboveGround(low), 3, true);
+  grid.wall(floorEnd - 1, 5, 'W');
   switch (theme) {
     case 'grass':
-      stampGrassArena(grid, floorStart, floorEnd);
       break;
     case 'snow':
-      stampSnowArena(grid, floorStart, floorEnd, wallStart);
+      grid.plat(floorStart + 6, rowAboveGround(low), 2, true);
       break;
     case 'desert':
-      stampDesertArena(grid, floorStart, floorEnd);
+      grid.stairs(floorEnd - 5, 3, 1, 'G');
       break;
     case 'ocean':
-      stampOceanArena(grid, floorStart, floorEnd, wallStart);
+      grid.plat(Math.max(floorStart + 5, wallStart - 8), rowAboveGround(low), 3, true);
       break;
     case 'castle':
-      stampCastleArena(grid, floorStart, floorEnd, wallStart);
+      grid.plat(floorStart + 2, rowAboveGround(low), 4, false, 'G');
+      grid.wall(floorEnd - 1, 6, 'W');
       break;
     default: {
       const neverTheme: never = theme;
       return neverTheme;
     }
   }
-}
-
-function stampGrassArena(grid: Grid, floorStart: number, floorEnd: number): void {
-  grid.hill(floorStart + 2, 3, hop);
-  grid.hill(floorEnd - 3, 3, hop);
-  grid.plat(floorStart + 2, rowAboveGround(low), 3, true);
-  grid.plat(floorEnd - 3, rowAboveGround(low), 3, true);
-  grid.wall(floorEnd - 1, 3);
-}
-
-function stampSnowArena(grid: Grid, floorStart: number, floorEnd: number, wallStart: number): void {
-  grid.hill(floorStart + 2, 4, hop);
-  grid.hill(floorEnd - 3, 3, hop);
-  grid.wall(floorEnd - 1, 4);
-  for (let x = floorStart + 2; x < wallStart; x += 4) {
-    grid.set(x, 0, '#');
-    if (x + 1 < wallStart) {
-      grid.set(x + 1, 0, '#');
-    }
-  }
-}
-
-function stampDesertArena(grid: Grid, floorStart: number, floorEnd: number): void {
-  grid.hill(floorStart + 2, 2, hop);
-  grid.hill(floorEnd - 2, 2, hop);
-  grid.stairs(floorEnd - 4, 3, 1);
-  grid.wall(floorEnd - 1, 5);
-}
-
-function stampOceanArena(grid: Grid, floorStart: number, floorEnd: number, wallStart: number): void {
-  for (let x = floorStart; x < grid.width; x += 1) {
-    grid.set(x, 0, '#');
-  }
-  grid.wall(floorEnd - 1, 5);
-  grid.plat(floorStart + 2, rowAboveGround(low), 3, true);
-  grid.plat(Math.max(floorStart + 6, wallStart - 5), rowAboveGround(low), 3, true);
-}
-
-function stampCastleArena(grid: Grid, floorStart: number, floorEnd: number, wallStart: number): void {
-  for (let x = floorStart; x < grid.width; x += 1) {
-    grid.set(x, 0, '#');
-  }
-  grid.plat(floorStart + 2, rowAboveGround(low), 4, false);
-  grid.plat(Math.max(floorStart + 6, wallStart - 6), rowAboveGround(low), 4, false);
-  grid.wall(floorEnd - 1, 6);
 }
 
 export function decorateArena(
@@ -249,31 +196,168 @@ export function decorateArena(
     .setOrigin(0.5, 1)
     .setDepth(1);
 
-  const bannerXs = [
-    (layout.gateX + layout.pillarW * 0.5) * TILE,
-    (layout.gateX + layout.pillarW + layout.gap + layout.pillarW * 0.5) * TILE,
-    (layout.floorStart + 2) * TILE,
-    (layout.floorEnd - 2) * TILE,
-  ];
-  for (const x of bannerXs) {
-    scene.add
-      .image(x, 36, arenaBannerKey(theme))
-      .setOrigin(0.5, 0)
-      .setDepth(6);
-  }
+  ensureArenaAnims(scene, theme);
+  addDecorativeGate(scene, layout, theme, groundY);
+  plantGroundFlags(scene, layout, groundY, theme, grand);
+  mountLintelFlags(scene, layout, groundY, theme);
+  addWallFixtures(scene, layout, groundY, theme, grand);
+  addArenaDust(scene, layout, theme);
+}
 
-  if (theme === 'castle' || theme === 'desert') {
-    const torchKey = arenaTorchKey(theme);
-    const torchXs = [layout.floorStart + 1, layout.floorEnd - 2];
-    for (const tileX of torchXs) {
-      scene.add
-        .image(tileX * TILE + TILE / 2, groundY - TILE * 3.2, torchKey)
-        .setOrigin(0.5, 1)
-        .setDepth(6);
+function ensureArenaAnims(scene: Phaser.Scene, theme: Theme): void {
+  const torch = kenneyTorchKeys();
+  if (scene.textures.exists(torch.a) && scene.textures.exists(torch.b) && !scene.anims.exists('kenney-torch')) {
+    scene.anims.create({
+      key: 'kenney-torch',
+      frames: [{ key: torch.a }, { key: torch.b }],
+      frameRate: 8,
+      repeat: -1,
+    });
+  }
+  const flags = kenneyArenaFlagKeys(theme);
+  const flagAnim = `kenney-flag-${arenaFlagColor(theme)}`;
+  if (scene.textures.exists(flags.a) && scene.textures.exists(flags.b) && !scene.anims.exists(flagAnim)) {
+    scene.anims.create({
+      key: flagAnim,
+      frames: [{ key: flags.a }, { key: flags.b }],
+      frameRate: 6,
+      repeat: -1,
+    });
+  }
+}
+
+function gatePixelSize(layout: ArenaLayout): { left: number; width: number; height: number } {
+  return {
+    left: layout.gateX * TILE,
+    width: (layout.pillarW * 2 + layout.gap) * TILE,
+    height: (layout.pillarH + 1) * TILE,
+  };
+}
+
+function addDecorativeGate(
+  scene: Phaser.Scene,
+  layout: ArenaLayout,
+  theme: Theme,
+  groundY: number,
+): void {
+  const { left, width, height } = gatePixelSize(layout);
+  scene.add
+    .image(left + width / 2, groundY, arenaGateKey(theme))
+    .setOrigin(0.5, 1)
+    .setDisplaySize(width, height)
+    .setDepth(21);
+}
+
+function plantGroundFlags(
+  scene: Phaser.Scene,
+  layout: ArenaLayout,
+  groundY: number,
+  theme: Theme,
+  grand: boolean,
+): void {
+  const { left, width } = gatePixelSize(layout);
+  const xs = [
+    left - 24,
+    left + width + 24,
+    (layout.floorStart + 1.5) * TILE,
+    (layout.floorEnd - 2.5) * TILE,
+  ];
+  if (grand) {
+    xs.push((layout.floorStart + layout.floorEnd - 6) * 0.5 * TILE);
+    xs.push((layout.floorStart + layout.floorEnd + 6) * 0.5 * TILE);
+  }
+  for (const x of xs) {
+    if (x < TILE) {
+      continue;
+    }
+    scene.add.image(x, groundY, arenaBannerKey(theme)).setOrigin(0.5, 1).setDepth(6);
+  }
+}
+
+function mountLintelFlags(
+  scene: Phaser.Scene,
+  layout: ArenaLayout,
+  groundY: number,
+  theme: Theme,
+): void {
+  const flags = kenneyArenaFlagKeys(theme);
+  if (!scene.textures.exists(flags.a)) {
+    return;
+  }
+  const { left, width, height } = gatePixelSize(layout);
+  const capitalY = groundY - height * 0.68;
+  const xs = [left + width * 0.12, left + width * 0.88];
+  const anim = `kenney-flag-${arenaFlagColor(theme)}`;
+  for (const x of xs) {
+    const flag = scene.add.sprite(x, capitalY, flags.a).setOrigin(0.5, 1).setDepth(22);
+    if (scene.anims.exists(anim)) {
+      flag.play(anim);
     }
   }
+}
 
-  addArenaDust(scene, layout, theme);
+function addWallFixtures(
+  scene: Phaser.Scene,
+  layout: ArenaLayout,
+  groundY: number,
+  theme: Theme,
+  grand: boolean,
+): void {
+  const inner = layout.floorEnd - 1;
+  const cliff = layout.wallStart;
+  addTorch(scene, cliff, 2, theme);
+  addTorch(scene, inner, 5, theme);
+  addTorch(scene, inner, 7, theme);
+  if (grand) {
+    addTorch(scene, cliff, 3, theme);
+  }
+  const windowKey = kenneyWindowKey();
+  if (scene.textures.exists(windowKey)) {
+    scene.add
+      .image(inner * TILE + TILE / 2, 4 * TILE + TILE / 2, windowKey)
+      .setOrigin(0.5)
+      .setDepth(5);
+    if (grand) {
+      scene.add
+        .image(inner * TILE + TILE / 2, 6 * TILE + TILE / 2, windowKey)
+        .setOrigin(0.5)
+        .setDepth(5);
+    }
+  }
+  const { left, width, height } = gatePixelSize(layout);
+  const torchY = groundY - height * 0.42;
+  addTorchAt(scene, left + width * 0.12, torchY, theme, 22);
+  addTorchAt(scene, left + width * 0.88, torchY, theme, 22);
+}
+
+function addTorch(scene: Phaser.Scene, tileX: number, tileY: number, theme: Theme): void {
+  addTorchAt(scene, tileX * TILE + TILE / 2, tileY * TILE + TILE / 2, theme, 7);
+}
+
+function addTorchAt(
+  scene: Phaser.Scene,
+  cx: number,
+  cy: number,
+  theme: Theme,
+  depth: number,
+): void {
+  const glow = scene.add.circle(cx, cy - 8, 22, 0xff8833, 0.22).setDepth(depth - 1);
+  scene.tweens.add({
+    targets: glow,
+    alpha: 0.08,
+    duration: 320,
+    yoyo: true,
+    repeat: -1,
+  });
+  const torch = kenneyTorchKeys();
+  if (scene.textures.exists(torch.a)) {
+    const sprite = scene.add.sprite(cx, cy, torch.a).setOrigin(0.5).setDepth(depth);
+    if (scene.anims.exists('kenney-torch')) {
+      sprite.play('kenney-torch');
+    }
+    return;
+  }
+  scene.add.image(cx, cy + TILE / 2, arenaTorchKey(theme)).setOrigin(0.5, 1).setDepth(depth);
 }
 
 function floorWash(theme: Theme): number {

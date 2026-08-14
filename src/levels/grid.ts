@@ -80,37 +80,37 @@ export class Grid {
     }
   }
 
-  plat(x: number, y: number, w: number, oneWay = true): void {
-    const tile = oneWay ? '=' : '#';
+  plat(x: number, y: number, w: number, oneWay = true, tile?: string): void {
+    const cell = tile ?? (oneWay ? '=' : '#');
     for (let i = 0; i < w; i += 1) {
-      this.set(x + i, y, tile);
+      this.set(x + i, y, cell);
     }
   }
 
-  stairs(x: number, steps: number, dir = 1): void {
+  stairs(x: number, steps: number, dir = 1, tile = '#'): void {
     for (let i = 0; i < steps; i += 1) {
       const height = i + 1;
       for (let h = 0; h < height; h += 1) {
-        this.set(x + i * dir, GROUND_Y - 1 - h, '#');
+        this.set(x + i * dir, GROUND_Y - 1 - h, tile);
       }
     }
   }
 
-  hill(x: number, w: number, tilesHigh: number): void {
+  hill(x: number, w: number, tilesHigh: number, tile = '#'): void {
     for (let i = 0; i < w; i += 1) {
       for (let t = 1; t <= tilesHigh; t += 1) {
-        this.set(x + i, GROUND_Y - t, '#');
+        this.set(x + i, GROUND_Y - t, tile);
       }
     }
   }
 
-  wall(x: number, tilesHigh: number): void {
-    this.column(x, rowAboveGround(tilesHigh), GROUND_Y - 1);
+  wall(x: number, tilesHigh: number, tile = '#'): void {
+    this.column(x, rowAboveGround(tilesHigh), GROUND_Y - 1, tile);
   }
 
-  column(x: number, fromY: number, toY: number): void {
+  column(x: number, fromY: number, toY: number, tile = '#'): void {
     for (let y = fromY; y <= toY; y += 1) {
-      this.set(x, y, '#');
+      this.set(x, y, tile);
     }
   }
 
@@ -227,22 +227,50 @@ export function buildCourse(spec: CourseSpec, theme: Theme = 'grass'): string[] 
   return grid.lines();
 }
 
-function safeFloorX(rows: string[], desired: number): number {
-  const width = rows[0]?.length ?? 1;
-  for (let radius = 0; radius < width; radius += 1) {
-    const candidates = radius === 0 ? [desired] : [desired - radius, desired + radius];
-    for (const candidate of candidates) {
-      if (candidate < 2 || candidate >= width - 2) {
-        continue;
-      }
-      const ground = rows[GROUND_Y]?.[candidate];
-      const above = rows[GROUND_Y - 1]?.[candidate];
-      if ((ground === '#' || ground === '@') && above === '.') {
-        return candidate;
-      }
+function occupy(blocked: Set<number>, x: number, radius: number): void {
+  for (let i = x - radius; i <= x + radius; i += 1) {
+    blocked.add(i);
+  }
+}
+
+function isSolidPuzzle(kind: PuzzleKind): boolean {
+  switch (kind) {
+    case 'ice-wall':
+    case 'sand-wall':
+    case 'shadow-wall':
+      return true;
+    case 'vine-bed':
+    case 'down-current':
+      return false;
+    default: {
+      const neverKind: never = kind;
+      return neverKind;
     }
   }
-  return 3;
+}
+
+function safeFloorX(rows: string[], desired: number, blocked: ReadonlySet<number> = new Set()): number {
+  const width = rows[0]?.length ?? 1;
+  const find = (respectBlocked: boolean): number | undefined => {
+    for (let radius = 0; radius < width; radius += 1) {
+      const candidates = radius === 0 ? [desired] : [desired - radius, desired + radius];
+      for (const candidate of candidates) {
+        if (candidate < 2 || candidate >= width - 2) {
+          continue;
+        }
+        if (respectBlocked && blocked.has(candidate)) {
+          continue;
+        }
+        const ground = rows[GROUND_Y]?.[candidate];
+        const above = rows[GROUND_Y - 1]?.[candidate];
+        if ((ground === '#' || ground === '@' || ground === 'G' || ground === 'W') && above === '.') {
+          return candidate;
+        }
+      }
+    }
+    return undefined;
+  };
+  return find(true) ?? find(false) ?? 3;
 }
 
 function assignEnemyKinds(world: number, stage: number, count: number): EnemyKind[] {
@@ -265,16 +293,28 @@ export function compileCourse(world: number, stage: number, spec: CourseSpec, th
     ...spawn,
     kind: kinds[index] ?? enemiesForWorld(world)[0],
   }));
-  const checkpointX = safeFloorX(rows, Math.floor(spec.width * 0.5));
-  const collectibleA = safeFloorX(rows, Math.floor(spec.width * 0.23));
-  const collectibleB = safeFloorX(rows, Math.floor(spec.width * 0.51));
-  const collectibleC = safeFloorX(rows, Math.floor(spec.width * 0.76));
-  const shieldX = safeFloorX(rows, Math.floor(spec.width * 0.68));
+  const blocked = new Set<number>();
+  occupy(blocked, spec.playerX ?? 3, 3);
+  for (const x of groundEnemyX) {
+    occupy(blocked, x, 2);
+  }
+  const checkpointX = safeFloorX(rows, Math.floor(spec.width * 0.5), blocked);
+  const featureBlocked = new Set(blocked);
+  occupy(featureBlocked, checkpointX, 1);
+  const collectibleA = safeFloorX(rows, Math.floor(spec.width * 0.23), featureBlocked);
+  occupy(featureBlocked, collectibleA, 1);
+  const collectibleB = safeFloorX(rows, Math.floor(spec.width * 0.51), featureBlocked);
+  occupy(featureBlocked, collectibleB, 1);
+  const collectibleC = safeFloorX(rows, Math.floor(spec.width * 0.76), featureBlocked);
+  occupy(featureBlocked, collectibleC, 1);
+  const shieldX = safeFloorX(rows, Math.floor(spec.width * 0.68), featureBlocked);
+  occupy(featureBlocked, shieldX, 1);
   const anchorCount = Math.min(4, Math.max(2, stage));
-  const specialAnchors = Array.from({ length: anchorCount }, (_, index) => ({
-    x: safeFloorX(rows, Math.floor(spec.width * ((index + 1) / (anchorCount + 1)))),
-    tilesUp: index % 2 === 0 ? 0 : 2,
-  }));
+  const specialAnchors = Array.from({ length: anchorCount }, (_, index) => {
+    const x = safeFloorX(rows, Math.floor(spec.width * ((index + 1) / (anchorCount + 1))), featureBlocked);
+    occupy(featureBlocked, x, 1);
+    return { x, tilesUp: index % 2 === 0 ? 0 : 2 };
+  });
   const puzzleKind: PuzzleKind =
     world === 1
       ? 'vine-bed'
@@ -285,12 +325,20 @@ export function compileCourse(world: number, stage: number, spec: CourseSpec, th
           : world === 4
             ? 'down-current'
             : 'shadow-wall';
+  const puzzleBlocked = new Set(blocked);
+  if (isSolidPuzzle(puzzleKind)) {
+    occupy(puzzleBlocked, checkpointX, 1);
+  }
   const puzzleCount = stage === 4 ? 1 : stage;
-  const puzzles = Array.from({ length: puzzleCount }, (_, index) => ({
-    x: safeFloorX(rows, Math.floor(spec.width * ((index + 1) / (puzzleCount + 1)))),
-    kind: puzzleKind,
-    height: Math.min(4, 1 + stage),
-  }));
+  const puzzles = Array.from({ length: puzzleCount }, (_, index) => {
+    const x = safeFloorX(
+      rows,
+      Math.floor(spec.width * ((index + 1) / (puzzleCount + 1))),
+      puzzleBlocked,
+    );
+    occupy(puzzleBlocked, x, 1);
+    return { x, kind: puzzleKind, height: Math.min(4, 1 + stage) };
+  });
   return {
     rows,
     enemies,

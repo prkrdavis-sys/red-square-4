@@ -429,6 +429,25 @@ function arenaPalette(theme: Theme): { floor: number; inlay: number; line: numbe
   }
 }
 
+function masonryColors(theme: Theme): { brick: number; brickAlt: number; mortar: number; highlight: number } {
+  switch (theme) {
+    case 'grass':
+      return { brick: 0xb56a38, brickAlt: 0x9a552c, mortar: 0x3a2418, highlight: 0xd4a06a };
+    case 'snow':
+      return { brick: 0x9eb4c6, brickAlt: 0x7f96aa, mortar: 0x4a5c6c, highlight: 0xd8e6f0 };
+    case 'desert':
+      return { brick: 0xc47a3a, brickAlt: 0xa86228, mortar: 0x5a3014, highlight: 0xe8b878 };
+    case 'ocean':
+      return { brick: 0x5a7a88, brickAlt: 0x3e5e6c, mortar: 0x1a3038, highlight: 0x8ab0bc };
+    case 'castle':
+      return { brick: 0x6a5a78, brickAlt: 0x4e3e5c, mortar: 0x241828, highlight: 0x9a88a8 };
+    default: {
+      const neverTheme: never = theme;
+      return neverTheme;
+    }
+  }
+}
+
 function drawArenaTile(scene: Phaser.Scene, theme: Theme): void {
   const c = tileColors(theme);
   const a = arenaPalette(theme);
@@ -471,33 +490,167 @@ function drawArenaRing(scene: Phaser.Scene, theme: Theme): void {
   commit(g, `arena-ring-${theme}`, w, h);
 }
 
+function drawArenaGateTile(scene: Phaser.Scene, theme: Theme): void {
+  const m = masonryColors(theme);
+  const g = gfx(scene);
+  g.fillStyle(m.mortar, 1);
+  g.fillRect(0, 0, TILE, TILE);
+  g.fillStyle(m.brick, 1);
+  g.fillRect(3, 3, TILE - 6, 26);
+  g.fillStyle(m.brickAlt, 1);
+  g.fillRect(3, 35, 28, 26);
+  g.fillRect(33, 35, TILE - 36, 26);
+  g.fillStyle(m.highlight, 0.45);
+  g.fillRect(5, 5, TILE - 14, 4);
+  g.fillRect(5, 37, 18, 3);
+  commit(g, `tile-${theme}-gate`, TILE, TILE);
+}
+
+function drawArenaWallTile(scene: Phaser.Scene, theme: Theme): void {
+  const m = masonryColors(theme);
+  const g = gfx(scene);
+  g.fillStyle(m.mortar, 1);
+  g.fillRect(0, 0, TILE, TILE);
+  g.fillStyle(m.brick, 1);
+  g.fillRect(4, 4, 26, 26);
+  g.fillRect(34, 4, 26, 18);
+  g.fillStyle(m.brickAlt, 1);
+  g.fillRect(4, 34, 18, 26);
+  g.fillRect(26, 26, 34, 34);
+  g.fillStyle(m.highlight, 0.35);
+  g.fillRect(6, 6, 14, 4);
+  g.fillRect(36, 6, 16, 3);
+  commit(g, `tile-${theme}-wall`, TILE, TILE);
+}
+
 function drawArenaBanner(scene: Phaser.Scene, theme: Theme): void {
   const a = arenaPalette(theme);
+  const m = masonryColors(theme);
+  const w = 56;
+  const h = 328;
   const g = gfx(scene);
-  g.fillStyle(a.pole, 1);
-  g.fillRect(12, 0, 4, 70);
+  g.fillStyle(m.mortar, 1);
+  g.fillRect(8, h - 28, 40, 22);
+  g.fillStyle(m.brick, 1);
+  g.fillRect(10, h - 26, 36, 16);
+  g.fillStyle(m.highlight, 0.5);
+  g.fillRect(12, h - 24, 20, 4);
   g.fillStyle(0x1a1010, 1);
-  g.fillRect(11, 0, 6, 4);
-  g.fillStyle(a.flag, 1);
-  g.fillTriangle(16, 6, 40, 16, 16, 28);
+  g.fillRect(25, h - 30, 6, 8);
+  g.fillStyle(a.pole, 1);
+  g.fillRect(26, 8, 5, h - 36);
+  g.fillStyle(0x2a1810, 1);
+  g.fillRect(25, 6, 7, 6);
   g.fillStyle(a.line, 1);
-  g.fillTriangle(16, 10, 32, 16, 16, 22);
-  commit(g, `arena-banner-${theme}`, 42, 72);
+  g.fillCircle(28.5, 8, 4);
+  g.fillStyle(a.flag, 1);
+  g.fillTriangle(31, 14, 54, 32, 31, 58);
+  g.fillStyle(a.line, 1);
+  g.fillTriangle(31, 20, 46, 32, 31, 48);
+  commit(g, `arena-banner-${theme}`, w, h);
 }
 
 function drawArenaTorch(scene: Phaser.Scene, theme: Theme): void {
+  const m = masonryColors(theme);
   const g = gfx(scene);
+  g.fillStyle(m.mortar, 1);
+  g.fillRoundedRect(4, 22, 20, 28, 4);
+  g.fillStyle(m.brick, 1);
+  g.fillRoundedRect(6, 24, 16, 24, 3);
+  g.fillStyle(0x6a6a72, 1);
+  g.fillRect(8, 30, 12, 5);
+  g.fillRect(8, 38, 12, 5);
   g.fillStyle(0x3a2418, 1);
-  g.fillRect(10, 28, 8, 36);
-  g.fillStyle(theme === 'castle' ? 0x5a3d66 : 0x8a5a22, 1);
-  g.fillRect(8, 24, 12, 8);
+  g.fillRect(11, 42, 6, 18);
   g.fillStyle(0xffcc33, 1);
-  g.fillEllipse(14, 16, 14, 18);
+  g.fillEllipse(14, 20, 14, 20);
   g.fillStyle(0xff6622, 1);
-  g.fillEllipse(14, 14, 8, 12);
+  g.fillEllipse(14, 18, 8, 14);
   g.fillStyle(0xfff1a8, 0.9);
-  g.fillCircle(14, 10, 3);
+  g.fillCircle(14, 12, 3);
   commit(g, `arena-torch-${theme}`, 28, 64);
+}
+
+function drawArenaGate(scene: Phaser.Scene, theme: Theme): void {
+  const m = masonryColors(theme);
+  const a = arenaPalette(theme);
+  const w = TILE * 7;
+  const h = TILE * 8;
+  const g = gfx(scene);
+  const postW = 46;
+  const inset = 20;
+  const plinthH = 30;
+  const postTop = 172;
+  const leftX = inset;
+  const rightX = w - inset - postW;
+  const postFill = theme === 'grass' ? a.pole : m.brick;
+  const postAlt = theme === 'grass' ? 0x8a5a28 : m.brickAlt;
+  const leftCenter = leftX + postW / 2;
+  const rightCenter = rightX + postW / 2;
+  const cx = w / 2;
+  const cy = postTop + 10;
+  const radius = (rightCenter - leftCenter) / 2;
+
+  g.fillStyle(m.mortar, 1);
+  g.fillRect(leftCenter - 32, h - plinthH, 64, plinthH);
+  g.fillRect(rightCenter - 32, h - plinthH, 64, plinthH);
+  g.fillStyle(postFill, 1);
+  g.fillRect(leftCenter - 28, h - plinthH + 4, 56, plinthH - 8);
+  g.fillRect(rightCenter - 28, h - plinthH + 4, 56, plinthH - 8);
+
+  g.fillStyle(m.mortar, 1);
+  g.fillRect(leftX - 2, postTop, postW + 4, h - plinthH - postTop);
+  g.fillRect(rightX - 2, postTop, postW + 4, h - plinthH - postTop);
+  g.fillStyle(postFill, 1);
+  g.fillRect(leftX, postTop, postW, h - plinthH - postTop);
+  g.fillRect(rightX, postTop, postW, h - plinthH - postTop);
+  g.fillStyle(postAlt, 1);
+  g.fillRect(leftX + 8, postTop + 8, 8, h - plinthH - postTop - 16);
+  g.fillRect(rightX + postW - 16, postTop + 8, 8, h - plinthH - postTop - 16);
+  g.fillStyle(m.highlight, 0.4);
+  g.fillRect(leftX + 6, postTop + 6, 6, h - plinthH - postTop - 20);
+  g.fillRect(rightX + 6, postTop + 6, 6, h - plinthH - postTop - 20);
+
+  g.fillStyle(m.mortar, 1);
+  g.fillRect(leftX - 8, postTop - 18, postW + 16, 20);
+  g.fillRect(rightX - 8, postTop - 18, postW + 16, 20);
+  g.fillStyle(m.highlight, 1);
+  g.fillRect(leftX - 6, postTop - 16, postW + 12, 6);
+  g.fillRect(rightX - 6, postTop - 16, postW + 12, 6);
+
+  g.lineStyle(40, m.mortar, 1);
+  g.beginPath();
+  g.arc(cx, cy, radius, Math.PI, 0, true);
+  g.strokePath();
+  g.lineStyle(30, postFill, 1);
+  g.beginPath();
+  g.arc(cx, cy, radius, Math.PI, 0, true);
+  g.strokePath();
+  g.lineStyle(6, m.highlight, 0.55);
+  g.beginPath();
+  g.arc(cx, cy, radius - 8, Math.PI, 0, true);
+  g.strokePath();
+
+  const keyY = cy - radius;
+  g.fillStyle(m.mortar, 1);
+  g.fillRect(cx - 16, keyY - 6, 32, 38);
+  g.fillStyle(a.line, 1);
+  g.fillRect(cx - 12, keyY - 2, 24, 30);
+
+  g.fillStyle(a.line, 1);
+  g.fillTriangle(leftCenter, postTop - 40, leftCenter - 14, postTop - 18, leftCenter + 14, postTop - 18);
+  g.fillTriangle(rightCenter, postTop - 40, rightCenter - 14, postTop - 18, rightCenter + 14, postTop - 18);
+  g.fillCircle(cx, keyY - 10, 6);
+
+  g.lineStyle(4, 0x6a6a72, 1);
+  for (const hangX of [cx - 48, cx, cx + 48]) {
+    g.lineBetween(hangX, cy + 8, hangX, cy + 86);
+    g.strokeCircle(hangX, cy + 28, 6);
+    g.strokeCircle(hangX, cy + 52, 6);
+    g.strokeCircle(hangX, cy + 76, 6);
+  }
+
+  commit(g, `arena-gate-${theme}`, w, h);
 }
 
 function drawOnewayTile(scene: Phaser.Scene, theme: Theme): void {
@@ -1021,9 +1174,12 @@ export function createGameTextures(scene: Phaser.Scene): void {
     drawSolidTile(scene, theme);
     drawOnewayTile(scene, theme);
     drawArenaTile(scene, theme);
+    drawArenaGateTile(scene, theme);
+    drawArenaWallTile(scene, theme);
     drawArenaRing(scene, theme);
     drawArenaBanner(scene, theme);
     drawArenaTorch(scene, theme);
+    drawArenaGate(scene, theme);
   }
 }
 
@@ -1039,6 +1195,14 @@ export function arenaTileKey(theme: Theme): string {
   return `tile-${theme}-arena`;
 }
 
+export function arenaGateTileKey(theme: Theme): string {
+  return `tile-${theme}-gate`;
+}
+
+export function arenaWallTileKey(theme: Theme): string {
+  return `tile-${theme}-wall`;
+}
+
 export function arenaRingKey(theme: Theme): string {
   return `arena-ring-${theme}`;
 }
@@ -1049,6 +1213,75 @@ export function arenaBannerKey(theme: Theme): string {
 
 export function arenaTorchKey(theme: Theme): string {
   return `arena-torch-${theme}`;
+}
+
+export function arenaGateKey(theme: Theme): string {
+  return `arena-gate-${theme}`;
+}
+
+export function kenneyArenaGateKey(theme: Theme): string {
+  switch (theme) {
+    case 'grass':
+    case 'desert':
+      return 'kenney-brick-brown';
+    case 'snow':
+    case 'ocean':
+    case 'castle':
+      return 'kenney-brick-grey';
+    default: {
+      const neverTheme: never = theme;
+      return neverTheme;
+    }
+  }
+}
+
+export function kenneyArenaWallKey(theme: Theme): string {
+  switch (theme) {
+    case 'grass':
+    case 'desert':
+      return 'kenney-bricks-brown';
+    case 'snow':
+    case 'ocean':
+    case 'castle':
+      return 'kenney-bricks-grey';
+    default: {
+      const neverTheme: never = theme;
+      return neverTheme;
+    }
+  }
+}
+
+export type ArenaFlagColor = 'red' | 'green' | 'blue' | 'yellow';
+
+export function arenaFlagColor(theme: Theme): ArenaFlagColor {
+  switch (theme) {
+    case 'grass':
+      return 'green';
+    case 'snow':
+    case 'ocean':
+      return 'blue';
+    case 'desert':
+      return 'yellow';
+    case 'castle':
+      return 'red';
+    default: {
+      const neverTheme: never = theme;
+      return neverTheme;
+    }
+  }
+}
+
+export function kenneyArenaFlagKeys(theme: Theme): { a: string; b: string } {
+  const color = arenaFlagColor(theme);
+  return { a: `kenney-flag-${color}-a`, b: `kenney-flag-${color}-b` };
+}
+
+export function kenneyTorchKeys(): { a: string; b: string } {
+  return { a: 'kenney-torch-a', b: 'kenney-torch-b' };
+}
+
+export function kenneyWindowKey(): string {
+  return 'kenney-window';
 }
 
 export function bossTextureKey(kind: 'hopper' | 'slider' | 'slam' | 'swimmer' | 'charger'): string {
