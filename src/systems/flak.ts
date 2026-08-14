@@ -3,7 +3,7 @@ import { FlakFragment, type FlakKind, type FlakSnapshot } from '../entities/Flak
 import type { LevelId } from '../config';
 
 const FLAK_DATA_KEY = 'flak';
-const FLAK_BURST_COUNT = 44;
+const FLAK_BURST_COUNT = 22;
 const FLAK_KINDS: FlakKind[] = ['chunk', 'shard', 'sliver', 'char', 'gold'];
 
 interface RememberedFlak {
@@ -56,7 +56,7 @@ export function restoreFlak(
 }
 
 function pickKind(index: number): FlakKind {
-  if (index < 8) {
+  if (index < 4) {
     return 'chunk';
   }
   return FLAK_KINDS[index % FLAK_KINDS.length] ?? 'shard';

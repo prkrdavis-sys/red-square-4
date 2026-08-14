@@ -21,7 +21,7 @@ export class TitleScene extends Phaser.Scene {
 
     const heroX = GAME_WIDTH / 2;
     const shadow = this.add.ellipse(heroX, 216, 92, 22, 0x3a1010, 0.28);
-    this.add.ellipse(heroX, 164, 96, 96, 0xf0c75a, 0.14);
+    this.add.ellipse(heroX, 164, 96, 96, 0xff3d42, 0.16);
     const square = this.add.image(heroX, 160, 'player').setScale(2.35);
     this.tweens.add({
       targets: square,

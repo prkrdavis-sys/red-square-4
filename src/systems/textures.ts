@@ -16,24 +16,15 @@ const HERO_SIZE = 48;
 type HeroPose = 'idle' | 'blink' | 'run-a' | 'run-b' | 'jump' | 'fall' | 'dead';
 
 const HERO = {
-  ink: 0x3a070a,
-  rim: 0x6c1016,
-  shell: 0xa61a22,
-  body: 0xe23b3b,
-  mid: 0xc42c32,
-  deep: 0x8e1a20,
-  blush: 0xff6a72,
-  gloss: 0xffc2c4,
-  glossHot: 0xffecec,
-  gold: 0xf0c75a,
-  goldDeep: 0xb07a22,
-  cream: 0xfff6e8,
-  brow: 0x4a1014,
-  mouth: 0x5a1218,
-  iris: 0x3a2418,
-  pupil: 0x160c10,
-  boot: 0x5a0c12,
-  bootShine: 0x8a3038,
+  ink: 0x1a0808,
+  body: 0xff3d42,
+  shade: 0xc41c28,
+  gloss: 0xff9aa0,
+  eye: 0xffffff,
+  pupil: 0x140808,
+  mouth: 0x1a0808,
+  boot: 0x2a1814,
+  bootSole: 0x140808,
 } as const;
 
 interface EyeMetrics {
@@ -43,26 +34,25 @@ interface EyeMetrics {
   w: number;
   h: number;
   browLift: number;
-  browTilt: number;
   cross?: boolean;
 }
 
 function heroEyes(pose: HeroPose): EyeMetrics {
   switch (pose) {
     case 'idle':
-      return { open: 1, lookX: 1.4, lookY: 0.2, w: 12, h: 14, browLift: 0, browTilt: -0.8 };
+      return { open: 1, lookX: 1.6, lookY: 0.4, w: 14, h: 16, browLift: 0 };
     case 'blink':
-      return { open: 0, lookX: 1.3, lookY: 0, w: 11, h: 3, browLift: 1, browTilt: 0 };
+      return { open: 0, lookX: 1.4, lookY: 0, w: 14, h: 4, browLift: 1 };
     case 'run-a':
-      return { open: 1, lookX: 1.8, lookY: 0.2, w: 11, h: 11, browLift: -0.6, browTilt: -1.4 };
+      return { open: 1, lookX: 2.2, lookY: 0.2, w: 13, h: 14, browLift: -1 };
     case 'run-b':
-      return { open: 1, lookX: 2, lookY: -0.3, w: 11, h: 11, browLift: -0.4, browTilt: -1.2 };
+      return { open: 1, lookX: 2.4, lookY: -0.2, w: 13, h: 14, browLift: -1 };
     case 'jump':
-      return { open: 1, lookX: 1.1, lookY: -1.4, w: 12, h: 15, browLift: -2.2, browTilt: -1.6 };
+      return { open: 1, lookX: 1.2, lookY: -2.2, w: 14, h: 17, browLift: -2.4 };
     case 'fall':
-      return { open: 1, lookX: 0.6, lookY: 2.4, w: 11, h: 14, browLift: 1.4, browTilt: 1.8 };
+      return { open: 1, lookX: 0.4, lookY: 2.8, w: 15, h: 16, browLift: 2.2 };
     case 'dead':
-      return { open: 1, lookX: 0, lookY: 0, w: 12, h: 12, browLift: 3.2, browTilt: 3.4, cross: true };
+      return { open: 1, lookX: 0, lookY: 0, w: 14, h: 14, browLift: 2, cross: true };
     default: {
       const neverPose: never = pose;
       return neverPose;
@@ -73,51 +63,34 @@ function heroEyes(pose: HeroPose): EyeMetrics {
 function paintHeroMouth(g: Phaser.GameObjects.Graphics, cx: number, cy: number, pose: HeroPose): void {
   switch (pose) {
     case 'idle':
-      g.lineStyle(2, HERO.mouth, 1);
-      g.beginPath();
-      g.arc(cx, cy - 1, 6, 0.18 * Math.PI, 0.82 * Math.PI, false);
-      g.strokePath();
-      g.lineStyle(1, 0xff9a9a, 0.7);
-      g.beginPath();
-      g.arc(cx, cy - 2, 5, 0.28 * Math.PI, 0.72 * Math.PI, false);
-      g.strokePath();
-      break;
     case 'blink':
-      g.lineStyle(2, HERO.mouth, 1);
+      g.lineStyle(3, HERO.mouth, 1);
       g.beginPath();
-      g.arc(cx, cy, 5, 0.22 * Math.PI, 0.78 * Math.PI, false);
+      g.arc(cx, cy - 1, 6, 0.15 * Math.PI, 0.85 * Math.PI, false);
       g.strokePath();
       break;
     case 'run-a':
     case 'run-b':
       g.fillStyle(HERO.mouth, 1);
-      g.fillRoundedRect(cx - 5, cy, 10, 4, 2);
-      g.fillStyle(HERO.cream, 1);
-      g.fillRect(cx - 3, cy + 1, 6, 1.5);
+      g.fillRoundedRect(cx - 5, cy + 1, 10, 3, 1.5);
       break;
     case 'jump':
       g.fillStyle(HERO.mouth, 1);
-      g.fillEllipse(cx, cy + 1, 7, 8);
-      g.fillStyle(0x2a080c, 1);
-      g.fillEllipse(cx, cy + 2, 4, 5);
-      g.fillStyle(HERO.cream, 1);
-      g.fillEllipse(cx, cy - 1, 4, 2);
+      g.fillEllipse(cx, cy + 1, 9, 9);
+      g.fillStyle(HERO.shade, 1);
+      g.fillEllipse(cx, cy + 1.5, 5, 5);
       break;
     case 'fall':
-      g.lineStyle(2, HERO.mouth, 1);
+      g.lineStyle(3, HERO.mouth, 1);
       g.beginPath();
-      g.arc(cx, cy + 4, 5, 1.15 * Math.PI, 1.85 * Math.PI, false);
+      g.arc(cx, cy + 5, 6, 1.12 * Math.PI, 1.88 * Math.PI, false);
       g.strokePath();
       break;
     case 'dead':
       g.fillStyle(HERO.mouth, 1);
-      g.fillEllipse(cx, cy + 1, 11, 7);
-      g.fillStyle(0x2a080c, 1);
-      g.fillEllipse(cx, cy + 2, 7, 4);
-      g.fillStyle(0xff6a9a, 1);
-      g.fillEllipse(cx + 5, cy + 6, 6, 7);
-      g.fillStyle(0xff9ab0, 1);
-      g.fillEllipse(cx + 6, cy + 5, 3, 3);
+      g.fillEllipse(cx, cy + 1, 10, 6);
+      g.fillStyle(HERO.shade, 1);
+      g.fillEllipse(cx, cy + 1.5, 6, 3);
       break;
     default: {
       const neverPose: never = pose;
@@ -130,144 +103,82 @@ function paintHeroFeet(g: Phaser.GameObjects.Graphics, pose: HeroPose): void {
   const tucked = pose === 'jump';
   const dangled = pose === 'fall';
   const splayed = pose === 'dead';
-  const runShift = pose === 'run-a' ? -2 : pose === 'run-b' ? 2 : 0;
-  const y = tucked ? 39 : dangled || splayed ? 42 : 41;
-  const h = tucked ? 5 : dangled || splayed ? 7 : 6;
-  const leftX = splayed ? 3 : 8 + runShift;
-  const rightX = splayed ? 32 : 27 - runShift;
+  const runShift = pose === 'run-a' ? -3 : pose === 'run-b' ? 3 : 0;
+  const y = tucked ? 36 : dangled || splayed ? 41 : 39;
+  const h = tucked ? 7 : dangled || splayed ? 8 : 8;
+  const w = 13;
+  const leftX = splayed ? 2 : 7 + runShift;
+  const rightX = splayed ? 33 : 28 - runShift;
   g.fillStyle(HERO.ink, 1);
-  g.fillRoundedRect(leftX, y + 1, 13, h, 2);
-  g.fillRoundedRect(rightX, y + 1, 13, h, 2);
+  g.fillRoundedRect(leftX, y, w, h, 3);
+  g.fillRoundedRect(rightX, y, w, h, 3);
   g.fillStyle(HERO.boot, 1);
-  g.fillRoundedRect(leftX + 1, y, 11, h - 1, 2);
-  g.fillRoundedRect(rightX + 1, y, 11, h - 1, 2);
-  g.fillStyle(HERO.bootShine, 0.85);
-  g.fillRect(leftX + 3, y + 1, 5, 2);
-  g.fillRect(rightX + 3, y + 1, 5, 2);
+  g.fillRoundedRect(leftX + 1, y, w - 2, h - 2, 2);
+  g.fillRoundedRect(rightX + 1, y, w - 2, h - 2, 2);
+  g.fillStyle(HERO.bootSole, 1);
+  g.fillRect(leftX + 1, y + h - 3, w - 2, 2);
+  g.fillRect(rightX + 1, y + h - 3, w - 2, 2);
 }
 
-function paintRivet(g: Phaser.GameObjects.Graphics, x: number, y: number): void {
-  g.fillStyle(HERO.ink, 1);
-  g.fillCircle(x, y, 3.2);
-  g.fillStyle(HERO.goldDeep, 1);
-  g.fillCircle(x, y, 2.5);
-  g.fillStyle(HERO.gold, 1);
-  g.fillCircle(x, y, 1.7);
-  g.fillStyle(HERO.cream, 0.9);
-  g.fillCircle(x - 0.7, y - 0.7, 0.7);
-}
+function paintHeroEye(g: Phaser.GameObjects.Graphics, x: number, y: number, metrics: EyeMetrics): void {
+  const outlineW = metrics.w + 4;
+  const outlineH = metrics.open <= 0 ? 6 : metrics.h + 4;
 
-function paintHeroEye(
-  g: Phaser.GameObjects.Graphics,
-  x: number,
-  y: number,
-  metrics: EyeMetrics,
-  innerBrow: number,
-): void {
   if (metrics.cross) {
-    g.fillStyle(HERO.cream, 1);
-    g.fillEllipse(x, y, metrics.w, metrics.h);
-    g.lineStyle(2.6, HERO.ink, 1);
-    g.beginPath();
-    g.moveTo(x - 4.6, y - 4.6);
-    g.lineTo(x + 4.6, y + 4.6);
-    g.moveTo(x + 4.6, y - 4.6);
-    g.lineTo(x - 4.6, y + 4.6);
-    g.strokePath();
-    g.lineStyle(1.4, 0xff9a9a, 0.85);
-    g.beginPath();
-    g.moveTo(x - 3.4, y - 3.4);
-    g.lineTo(x + 3.4, y + 3.4);
-    g.moveTo(x + 3.4, y - 3.4);
-    g.lineTo(x - 3.4, y + 3.4);
-    g.strokePath();
-  } else if (metrics.open <= 0) {
     g.fillStyle(HERO.ink, 1);
-    g.fillRoundedRect(x - metrics.w / 2, y - 1, metrics.w, 3, 1);
-    g.fillStyle(0xff9a9a, 1);
-    g.fillRect(x - metrics.w / 2 + 1, y - 1, metrics.w - 2, 1);
-  } else {
-    g.fillStyle(0x7a181c, 0.55);
-    g.fillEllipse(x, y + 2, metrics.w + 1, metrics.h * 0.45);
-    g.fillStyle(HERO.cream, 1);
+    g.fillEllipse(x, y, outlineW, outlineH);
+    g.fillStyle(HERO.eye, 1);
     g.fillEllipse(x, y, metrics.w, metrics.h);
-    g.fillStyle(HERO.iris, 1);
-    g.fillEllipse(x + metrics.lookX, y + metrics.lookY + 0.5, metrics.w * 0.58, metrics.h * 0.62);
-    g.fillStyle(HERO.pupil, 1);
-    g.fillEllipse(x + metrics.lookX + 0.2, y + metrics.lookY + 0.8, metrics.w * 0.32, metrics.h * 0.38);
-    g.fillStyle(0xffffff, 1);
-    g.fillCircle(x + metrics.lookX - 1.6, y + metrics.lookY - 2.2, 1.7);
-    g.fillCircle(x + metrics.lookX + 1.4, y + metrics.lookY + 1.6, 0.8);
-    g.fillStyle(HERO.blush, 0.35);
-    g.fillEllipse(x, y + metrics.h * 0.28, metrics.w * 0.7, 3);
+    g.lineStyle(3, HERO.ink, 1);
+    g.beginPath();
+    g.moveTo(x - 5, y - 5);
+    g.lineTo(x + 5, y + 5);
+    g.moveTo(x + 5, y - 5);
+    g.lineTo(x - 5, y + 5);
+    g.strokePath();
+    return;
   }
 
-  const browY = y - (metrics.open <= 0 ? 6 : metrics.h * 0.58) + metrics.browLift;
-  g.fillStyle(HERO.brow, 1);
-  g.fillRoundedRect(x - 6, browY - innerBrow * 0.4, 12, 3, 1);
-  g.fillRoundedRect(x - 5, browY + metrics.browTilt * 0.35, 10, 2, 1);
+  if (metrics.open <= 0) {
+    g.fillStyle(HERO.ink, 1);
+    g.fillRoundedRect(x - metrics.w / 2 - 1, y - 2, metrics.w + 2, 5, 2);
+    g.fillStyle(HERO.shade, 1);
+    g.fillRoundedRect(x - metrics.w / 2, y - 1, metrics.w, 2, 1);
+    return;
+  }
+
+  g.fillStyle(HERO.ink, 1);
+  g.fillEllipse(x, y, outlineW, outlineH);
+  g.fillStyle(HERO.eye, 1);
+  g.fillEllipse(x, y, metrics.w, metrics.h);
+  g.fillStyle(HERO.pupil, 1);
+  g.fillEllipse(x + metrics.lookX, y + metrics.lookY, metrics.w * 0.52, metrics.h * 0.58);
+  g.fillStyle(HERO.eye, 1);
+  g.fillCircle(x + metrics.lookX - 2.2, y + metrics.lookY - 2.6, 2.2);
+
+  const browY = y - metrics.h * 0.62 + metrics.browLift;
+  g.fillStyle(HERO.ink, 1);
+  g.fillRoundedRect(x - 6, browY, 12, 2, 1);
 }
 
 function paintHeroSquare(g: Phaser.GameObjects.Graphics, pose: HeroPose): void {
-  const s = HERO_SIZE;
-  const cx = s / 2;
+  const cx = HERO_SIZE / 2;
   paintHeroFeet(g, pose);
 
   g.fillStyle(HERO.ink, 1);
-  g.fillRoundedRect(1, 1, 46, 42, 6);
-  g.fillStyle(HERO.rim, 1);
-  g.fillRoundedRect(3, 3, 42, 38, 5);
-  g.fillStyle(HERO.shell, 1);
-  g.fillRoundedRect(4, 4, 40, 36, 4);
+  g.fillRoundedRect(1, 1, 46, 40, 8);
   g.fillStyle(HERO.body, 1);
-  g.fillRoundedRect(5, 5, 38, 34, 4);
+  g.fillRoundedRect(5, 5, 38, 32, 5);
+  g.fillStyle(HERO.shade, 1);
+  g.fillRoundedRect(5, 24, 38, 13, { tl: 0, tr: 0, bl: 5, br: 5 });
+  g.fillStyle(HERO.gloss, 1);
+  g.fillRoundedRect(7, 6, 11, 5, { tl: 3, tr: 2, bl: 2, br: 2 });
 
-  g.fillStyle(HERO.mid, 1);
-  g.fillRoundedRect(6, 22, 36, 16, { tl: 2, tr: 2, bl: 6, br: 6 });
-  g.fillStyle(HERO.deep, 0.55);
-  g.fillRoundedRect(7, 30, 34, 9, { tl: 0, tr: 0, bl: 5, br: 5 });
-  g.fillStyle(0x7a1418, 0.5);
-  g.fillRect(38, 8, 5, 28);
-
-  g.fillStyle(0xff8a90, 1);
-  g.fillRoundedRect(7, 6, 32, 14, { tl: 5, tr: 5, bl: 2, br: 2 });
-  g.fillStyle(HERO.gloss, 0.95);
-  g.fillEllipse(16, 12, 18, 9);
-  g.fillStyle(HERO.glossHot, 0.9);
-  g.fillEllipse(13, 10, 8, 4);
-  g.fillStyle(0xffffff, 0.55);
-  g.fillRoundedRect(8, 6, 20, 3, 1);
-
-  g.lineStyle(2, HERO.goldDeep, 1);
-  g.strokeRoundedRect(8, 8, 32, 28, 4);
-  g.lineStyle(1, HERO.gold, 1);
-  g.strokeRoundedRect(9, 9, 30, 26, 3);
-
-  paintRivet(g, 11, 11);
-  paintRivet(g, 37, 11);
-  paintRivet(g, 11, 33);
-  paintRivet(g, 37, 33);
-
-  g.fillStyle(HERO.goldDeep, 1);
-  g.fillRoundedRect(cx - 6, 36, 12, 6, 2);
-  g.fillStyle(HERO.gold, 1);
-  g.fillRoundedRect(cx - 5, 36, 10, 4, 1);
-  g.fillStyle(HERO.ink, 1);
-  g.fillRect(cx - 1, 37, 2, 3);
-  g.fillRect(cx - 3, 38, 6, 1);
-
-  const faceY = pose === 'jump' ? 17 : pose === 'fall' || pose === 'dead' ? 20 : 18;
+  const faceY = pose === 'jump' ? 18 : pose === 'fall' || pose === 'dead' ? 21 : 19;
   const eyes = heroEyes(pose);
-  g.fillStyle(HERO.blush, 0.7);
-  g.fillEllipse(13, faceY + 10, 8, 5);
-  g.fillEllipse(35, faceY + 10, 8, 5);
-
-  paintHeroEye(g, 16.5, faceY, eyes, pose === 'fall' ? 1.6 : -0.6);
-  paintHeroEye(g, 31.5, faceY, eyes, pose === 'fall' ? -1.6 : 0.6);
+  paintHeroEye(g, 16, faceY, eyes);
+  paintHeroEye(g, 32, faceY, eyes);
   paintHeroMouth(g, cx, faceY + 13, pose);
-
-  g.fillStyle(0xffffff, 0.18);
-  g.fillTriangle(7, 8, 18, 7, 8, 18);
 }
 
 function stampHero(scene: Phaser.Scene, key: string, pose: HeroPose): void {
@@ -889,16 +800,14 @@ function drawBlastSpark(scene: Phaser.Scene): void {
 
 function drawHeroShard(scene: Phaser.Scene): void {
   const g = gfx(scene);
-  g.fillStyle(0x3a070a, 1);
+  g.fillStyle(HERO.ink, 1);
   g.fillRoundedRect(0, 0, 16, 16, 3);
-  g.fillStyle(0xa61a22, 1);
-  g.fillRoundedRect(1, 1, 14, 14, 3);
-  g.fillStyle(0xe23b3b, 1);
+  g.fillStyle(HERO.body, 1);
   g.fillRoundedRect(2, 2, 12, 12, 2);
-  g.fillStyle(0xffc2c4, 0.95);
-  g.fillRect(3, 3, 7, 4);
-  g.fillStyle(0xf0c75a, 1);
-  g.fillCircle(4, 4, 1.6);
+  g.fillStyle(HERO.shade, 1);
+  g.fillRoundedRect(2, 9, 12, 5, { tl: 0, tr: 0, bl: 2, br: 2 });
+  g.fillStyle(HERO.gloss, 1);
+  g.fillRect(3, 3, 6, 3);
   commit(g, 'hero-shard', 16, 16);
 }
 
@@ -1096,28 +1005,24 @@ function drawCartoonStar(scene: Phaser.Scene): void {
 
 function drawMapToken(scene: Phaser.Scene): void {
   const g = gfx(scene);
-  g.fillStyle(0x3a070a, 1);
-  g.fillRoundedRect(1, 2, 22, 20, 5);
-  g.fillStyle(0xa61a22, 1);
-  g.fillRoundedRect(2, 3, 20, 17, 4);
-  g.fillStyle(0xe23b3b, 1);
+  g.fillStyle(HERO.ink, 1);
+  g.fillRoundedRect(1, 2, 22, 19, 5);
+  g.fillStyle(HERO.body, 1);
   g.fillRoundedRect(3, 4, 18, 15, 3);
-  g.fillStyle(0xff8a90, 1);
-  g.fillRoundedRect(4, 5, 12, 6, 2);
-  g.fillStyle(0xffecec, 0.9);
-  g.fillEllipse(8, 7, 7, 3);
-  g.fillStyle(0xfff6e8, 1);
-  g.fillEllipse(8, 11, 5, 6);
-  g.fillEllipse(16, 11, 5, 6);
-  g.fillStyle(0x160c10, 1);
-  g.fillCircle(9, 12, 1.6);
-  g.fillCircle(17, 12, 1.6);
-  g.fillStyle(0xffffff, 1);
-  g.fillCircle(8.3, 11, 0.7);
-  g.fillCircle(16.3, 11, 0.7);
-  g.fillStyle(0xf0c75a, 1);
-  g.fillRect(4, 18, 16, 2);
-  g.fillStyle(0x5a0c12, 1);
+  g.fillStyle(HERO.shade, 1);
+  g.fillRoundedRect(3, 13, 18, 6, { tl: 0, tr: 0, bl: 3, br: 3 });
+  g.fillStyle(HERO.gloss, 1);
+  g.fillRoundedRect(5, 5, 8, 4, 2);
+  g.fillStyle(HERO.ink, 1);
+  g.fillEllipse(8, 10, 6, 7);
+  g.fillEllipse(16, 10, 6, 7);
+  g.fillStyle(HERO.eye, 1);
+  g.fillEllipse(8, 10, 4, 5);
+  g.fillEllipse(16, 10, 4, 5);
+  g.fillStyle(HERO.pupil, 1);
+  g.fillCircle(9, 11, 1.6);
+  g.fillCircle(17, 11, 1.6);
+  g.fillStyle(HERO.boot, 1);
   g.fillRoundedRect(5, 20, 6, 3, 1);
   g.fillRoundedRect(13, 20, 6, 3, 1);
   commit(g, 'map-token', 24, 24);

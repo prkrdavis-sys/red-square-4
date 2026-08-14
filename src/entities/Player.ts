@@ -377,7 +377,7 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
       if (running) {
         const bob = Math.sin(now / 62);
         this.view.setScale(1 + bob * 0.05, 1 - bob * 0.07);
-        this.view.setAngle(facing * 8);
+        this.view.setAngle(facing * 5);
       } else if (!grounded) {
         const stretch = Phaser.Math.Clamp(Math.abs(vy) / 900, 0, 0.12);
         this.view.setScale(1 - stretch, 1 + stretch);
