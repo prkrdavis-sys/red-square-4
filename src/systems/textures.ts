@@ -13,7 +13,7 @@ function commit(g: Phaser.GameObjects.Graphics, key: string, w: number, h: numbe
 
 const HERO_SIZE = 48;
 
-type HeroPose = 'idle' | 'blink' | 'run-a' | 'run-b' | 'jump' | 'fall';
+type HeroPose = 'idle' | 'blink' | 'run-a' | 'run-b' | 'jump' | 'fall' | 'dead';
 
 const HERO = {
   ink: 0x3a070a,
@@ -44,6 +44,7 @@ interface EyeMetrics {
   h: number;
   browLift: number;
   browTilt: number;
+  cross?: boolean;
 }
 
 function heroEyes(pose: HeroPose): EyeMetrics {
@@ -60,6 +61,8 @@ function heroEyes(pose: HeroPose): EyeMetrics {
       return { open: 1, lookX: 1.1, lookY: -1.4, w: 12, h: 15, browLift: -2.2, browTilt: -1.6 };
     case 'fall':
       return { open: 1, lookX: 0.6, lookY: 2.4, w: 11, h: 14, browLift: 1.4, browTilt: 1.8 };
+    case 'dead':
+      return { open: 1, lookX: 0, lookY: 0, w: 12, h: 12, browLift: 3.2, browTilt: 3.4, cross: true };
     default: {
       const neverPose: never = pose;
       return neverPose;
@@ -106,6 +109,16 @@ function paintHeroMouth(g: Phaser.GameObjects.Graphics, cx: number, cy: number, 
       g.arc(cx, cy + 4, 5, 1.15 * Math.PI, 1.85 * Math.PI, false);
       g.strokePath();
       break;
+    case 'dead':
+      g.fillStyle(HERO.mouth, 1);
+      g.fillEllipse(cx, cy + 1, 11, 7);
+      g.fillStyle(0x2a080c, 1);
+      g.fillEllipse(cx, cy + 2, 7, 4);
+      g.fillStyle(0xff6a9a, 1);
+      g.fillEllipse(cx + 5, cy + 6, 6, 7);
+      g.fillStyle(0xff9ab0, 1);
+      g.fillEllipse(cx + 6, cy + 5, 3, 3);
+      break;
     default: {
       const neverPose: never = pose;
       return neverPose;
@@ -116,11 +129,12 @@ function paintHeroMouth(g: Phaser.GameObjects.Graphics, cx: number, cy: number, 
 function paintHeroFeet(g: Phaser.GameObjects.Graphics, pose: HeroPose): void {
   const tucked = pose === 'jump';
   const dangled = pose === 'fall';
+  const splayed = pose === 'dead';
   const runShift = pose === 'run-a' ? -2 : pose === 'run-b' ? 2 : 0;
-  const y = tucked ? 39 : dangled ? 42 : 41;
-  const h = tucked ? 5 : dangled ? 7 : 6;
-  const leftX = 8 + runShift;
-  const rightX = 27 - runShift;
+  const y = tucked ? 39 : dangled || splayed ? 42 : 41;
+  const h = tucked ? 5 : dangled || splayed ? 7 : 6;
+  const leftX = splayed ? 3 : 8 + runShift;
+  const rightX = splayed ? 32 : 27 - runShift;
   g.fillStyle(HERO.ink, 1);
   g.fillRoundedRect(leftX, y + 1, 13, h, 2);
   g.fillRoundedRect(rightX, y + 1, 13, h, 2);
@@ -150,7 +164,24 @@ function paintHeroEye(
   metrics: EyeMetrics,
   innerBrow: number,
 ): void {
-  if (metrics.open <= 0) {
+  if (metrics.cross) {
+    g.fillStyle(HERO.cream, 1);
+    g.fillEllipse(x, y, metrics.w, metrics.h);
+    g.lineStyle(2.6, HERO.ink, 1);
+    g.beginPath();
+    g.moveTo(x - 4.6, y - 4.6);
+    g.lineTo(x + 4.6, y + 4.6);
+    g.moveTo(x + 4.6, y - 4.6);
+    g.lineTo(x - 4.6, y + 4.6);
+    g.strokePath();
+    g.lineStyle(1.4, 0xff9a9a, 0.85);
+    g.beginPath();
+    g.moveTo(x - 3.4, y - 3.4);
+    g.lineTo(x + 3.4, y + 3.4);
+    g.moveTo(x + 3.4, y - 3.4);
+    g.lineTo(x - 3.4, y + 3.4);
+    g.strokePath();
+  } else if (metrics.open <= 0) {
     g.fillStyle(HERO.ink, 1);
     g.fillRoundedRect(x - metrics.w / 2, y - 1, metrics.w, 3, 1);
     g.fillStyle(0xff9a9a, 1);
@@ -225,7 +256,7 @@ function paintHeroSquare(g: Phaser.GameObjects.Graphics, pose: HeroPose): void {
   g.fillRect(cx - 1, 37, 2, 3);
   g.fillRect(cx - 3, 38, 6, 1);
 
-  const faceY = pose === 'jump' ? 17 : pose === 'fall' ? 20 : 18;
+  const faceY = pose === 'jump' ? 17 : pose === 'fall' || pose === 'dead' ? 20 : 18;
   const eyes = heroEyes(pose);
   g.fillStyle(HERO.blush, 0.7);
   g.fillEllipse(13, faceY + 10, 8, 5);
@@ -252,6 +283,7 @@ function drawPlayer(scene: Phaser.Scene): void {
   stampHero(scene, 'player-run-b', 'run-b');
   stampHero(scene, 'player-jump', 'jump');
   stampHero(scene, 'player-fall', 'fall');
+  stampHero(scene, 'player-dead', 'dead');
 }
 
 function drawBaddie(
@@ -505,6 +537,95 @@ function drawParticle(scene: Phaser.Scene): void {
   commit(g, 'poof-particle', 16, 16);
 }
 
+function drawBlastCore(scene: Phaser.Scene): void {
+  const g = gfx(scene);
+  const c = 48;
+  g.fillStyle(0x6a0810, 0.95);
+  g.fillCircle(c, c, 47);
+  g.fillStyle(0xe23b3b, 1);
+  g.fillCircle(c - 2, c + 1, 40);
+  g.fillStyle(0xff4a1a, 1);
+  g.fillCircle(c + 16, c - 12, 16);
+  g.fillCircle(c - 18, c + 14, 15);
+  g.fillCircle(c + 10, c + 20, 14);
+  g.fillStyle(0xff6622, 1);
+  g.fillCircle(c - 3, c - 2, 30);
+  g.fillStyle(0xffcc33, 1);
+  g.fillCircle(c - 6, c - 5, 20);
+  g.fillStyle(0xfff4c8, 1);
+  g.fillCircle(c - 9, c - 8, 11);
+  g.fillStyle(0xffffff, 1);
+  g.fillCircle(c - 11, c - 10, 5);
+  commit(g, 'blast-core', 96, 96);
+}
+
+function drawBlastRing(scene: Phaser.Scene): void {
+  const g = gfx(scene);
+  g.lineStyle(10, 0xfff1a8, 1);
+  g.strokeCircle(48, 48, 38);
+  g.lineStyle(6, 0xff6622, 0.95);
+  g.strokeCircle(48, 48, 32);
+  g.lineStyle(3, 0xe23b3b, 0.85);
+  g.strokeCircle(48, 48, 26);
+  commit(g, 'blast-ring', 96, 96);
+}
+
+function drawBlastSmoke(scene: Phaser.Scene): void {
+  const g = gfx(scene);
+  g.fillStyle(0x2a2018, 0.95);
+  g.fillCircle(32, 38, 24);
+  g.fillCircle(46, 28, 20);
+  g.fillCircle(18, 26, 18);
+  g.fillCircle(38, 18, 16);
+  g.fillStyle(0x6a5a4a, 0.92);
+  g.fillCircle(30, 30, 16);
+  g.fillCircle(42, 24, 12);
+  g.fillStyle(0xb8a090, 0.7);
+  g.fillCircle(26, 22, 8);
+  commit(g, 'blast-smoke', 64, 64);
+}
+
+function drawBlastSpark(scene: Phaser.Scene): void {
+  const g = gfx(scene);
+  g.fillStyle(0xfff8d0, 1);
+  g.fillTriangle(6, 0, 10, 16, 2, 16);
+  g.fillStyle(0xffcc33, 1);
+  g.fillTriangle(6, 6, 9, 28, 3, 28);
+  g.fillStyle(0xffffff, 1);
+  g.fillRect(5, 2, 2, 10);
+  commit(g, 'blast-spark', 12, 28);
+}
+
+function drawHeroShard(scene: Phaser.Scene): void {
+  const g = gfx(scene);
+  g.fillStyle(0x3a070a, 1);
+  g.fillRoundedRect(0, 0, 16, 16, 3);
+  g.fillStyle(0xa61a22, 1);
+  g.fillRoundedRect(1, 1, 14, 14, 3);
+  g.fillStyle(0xe23b3b, 1);
+  g.fillRoundedRect(2, 2, 12, 12, 2);
+  g.fillStyle(0xffc2c4, 0.95);
+  g.fillRect(3, 3, 7, 4);
+  g.fillStyle(0xf0c75a, 1);
+  g.fillCircle(4, 4, 1.6);
+  commit(g, 'hero-shard', 16, 16);
+}
+
+function drawCartoonStar(scene: Phaser.Scene): void {
+  const g = gfx(scene);
+  const c = 12;
+  g.fillStyle(0xf0c75a, 1);
+  g.fillTriangle(c, 0, c + 4, c, c - 4, c);
+  g.fillTriangle(c, 24, c + 4, c, c - 4, c);
+  g.fillTriangle(0, c, c, c - 4, c, c + 4);
+  g.fillTriangle(24, c, c, c - 4, c, c + 4);
+  g.fillStyle(0xfff8d0, 1);
+  g.fillCircle(c, c, 4);
+  g.fillStyle(0xffffff, 1);
+  g.fillCircle(c - 1, c - 1, 1.4);
+  commit(g, 'cartoon-star', 24, 24);
+}
+
 function drawMapToken(scene: Phaser.Scene): void {
   const g = gfx(scene);
   g.fillStyle(0x3a070a, 1);
@@ -564,6 +685,12 @@ export function createGameTextures(scene: Phaser.Scene): void {
   drawSpikedBoss(scene, 'boss-charger', 104, 0x2a1020, 0x6a2040);
   drawLavaTile(scene);
   drawParticle(scene);
+  drawBlastCore(scene);
+  drawBlastRing(scene);
+  drawBlastSmoke(scene);
+  drawBlastSpark(scene);
+  drawHeroShard(scene);
+  drawCartoonStar(scene);
   createLandscapeTextures(scene);
   drawMapToken(scene);
   drawNode(scene);

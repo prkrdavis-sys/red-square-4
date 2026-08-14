@@ -2,7 +2,7 @@ import Phaser from 'phaser';
 
 import { applySettings, loadSettings } from '../data/settings';
 
-type SfxName = 'jump' | 'stomp' | 'hurt' | 'poof' | 'victory' | 'drop' | 'map' | 'select' | 'boss';
+type SfxName = 'jump' | 'stomp' | 'hurt' | 'poof' | 'victory' | 'drop' | 'map' | 'select' | 'boss' | 'explode';
 
 let audioCtx: AudioContext | null = null;
 
@@ -82,6 +82,16 @@ function synth(name: SfxName): void {
     case 'hurt':
       beep(420, 0.22, 'sawtooth', 0.1, -280);
       break;
+    case 'explode':
+      noiseBurst(0.62, 0.46, 160);
+      beep(46, 0.78, 'sine', 0.3, -10);
+      beep(78, 0.42, 'triangle', 0.24, -28);
+      beep(150, 0.2, 'sawtooth', 0.18, -100);
+      window.setTimeout(() => noiseBurst(0.38, 0.3, 380), 45);
+      window.setTimeout(() => beep(36, 0.95, 'sine', 0.2, -8), 70);
+      window.setTimeout(() => noiseBurst(0.24, 0.2, 980), 110);
+      window.setTimeout(() => beep(210, 0.14, 'square', 0.1, -170), 170);
+      break;
     case 'poof':
       noiseBurst(0.28, 0.16, 500);
       beep(90, 0.2, 'triangle', 0.08, -40);
@@ -132,7 +142,7 @@ export const audio = {
     }
     const cacheKey = `sfx-${name}`;
     if (scene.cache.audio.exists(cacheKey)) {
-      const base = name === 'victory' ? 0.7 : 0.45;
+      const base = name === 'victory' || name === 'explode' ? 0.7 : 0.45;
       scene.sound.play(cacheKey, { volume: base * settings.volume });
       return;
     }

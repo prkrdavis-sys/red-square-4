@@ -1,6 +1,8 @@
 import Phaser from 'phaser';
 import { type Theme, themePhysics } from '../config';
+import { maybeShake } from '../data/settings';
 import { audio } from '../systems/audio';
+import { DEATH_BLAST_MS, spawnDeathBlast } from '../systems/explosion';
 
 export interface PlayerInput {
   left: boolean;
@@ -11,7 +13,14 @@ export interface PlayerInput {
   downJust: boolean;
 }
 
-type HeroFrame = 'player' | 'player-blink' | 'player-run-a' | 'player-run-b' | 'player-jump' | 'player-fall';
+type HeroFrame =
+  | 'player'
+  | 'player-blink'
+  | 'player-run-a'
+  | 'player-run-b'
+  | 'player-jump'
+  | 'player-fall'
+  | 'player-dead';
 
 export class Player extends Phaser.Physics.Arcade.Sprite {
   coyoteUntil = 0;
@@ -107,6 +116,106 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
     this.view.setScale(1);
     this.view.setAlpha(1);
     this.syncView();
+  }
+
+  die(onComplete: () => void): void {
+    this.frozen = true;
+    this.arcadeBody.setVelocity(0, 0);
+    this.arcadeBody.allowGravity = false;
+    this.arcadeBody.enable = false;
+    this.squashTween?.stop();
+    this.scene.tweens.killTweensOf(this);
+    this.scene.tweens.killTweensOf(this.view);
+
+    const scene = this.scene;
+    const cam = scene.cameras.main;
+    const x = this.x;
+    const y = Phaser.Math.Clamp(this.y, cam.worldView.y + 72, cam.worldView.bottom - 72);
+
+    this.view.setTexture('player-dead');
+    this.view.setPosition(x, y);
+    this.view.setAngle(-22);
+    this.view.setScale(1.22, 0.68);
+    this.view.setVisible(true);
+    this.view.clearTint();
+    this.shadow.setVisible(false);
+    this.dust.emitParticleAt(x, y + 18, 12);
+    maybeShake(scene, 140, 0.01);
+    this.popDeathStars(x, y);
+
+    let finished = false;
+    const finish = (): void => {
+      if (finished) {
+        return;
+      }
+      finished = true;
+      onComplete();
+    };
+
+    scene.tweens.add({
+      targets: this.view,
+      x: x + 6,
+      duration: 28,
+      yoyo: true,
+      repeat: 9,
+      ease: 'Sine.easeInOut',
+    });
+    scene.tweens.add({
+      targets: this.view,
+      scaleX: 0.78,
+      scaleY: 1.28,
+      angle: 16,
+      duration: 90,
+      yoyo: true,
+      ease: 'Sine.easeInOut',
+    });
+
+    scene.time.delayedCall(260, () => {
+      if (!this.view.active) {
+        return;
+      }
+      this.view.setTintFill(0xffffff);
+      scene.tweens.add({
+        targets: this.view,
+        scaleX: 2.15,
+        scaleY: 2.15,
+        angle: 0,
+        duration: 180,
+        ease: 'Back.easeIn',
+      });
+    });
+
+    scene.time.delayedCall(460, () => {
+      if (!this.view.active) {
+        finish();
+        return;
+      }
+      scene.tweens.killTweensOf(this.view);
+      this.view.setVisible(false);
+      audio.play(scene, 'explode');
+      spawnDeathBlast(scene, x, y);
+    });
+
+    scene.time.delayedCall(460 + DEATH_BLAST_MS, finish);
+  }
+
+  private popDeathStars(x: number, y: number): void {
+    const scene = this.scene;
+    for (let i = 0; i < 5; i += 1) {
+      const angle = -Math.PI * 0.85 + (Math.PI * 0.7 * i) / 4;
+      const star = scene.add.image(x, y - 10, 'cartoon-star').setDepth(22).setScale(0.4);
+      scene.tweens.add({
+        targets: star,
+        x: x + Math.cos(angle) * 54,
+        y: y - 28 + Math.sin(angle) * 36,
+        scale: 1.15,
+        angle: 80 + i * 40,
+        alpha: 0,
+        duration: 340,
+        ease: 'Cubic.easeOut',
+        onComplete: () => star.destroy(),
+      });
+    }
   }
 
   applyTheme(theme: Theme): void {

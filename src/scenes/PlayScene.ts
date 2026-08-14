@@ -1,7 +1,7 @@
 import Phaser from 'phaser';
 import { GAME_HEIGHT, GAME_WIDTH, START_LIVES, type LevelId, themeSky } from '../config';
 import { markCleared, nextLevelId, resetSessionLives, session, setLastPlayed } from '../data/progress';
-import { applySettings, maybeShake } from '../data/settings';
+import { applySettings } from '../data/settings';
 import { Baddie } from '../entities/Baddie';
 import { Boss } from '../entities/Boss';
 import { Player, type PlayerInput } from '../entities/Player';
@@ -347,11 +347,9 @@ export class PlayScene extends Phaser.Scene {
       return;
     }
     this.completing = true;
-    this.built.player.freeze();
-    audio.play(this, 'hurt');
-    maybeShake(this, 160, 0.006);
     session.lives -= 1;
-    this.time.delayedCall(500, () => {
+    audio.play(this, 'hurt');
+    this.built.player.die(() => {
       if (session.lives <= 0) {
         this.showBanner('GAME OVER', () => {
           resetSessionLives();
