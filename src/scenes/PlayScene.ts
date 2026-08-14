@@ -1,17 +1,33 @@
 import Phaser from 'phaser';
 import { GAME_HEIGHT, GAME_WIDTH, START_LIVES, type LevelId, themeSky } from '../config';
-import { markCleared, nextLevelId, resetSessionLives, session, setLastPlayed } from '../data/progress';
+import {
+  collectMemory,
+  collectibleMask,
+  getCheckpoint,
+  levelCollectibleCount,
+  markCleared,
+  nextLevelId,
+  resetSessionLives,
+  session,
+  setCheckpoint,
+  setLastPlayed,
+} from '../data/progress';
 import { applySettings } from '../data/settings';
 import { Baddie } from '../entities/Baddie';
 import { Boss } from '../entities/Boss';
+import { EnemyProjectile } from '../entities/EnemyProjectile';
+import { FlakFragment } from '../entities/FlakFragment';
 import { Player, type PlayerInput } from '../entities/Player';
 import { buildLevel, type BuiltLevel } from '../levels/builder';
+import { bossSafeLandingX } from '../levels/arena';
 import { getLevel } from '../levels/worlds';
 import { audio } from '../systems/audio';
+import { forgetFlak, rememberFlak, restoreFlak, setFlakGroup } from '../systems/flak';
 import { Parallax } from '../systems/parallax';
 import { getTouchState, hideTouchControls, showTouchControls } from '../systems/touch-controls';
 import { showBossFightBanner } from '../ui/boss-fight';
 import { addPanel, launchOverlay, MenuButton, MenuNav, textStyle } from '../ui/menu';
+import { WorldSpecial } from '../systems/world-special';
 
 interface PlayData {
   levelId?: LevelId;
@@ -33,6 +49,22 @@ function playerFromCollider(
   return undefined;
 }
 
+function flakFromCollider(
+  object:
+    | Phaser.Types.Physics.Arcade.GameObjectWithBody
+    | Phaser.Physics.Arcade.Body
+    | Phaser.Physics.Arcade.StaticBody
+    | Phaser.Tilemaps.Tile,
+): FlakFragment | undefined {
+  if (object instanceof FlakFragment) {
+    return object;
+  }
+  if ('gameObject' in object && object.gameObject instanceof FlakFragment) {
+    return object.gameObject;
+  }
+  return undefined;
+}
+
 export class PlayScene extends Phaser.Scene {
   private levelId: LevelId = '1-1';
   private built!: BuiltLevel;
@@ -43,16 +75,24 @@ export class PlayScene extends Phaser.Scene {
   private keyW!: Phaser.Input.Keyboard.Key;
   private keyS!: Phaser.Input.Keyboard.Key;
   private keySpace!: Phaser.Input.Keyboard.Key;
+  private keyShift!: Phaser.Input.Keyboard.Key;
   private paused = false;
   private completing = false;
   private hudLives!: Phaser.GameObjects.Text;
   private hudLifeIcons: Phaser.GameObjects.Image[] = [];
   private hudBoss!: Phaser.GameObjects.Text;
+  private hudSpecial!: Phaser.GameObjects.Text;
+  private hudCollectibles!: Phaser.GameObjects.Text;
+  private hudShield!: Phaser.GameObjects.Text;
   private pauseOverlay!: Phaser.GameObjects.Container;
   private pauseNav!: MenuNav;
   private wasJump = false;
   private wasDown = false;
+  private wasSpecial = false;
   private fightEngaged = false;
+  private flak!: Phaser.GameObjects.Group;
+  private retainFlak = false;
+  private special!: WorldSpecial;
 
   constructor() {
     super('PlayScene');
@@ -64,25 +104,70 @@ export class PlayScene extends Phaser.Scene {
     this.completing = false;
     this.wasJump = false;
     this.wasDown = false;
+    this.wasSpecial = false;
     this.fightEngaged = false;
+    this.retainFlak = false;
   }
 
   create(): void {
     applySettings(this);
     setLastPlayed(this.levelId);
+    this.game.canvas.dataset.levelId = this.levelId;
     const def = getLevel(this.levelId);
     this.cameras.main.setBackgroundColor(themeSky(def.theme));
-    this.built = buildLevel(this, def.rows, def.theme, def.world);
+    this.built = buildLevel(this, def.rows, def.theme, def.world, def.course);
     this.parallax = new Parallax(this, def.theme);
+    this.special = new WorldSpecial(this, this.built, def.theme, def.course.special);
+    const savedCheckpoint = getCheckpoint(this.levelId);
+    if (savedCheckpoint) {
+      this.built.player.setPosition(savedCheckpoint.x, savedCheckpoint.y);
+    }
 
     this.physics.world.setBounds(0, 0, this.built.widthPx, this.built.heightPx + 400);
     this.physics.world.TILE_BIAS = 40;
 
-    const { player, solids, oneways, hazards, baddies, miniBoss, worldBoss, bossFences } = this.built;
+    const {
+      player,
+      solids,
+      oneways,
+      hazards,
+      baddies,
+      projectiles,
+      collectibles,
+      shields,
+      checkpoints,
+      puzzleTargets,
+      miniBoss,
+      worldBoss,
+      bossFences,
+    } = this.built;
 
     this.physics.add.collider(player, solids);
+    this.physics.add.collider(
+      player,
+      puzzleTargets,
+      undefined,
+      (objectA, objectB) => {
+        const target = objectA === player ? objectB : objectA;
+        return 'getData' in target && target.getData('solid') === true;
+      },
+    );
+    this.physics.add.overlap(player, puzzleTargets, (objectA, objectB) => {
+      const target = objectA === player ? objectB : objectA;
+      if ('getData' in target && target.getData('kind') === 'down-current') {
+        player.arcadeBody.setVelocityY(Math.max(player.arcadeBody.velocity.y, 180));
+      }
+    });
     this.physics.add.collider(baddies, solids);
     this.physics.add.collider(baddies, oneways);
+    this.physics.add.collider(projectiles, solids, (objectA, objectB) => {
+      const projectile = objectA instanceof EnemyProjectile ? objectA : objectB instanceof EnemyProjectile ? objectB : undefined;
+      projectile?.destroy();
+    });
+    this.physics.add.collider(projectiles, oneways, (objectA, objectB) => {
+      const projectile = objectA instanceof EnemyProjectile ? objectA : objectB instanceof EnemyProjectile ? objectB : undefined;
+      projectile?.destroy();
+    });
     if (miniBoss) {
       this.physics.add.collider(miniBoss, solids);
       for (const fence of bossFences) {
@@ -115,6 +200,62 @@ export class PlayScene extends Phaser.Scene {
     }
 
     this.physics.add.overlap(player, hazards, () => this.killPlayer('hazard'));
+    this.physics.add.overlap(player, projectiles, (objectA, objectB) => {
+      const projectile = objectA instanceof EnemyProjectile ? objectA : objectB instanceof EnemyProjectile ? objectB : undefined;
+      if (!projectile || projectile.neutralized) {
+        return;
+      }
+      projectile.destroy();
+      this.killPlayer('baddie');
+    });
+    this.physics.add.overlap(player, collectibles, (objectA, objectB) => {
+      const pickup = objectA === player ? objectB : objectA;
+      if ('getData' in pickup) {
+        this.collectPickup(pickup as Phaser.Physics.Arcade.Sprite);
+      }
+    });
+    this.physics.add.overlap(player, shields, (objectA, objectB) => {
+      const pickup = objectA === player ? objectB : objectA;
+      if ('destroy' in pickup) {
+        player.giveShield();
+        audio.play(this, 'select');
+        (pickup as Phaser.GameObjects.GameObject).destroy();
+      }
+    });
+    this.physics.add.overlap(player, checkpoints, (objectA, objectB) => {
+      const checkpoint = objectA === player ? objectB : objectA;
+      if ('getData' in checkpoint) {
+        this.activateCheckpoint(checkpoint as Phaser.Physics.Arcade.Sprite);
+      }
+    });
+
+    const mask = collectibleMask(this.levelId);
+    for (const child of collectibles.getChildren()) {
+      const pickup = child as Phaser.Physics.Arcade.Sprite;
+      const index = Number(pickup.getData('index'));
+      if ((mask & (1 << index)) !== 0) {
+        pickup.destroy();
+      }
+    }
+
+    this.flak = this.add.group();
+    setFlakGroup(this, this.flak);
+    restoreFlak(this, this.flak, this.levelId);
+    this.physics.add.collider(this.flak, solids);
+    this.physics.add.collider(
+      this.flak,
+      oneways,
+      undefined,
+      (objectA, objectB) => this.flakOneWayProcess(objectA, objectB),
+    );
+    this.physics.add.collider(this.flak, this.flak);
+    this.physics.add.collider(player, this.flak, (objectA, objectB) => {
+      this.onFlakBump(objectA, objectB);
+    });
+    this.physics.add.overlap(this.flak, hazards, (objectA, objectB) => {
+      const frag = flakFromCollider(objectA) ?? flakFromCollider(objectB);
+      frag?.destroy();
+    });
 
     this.cameras.main.startFollow(player, true, 0.14, 0.14);
     this.cameras.main.setDeadzone(90, 160);
@@ -158,11 +299,18 @@ export class PlayScene extends Phaser.Scene {
     this.bindKeys();
     showTouchControls();
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
+      delete this.game.canvas.dataset.levelId;
       hideTouchControls();
+      if (!this.retainFlak) {
+        forgetFlak();
+      }
     });
   }
 
   update(): void {
+    if (!this.paused) {
+      this.cullFlak();
+    }
     if (this.paused || this.completing) {
       return;
     }
@@ -172,9 +320,17 @@ export class PlayScene extends Phaser.Scene {
     const { player, baddies, miniBoss, worldBoss } = this.built;
 
     player.tick(input, def.theme);
+    if (input.specialJust && this.special.activate(player, player.flipX ? -1 : 1)) {
+      audio.play(this, 'special');
+    }
 
     for (const child of baddies.getChildren()) {
-      (child as Baddie).patrol(this.built.solids, this.built.oneways);
+      (child as Baddie).tick(player, this.built.solids, this.built.oneways, this.built.projectiles);
+    }
+    for (const child of this.built.projectiles.getChildren()) {
+      if (child instanceof EnemyProjectile) {
+        child.tick();
+      }
     }
     this.tickBoss(miniBoss, player);
     this.tickBoss(worldBoss, player);
@@ -190,9 +346,19 @@ export class PlayScene extends Phaser.Scene {
     this.hudLifeIcons.forEach((icon, index) => {
       icon.setVisible(index < session.lives);
     });
+    this.hudSpecial.setText(
+      this.special.ready
+        ? `SHIFT  ${this.special.label}`
+        : `${this.special.label}  ${Math.ceil(this.special.cooldownRatio * 10)}`,
+    );
+    this.hudSpecial.setColor(this.special.ready ? '#fff0a8' : '#9aa5b1');
+    this.hudCollectibles.setText(`MEMORIES  ${levelCollectibleCount(this.levelId)}/3`);
+    this.hudShield.setText(player.shielded ? 'SHIELD  READY' : 'SHIELD  —');
     const boss = worldBoss?.active ? worldBoss : miniBoss?.active ? miniBoss : undefined;
     if (boss && !boss.dying && boss.engaged) {
-      this.hudBoss.setText(`Boss  ${'♥'.repeat(boss.hp)}${'·'.repeat(Math.max(0, boss.maxHp - boss.hp))}`);
+      this.hudBoss.setText(
+        `${boss.encounterName}  ${'♥'.repeat(boss.hp)}${'·'.repeat(Math.max(0, boss.maxHp - boss.hp))}`,
+      );
       this.hudBoss.setVisible(true);
     } else {
       this.hudBoss.setVisible(false);
@@ -236,6 +402,7 @@ export class PlayScene extends Phaser.Scene {
     this.keyW = kb.addKey(Phaser.Input.Keyboard.KeyCodes.W);
     this.keyS = kb.addKey(Phaser.Input.Keyboard.KeyCodes.S);
     this.keySpace = kb.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE);
+    this.keyShift = kb.addKey(Phaser.Input.Keyboard.KeyCodes.SHIFT);
     kb.on('keydown-P', () => {
       if (this.scene.isPaused() || this.completing) {
         return;
@@ -256,14 +423,17 @@ export class PlayScene extends Phaser.Scene {
     const right = this.cursors.right.isDown || this.keyD.isDown || touch.right;
     const jump = this.cursors.up.isDown || this.keyW.isDown || this.keySpace.isDown || touch.jump;
     const down = this.cursors.down.isDown || this.keyS.isDown;
+    const special = this.keyShift.isDown || touch.special;
     const jumpJust = jump && !this.wasJump;
     const downJust = down && !this.wasDown;
+    const specialJust = special && !this.wasSpecial;
     if (downJust && (this.built.player.arcadeBody.blocked.down || this.built.player.arcadeBody.touching.down)) {
       audio.play(this, 'drop');
     }
     this.wasJump = jump;
     this.wasDown = down;
-    return { left, right, jump, jumpJust, down, downJust };
+    this.wasSpecial = special;
+    return { left, right, jump, jumpJust, down, downJust, special, specialJust };
   }
 
   private oneWayProcess(
@@ -285,6 +455,67 @@ export class PlayScene extends Phaser.Scene {
     return player.arcadeBody.velocity.y >= 0;
   }
 
+  private flakOneWayProcess(
+    objectA:
+      | Phaser.Types.Physics.Arcade.GameObjectWithBody
+      | Phaser.Physics.Arcade.Body
+      | Phaser.Physics.Arcade.StaticBody
+      | Phaser.Tilemaps.Tile,
+    objectB:
+      | Phaser.Types.Physics.Arcade.GameObjectWithBody
+      | Phaser.Physics.Arcade.Body
+      | Phaser.Physics.Arcade.StaticBody
+      | Phaser.Tilemaps.Tile,
+  ): boolean {
+    const frag = flakFromCollider(objectA) ?? flakFromCollider(objectB);
+    if (!frag) {
+      return false;
+    }
+    return frag.arcadeBody.velocity.y >= 0;
+  }
+
+  private onFlakBump(
+    objectA:
+      | Phaser.Types.Physics.Arcade.GameObjectWithBody
+      | Phaser.Physics.Arcade.Body
+      | Phaser.Physics.Arcade.StaticBody
+      | Phaser.Tilemaps.Tile,
+    objectB:
+      | Phaser.Types.Physics.Arcade.GameObjectWithBody
+      | Phaser.Physics.Arcade.Body
+      | Phaser.Physics.Arcade.StaticBody
+      | Phaser.Tilemaps.Tile,
+  ): void {
+    const player = playerFromCollider(objectA) ?? playerFromCollider(objectB);
+    const frag = flakFromCollider(objectA) ?? flakFromCollider(objectB);
+    if (!player || !frag || player.frozen) {
+      return;
+    }
+    const pb = player.arcadeBody;
+    const fb = frag.arcadeBody;
+    fb.setVelocityX(fb.velocity.x + pb.velocity.x * 0.32);
+    if (Math.abs(pb.velocity.x) > 50) {
+      fb.setVelocityY(fb.velocity.y - 55);
+    }
+  }
+
+  private cullFlak(): void {
+    if (!this.flak) {
+      return;
+    }
+    const killY = this.built.heightPx + 160;
+    const left = -140;
+    const right = this.built.widthPx + 140;
+    for (const child of this.flak.getChildren()) {
+      if (!(child instanceof FlakFragment) || !child.active) {
+        continue;
+      }
+      if (child.y > killY || child.x < left || child.x > right) {
+        child.destroy();
+      }
+    }
+  }
+
   private onBaddieCollide(player: Player, baddie: Baddie): void {
     if (!baddie.active || baddie.dying || player.frozen) {
       return;
@@ -292,9 +523,9 @@ export class PlayScene extends Phaser.Scene {
     const pb = player.arcadeBody;
     const bb = baddie.arcadeBody;
     if (bb.touching.up && pb.touching.down && pb.velocity.y >= 0) {
-      baddie.squash();
+      const result = baddie.tryStomp();
       player.bounce();
-      audio.play(this, 'stomp');
+      audio.play(this, result === 'defeated' ? 'stomp' : 'hurt');
       return;
     }
     this.killPlayer('baddie');
@@ -310,10 +541,10 @@ export class PlayScene extends Phaser.Scene {
     if (stomped) {
       const result = boss.takeStomp();
       if (result === 'ignored') {
-        player.bounce();
+        this.bounceFromBoss(player, boss);
         return;
       }
-      player.bounce();
+      this.bounceFromBoss(player, boss);
       audio.play(this, 'stomp');
       if (result === 'dead') {
         this.defeatBoss(boss, worldBoss);
@@ -346,19 +577,67 @@ export class PlayScene extends Phaser.Scene {
     if (reason === 'baddie' && !this.built.player.canBeHurt()) {
       return;
     }
+    if (reason === 'baddie' && this.built.player.consumeShield()) {
+      audio.play(this, 'hurt');
+      return;
+    }
     this.completing = true;
     session.lives -= 1;
     audio.play(this, 'hurt');
     this.built.player.die(() => {
       if (session.lives <= 0) {
+        forgetFlak();
         this.showBanner('GAME OVER', () => {
           resetSessionLives();
           this.scene.start('WorldMapScene');
         });
         return;
       }
+      rememberFlak(this.levelId, this.flak, this.built.heightPx + 160);
+      this.retainFlak = true;
       this.scene.restart({ levelId: this.levelId });
     });
+  }
+
+  private bounceFromBoss(player: Player, boss: Boss): void {
+    const arena = this.built.arena;
+    if (!arena) {
+      player.bounce();
+      return;
+    }
+    const safeX = bossSafeLandingX(arena, boss.x);
+    player.bossBounce(boss.x, safeX);
+  }
+
+  private collectPickup(pickup: Phaser.Physics.Arcade.Sprite): void {
+    if (!pickup.active) {
+      return;
+    }
+    const index = Number(pickup.getData('index'));
+    collectMemory(this.levelId, index);
+    audio.play(this, 'collect');
+    this.tweens.add({
+      targets: pickup,
+      y: pickup.y - 36,
+      alpha: 0,
+      scale: 1.4,
+      duration: 240,
+      onComplete: () => pickup.destroy(),
+    });
+  }
+
+  private activateCheckpoint(checkpoint: Phaser.Physics.Arcade.Sprite): void {
+    if (checkpoint.getData('active') === true) {
+      return;
+    }
+    checkpoint.setData('active', true);
+    checkpoint.setTint(0x9be36e);
+    setCheckpoint(
+      this.levelId,
+      Number(checkpoint.getData('spawnX')),
+      Number(checkpoint.getData('spawnY')),
+    );
+    audio.play(this, 'map');
   }
 
   private createHud(name: string): void {
@@ -387,6 +666,20 @@ export class PlayScene extends Phaser.Scene {
       .setScrollFactor(0)
       .setDepth(50)
       .setVisible(false);
+    this.hudSpecial = this.add
+      .text(24, 82, '', { ...style, color: '#fff0a8', fontSize: '17px' })
+      .setScrollFactor(0)
+      .setDepth(50);
+    this.hudCollectibles = this.add
+      .text(GAME_WIDTH / 2, 16, '', { ...style, color: '#bff29a', fontSize: '17px' })
+      .setOrigin(0.5, 0)
+      .setScrollFactor(0)
+      .setDepth(50);
+    this.hudShield = this.add
+      .text(GAME_WIDTH / 2, 44, '', { ...style, color: '#9eefff', fontSize: '15px' })
+      .setOrigin(0.5, 0)
+      .setScrollFactor(0)
+      .setDepth(50);
     const pauseHint = this.add
       .text(GAME_WIDTH - 24, 52, 'II  PAUSE', textStyle('16px'))
       .setOrigin(1, 0.5)

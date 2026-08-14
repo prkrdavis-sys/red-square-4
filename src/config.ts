@@ -5,12 +5,99 @@ export const MAP_ROWS = 12;
 export const GROUND_Y = 9;
 /** Full jump peak is just over 2 tiles, so ledges must step by this much. */
 export const JUMP_REACH_TILES = 2;
+export const STOMP_BOUNCE_VELOCITY = -840;
 
 export const START_LIVES = 3;
 
 export type Theme = 'grass' | 'snow' | 'desert' | 'ocean' | 'castle';
 
 export type BossKind = 'hopper' | 'slider' | 'slam' | 'swimmer' | 'charger';
+
+export type EnemyKind =
+  | 'bramble-hopper'
+  | 'acorn-slinger'
+  | 'mossback-beetle'
+  | 'skating-hare'
+  | 'snowball-finch'
+  | 'frost-mole'
+  | 'dune-scarab'
+  | 'cactus-imp'
+  | 'sandwyrm'
+  | 'reef-crab'
+  | 'bubble-archerfish'
+  | 'angler-eel'
+  | 'clockwork-hound'
+  | 'gargoyle-page'
+  | 'wall-mimic';
+
+export type EnemyRole = 'movement' | 'ranged' | 'terrain';
+
+export type SpecialKind = 'grow' | 'ice-slide' | 'burrow' | 'bubble-pulse' | 'shadow-blink';
+
+export type MiniBossVariant = 1 | 2 | 3;
+
+export function specialForTheme(theme: Theme): SpecialKind {
+  switch (theme) {
+    case 'grass':
+      return 'grow';
+    case 'snow':
+      return 'ice-slide';
+    case 'desert':
+      return 'burrow';
+    case 'ocean':
+      return 'bubble-pulse';
+    case 'castle':
+      return 'shadow-blink';
+    default: {
+      const neverTheme: never = theme;
+      return neverTheme;
+    }
+  }
+}
+
+export function enemyRole(kind: EnemyKind): EnemyRole {
+  switch (kind) {
+    case 'bramble-hopper':
+    case 'skating-hare':
+    case 'dune-scarab':
+    case 'reef-crab':
+    case 'clockwork-hound':
+      return 'movement';
+    case 'acorn-slinger':
+    case 'snowball-finch':
+    case 'cactus-imp':
+    case 'bubble-archerfish':
+    case 'gargoyle-page':
+      return 'ranged';
+    case 'mossback-beetle':
+    case 'frost-mole':
+    case 'sandwyrm':
+    case 'angler-eel':
+    case 'wall-mimic':
+      return 'terrain';
+    default: {
+      const neverKind: never = kind;
+      return neverKind;
+    }
+  }
+}
+
+export function enemiesForWorld(world: number): readonly [EnemyKind, EnemyKind, EnemyKind] {
+  switch (world) {
+    case 1:
+      return ['bramble-hopper', 'acorn-slinger', 'mossback-beetle'];
+    case 2:
+      return ['skating-hare', 'snowball-finch', 'frost-mole'];
+    case 3:
+      return ['dune-scarab', 'cactus-imp', 'sandwyrm'];
+    case 4:
+      return ['reef-crab', 'bubble-archerfish', 'angler-eel'];
+    case 5:
+      return ['clockwork-hound', 'gargoyle-page', 'wall-mimic'];
+    default:
+      return ['bramble-hopper', 'acorn-slinger', 'mossback-beetle'];
+  }
+}
 
 export type LevelId =
   | '1-1'

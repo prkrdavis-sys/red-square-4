@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import { TILE, type Theme } from '../config';
+import { TILE, type EnemyKind, type Theme } from '../config';
 import { createLandscapeTextures } from './landscapes';
 
 function gfx(scene: Phaser.Scene): Phaser.GameObjects.Graphics {
@@ -537,6 +537,144 @@ function drawParticle(scene: Phaser.Scene): void {
   commit(g, 'poof-particle', 16, 16);
 }
 
+function drawCampaignPickups(scene: Phaser.Scene): void {
+  const memory = gfx(scene);
+  memory.fillStyle(0x173f2b, 1);
+  memory.fillEllipse(16, 20, 22, 18);
+  memory.fillStyle(0x65c96d, 1);
+  memory.fillEllipse(12, 16, 13, 18);
+  memory.fillStyle(0xa8ed83, 1);
+  memory.fillEllipse(20, 12, 12, 16);
+  memory.fillStyle(0xffe88f, 1);
+  memory.fillCircle(17, 17, 4);
+  memory.lineStyle(3, 0x3f7f46, 1);
+  memory.lineBetween(16, 20, 16, 31);
+  commit(memory, 'memory-sprout', 32, 36);
+
+  const shield = gfx(scene);
+  shield.fillStyle(0x12233f, 1);
+  shield.fillTriangle(24, 2, 45, 10, 38, 38);
+  shield.fillTriangle(24, 2, 3, 10, 10, 38);
+  shield.fillStyle(0x55c8e8, 1);
+  shield.fillTriangle(24, 6, 40, 12, 34, 34);
+  shield.fillTriangle(24, 6, 8, 12, 14, 34);
+  shield.fillStyle(0xd7fbff, 0.9);
+  shield.fillEllipse(19, 14, 10, 6);
+  commit(shield, 'shield-pickup', 48, 42);
+
+  const checkpoint = gfx(scene);
+  checkpoint.fillStyle(0x4b2e1f, 1);
+  checkpoint.fillRect(5, 4, 5, 52);
+  checkpoint.fillStyle(0xf2cc62, 1);
+  checkpoint.fillTriangle(10, 6, 38, 15, 10, 27);
+  checkpoint.fillStyle(0xfff0a8, 1);
+  checkpoint.fillTriangle(12, 9, 30, 15, 12, 22);
+  checkpoint.fillStyle(0x6b4b2a, 1);
+  checkpoint.fillEllipse(8, 57, 18, 7);
+  commit(checkpoint, 'checkpoint', 42, 62);
+}
+
+function drawSpecialAnchor(scene: Phaser.Scene, theme: Theme): void {
+  const colors: Record<Theme, [number, number]> = {
+    grass: [0x2d6e35, 0x9be36e],
+    snow: [0x4c8eb8, 0xe7fbff],
+    desert: [0x9c6728, 0xf2cf72],
+    ocean: [0x146c84, 0x83ebee],
+    castle: [0x542e72, 0xc58cef],
+  };
+  const [dark, bright] = colors[theme];
+  const g = gfx(scene);
+  g.fillStyle(dark, 0.95);
+  g.fillEllipse(24, 30, 40, 16);
+  g.fillStyle(bright, 0.95);
+  g.fillTriangle(24, 4, 38, 30, 10, 30);
+  g.fillStyle(0xffffff, 0.75);
+  g.fillCircle(24, 20, 5);
+  commit(g, `special-anchor-${theme}`, 48, 40);
+}
+
+function projectileColor(kind: EnemyKind): number {
+  switch (kind) {
+    case 'bramble-hopper':
+    case 'acorn-slinger':
+    case 'mossback-beetle':
+      return 0x77b84d;
+    case 'skating-hare':
+    case 'snowball-finch':
+    case 'frost-mole':
+      return 0xc7efff;
+    case 'dune-scarab':
+    case 'cactus-imp':
+    case 'sandwyrm':
+      return 0xe0ad45;
+    case 'reef-crab':
+    case 'bubble-archerfish':
+    case 'angler-eel':
+      return 0x55d8df;
+    case 'clockwork-hound':
+    case 'gargoyle-page':
+    case 'wall-mimic':
+      return 0xbd63e6;
+    default: {
+      const neverKind: never = kind;
+      return neverKind;
+    }
+  }
+}
+
+function drawEnemyProjectiles(scene: Phaser.Scene): void {
+  const kinds: EnemyKind[] = [
+    'bramble-hopper',
+    'acorn-slinger',
+    'mossback-beetle',
+    'skating-hare',
+    'snowball-finch',
+    'frost-mole',
+    'dune-scarab',
+    'cactus-imp',
+    'sandwyrm',
+    'reef-crab',
+    'bubble-archerfish',
+    'angler-eel',
+    'clockwork-hound',
+    'gargoyle-page',
+    'wall-mimic',
+  ];
+  for (const kind of kinds) {
+    const g = gfx(scene);
+    const color = projectileColor(kind);
+    g.fillStyle(0x17202a, 1);
+    g.fillTriangle(16, 1, 31, 18, 2, 25);
+    g.fillStyle(color, 1);
+    g.fillTriangle(16, 4, 27, 17, 5, 22);
+    g.fillStyle(0xffffff, 0.75);
+    g.fillEllipse(13, 10, 8, 5);
+    commit(g, `projectile-${kind}`, 32, 28);
+  }
+}
+
+function drawPuzzleTextures(scene: Phaser.Scene): void {
+  const definitions: Array<{ key: string; dark: number; bright: number }> = [
+    { key: 'vine-bed', dark: 0x28512e, bright: 0x83d46a },
+    { key: 'ice-wall', dark: 0x4f87a6, bright: 0xd8f7ff },
+    { key: 'sand-wall', dark: 0x8f602b, bright: 0xe7bd61 },
+    { key: 'down-current', dark: 0x12546b, bright: 0x65d9e5 },
+    { key: 'shadow-wall', dark: 0x3b2350, bright: 0xa96bd2 },
+  ];
+  for (const definition of definitions) {
+    const g = gfx(scene);
+    g.fillStyle(definition.dark, 0.95);
+    g.fillRoundedRect(3, 3, 58, 58, 8);
+    g.fillStyle(definition.bright, 0.9);
+    g.fillTriangle(32, 5, 54, 52, 10, 52);
+    g.fillStyle(0xffffff, 0.45);
+    g.fillEllipse(24, 22, 15, 8);
+    g.lineStyle(3, definition.bright, 0.8);
+    g.strokeRoundedRect(7, 7, 50, 50, 7);
+    commit(g, `puzzle-${definition.key}`, 64, 64);
+  }
+}
+
 function drawBlastCore(scene: Phaser.Scene): void {
   const g = gfx(scene);
   const c = 48;
@@ -609,6 +747,183 @@ function drawHeroShard(scene: Phaser.Scene): void {
   g.fillStyle(0xf0c75a, 1);
   g.fillCircle(4, 4, 1.6);
   commit(g, 'hero-shard', 16, 16);
+}
+
+function fillPoly(g: Phaser.GameObjects.Graphics, points: Array<{ x: number; y: number }>): void {
+  const first = points[0];
+  if (!first) {
+    return;
+  }
+  g.beginPath();
+  g.moveTo(first.x, first.y);
+  for (let i = 1; i < points.length; i += 1) {
+    const point = points[i];
+    if (!point) {
+      continue;
+    }
+    g.lineTo(point.x, point.y);
+  }
+  g.closePath();
+  g.fillPath();
+}
+
+function drawFlakChunk(scene: Phaser.Scene): void {
+  const g = gfx(scene);
+  g.fillStyle(0x3a070a, 1);
+  fillPoly(g, [
+    { x: 2, y: 7 },
+    { x: 9, y: 1 },
+    { x: 23, y: 3 },
+    { x: 26, y: 16 },
+    { x: 18, y: 25 },
+    { x: 4, y: 22 },
+  ]);
+  g.fillStyle(0xa61a22, 1);
+  fillPoly(g, [
+    { x: 4, y: 8 },
+    { x: 10, y: 3 },
+    { x: 21, y: 5 },
+    { x: 24, y: 15 },
+    { x: 17, y: 23 },
+    { x: 5, y: 20 },
+  ]);
+  g.fillStyle(0xe23b3b, 1);
+  fillPoly(g, [
+    { x: 6, y: 9 },
+    { x: 11, y: 5 },
+    { x: 20, y: 7 },
+    { x: 22, y: 15 },
+    { x: 16, y: 21 },
+    { x: 7, y: 18 },
+  ]);
+  g.fillStyle(0xffc2c4, 0.92);
+  fillPoly(g, [
+    { x: 8, y: 8 },
+    { x: 14, y: 6 },
+    { x: 16, y: 11 },
+    { x: 10, y: 12 },
+  ]);
+  g.fillStyle(0xf0c75a, 1);
+  g.fillCircle(9, 10, 2.2);
+  g.fillStyle(0xfff6e8, 0.9);
+  g.fillCircle(8.3, 9.3, 0.8);
+  commit(g, 'flak-chunk', 28, 26);
+}
+
+function drawFlakShard(scene: Phaser.Scene): void {
+  const g = gfx(scene);
+  g.fillStyle(0x3a070a, 1);
+  fillPoly(g, [
+    { x: 10, y: 1 },
+    { x: 21, y: 14 },
+    { x: 12, y: 23 },
+    { x: 1, y: 16 },
+  ]);
+  g.fillStyle(0xc42c32, 1);
+  fillPoly(g, [
+    { x: 10, y: 3 },
+    { x: 19, y: 14 },
+    { x: 12, y: 21 },
+    { x: 3, y: 16 },
+  ]);
+  g.fillStyle(0xe23b3b, 1);
+  fillPoly(g, [
+    { x: 10, y: 5 },
+    { x: 17, y: 14 },
+    { x: 12, y: 19 },
+    { x: 5, y: 15 },
+  ]);
+  g.fillStyle(0xff8a90, 0.9);
+  fillPoly(g, [
+    { x: 10, y: 6 },
+    { x: 14, y: 12 },
+    { x: 9, y: 13 },
+  ]);
+  commit(g, 'flak-shard', 22, 24);
+}
+
+function drawFlakSliver(scene: Phaser.Scene): void {
+  const g = gfx(scene);
+  g.fillStyle(0x3a070a, 1);
+  fillPoly(g, [
+    { x: 5, y: 1 },
+    { x: 11, y: 3 },
+    { x: 8, y: 27 },
+    { x: 2, y: 24 },
+  ]);
+  g.fillStyle(0xa61a22, 1);
+  fillPoly(g, [
+    { x: 6, y: 2 },
+    { x: 10, y: 4 },
+    { x: 7, y: 25 },
+    { x: 3, y: 23 },
+  ]);
+  g.fillStyle(0xe23b3b, 1);
+  fillPoly(g, [
+    { x: 6.5, y: 4 },
+    { x: 9, y: 6 },
+    { x: 7, y: 23 },
+    { x: 4.5, y: 21 },
+  ]);
+  g.fillStyle(0xffc2c4, 0.85);
+  g.fillRect(6, 5, 3, 6);
+  commit(g, 'flak-sliver', 12, 28);
+}
+
+function drawFlakChar(scene: Phaser.Scene): void {
+  const g = gfx(scene);
+  g.fillStyle(0x140808, 1);
+  fillPoly(g, [
+    { x: 2, y: 6 },
+    { x: 12, y: 1 },
+    { x: 21, y: 8 },
+    { x: 18, y: 18 },
+    { x: 4, y: 17 },
+  ]);
+  g.fillStyle(0x4a1014, 1);
+  fillPoly(g, [
+    { x: 4, y: 7 },
+    { x: 12, y: 3 },
+    { x: 19, y: 9 },
+    { x: 16, y: 16 },
+    { x: 5, y: 15 },
+  ]);
+  g.fillStyle(0x8e1a20, 1);
+  fillPoly(g, [
+    { x: 6, y: 8 },
+    { x: 12, y: 5 },
+    { x: 17, y: 10 },
+    { x: 14, y: 14 },
+    { x: 7, y: 13 },
+  ]);
+  g.fillStyle(0x2a0c10, 0.8);
+  g.fillCircle(9, 11, 2.4);
+  g.fillCircle(14, 8, 1.6);
+  commit(g, 'flak-char', 22, 20);
+}
+
+function drawFlakGold(scene: Phaser.Scene): void {
+  const g = gfx(scene);
+  g.fillStyle(0x3a070a, 1);
+  g.fillCircle(8, 8, 7.5);
+  g.fillStyle(0xb07a22, 1);
+  g.fillCircle(8, 8, 6.2);
+  g.fillStyle(0xf0c75a, 1);
+  g.fillCircle(8, 8, 4.6);
+  g.fillStyle(0xfff6e8, 0.95);
+  g.fillCircle(6.4, 6.2, 1.6);
+  g.fillStyle(0x5a0c12, 1);
+  g.fillRect(7, 6, 2, 4);
+  g.fillRect(6, 8, 4, 1);
+  commit(g, 'flak-gold', 16, 16);
+}
+
+function drawFlakPieces(scene: Phaser.Scene): void {
+  drawFlakChunk(scene);
+  drawFlakShard(scene);
+  drawFlakSliver(scene);
+  drawFlakChar(scene);
+  drawFlakGold(scene);
 }
 
 function drawCartoonStar(scene: Phaser.Scene): void {
@@ -685,11 +1000,15 @@ export function createGameTextures(scene: Phaser.Scene): void {
   drawSpikedBoss(scene, 'boss-charger', 104, 0x2a1020, 0x6a2040);
   drawLavaTile(scene);
   drawParticle(scene);
+  drawCampaignPickups(scene);
+  drawEnemyProjectiles(scene);
+  drawPuzzleTextures(scene);
   drawBlastCore(scene);
   drawBlastRing(scene);
   drawBlastSmoke(scene);
   drawBlastSpark(scene);
   drawHeroShard(scene);
+  drawFlakPieces(scene);
   drawCartoonStar(scene);
   createLandscapeTextures(scene);
   drawMapToken(scene);
@@ -698,6 +1017,7 @@ export function createGameTextures(scene: Phaser.Scene): void {
 
   const themes: Theme[] = ['grass', 'snow', 'desert', 'ocean', 'castle'];
   for (const theme of themes) {
+    drawSpecialAnchor(scene, theme);
     drawSolidTile(scene, theme);
     drawOnewayTile(scene, theme);
     drawArenaTile(scene, theme);

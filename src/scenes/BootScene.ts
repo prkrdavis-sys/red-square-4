@@ -1,9 +1,11 @@
 import Phaser from 'phaser';
 import { hydrateSave } from '../data/progress';
 import { applySettings } from '../data/settings';
+import { CHARACTER_ASSETS } from '../systems/characters';
 import { createGameTextures } from '../systems/textures';
 
 interface AssetManifest {
+  characterRoot?: string;
   images?: Record<string, string>;
   audio?: Record<string, string>;
 }
@@ -24,7 +26,12 @@ export class BootScene extends Phaser.Scene {
     createGameTextures(this);
     applySettings(this);
     const manifest = (this.cache.json.get('asset-manifest') ?? {}) as AssetManifest;
-    const images = manifest.images ?? {};
+    const images = { ...(manifest.images ?? {}) };
+    if (manifest.characterRoot) {
+      for (const [key, path] of Object.entries(CHARACTER_ASSETS)) {
+        images[key] = `${manifest.characterRoot}/${path}`;
+      }
+    }
     const audioFiles = manifest.audio ?? {};
     const imageKeys = Object.keys(images);
     const audioKeys = Object.keys(audioFiles);

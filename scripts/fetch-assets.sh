@@ -164,7 +164,17 @@ for rel, key in audio_map.items():
     path = assets / rel
     if path.exists() and path.stat().st_size > 32:
         audio[key] = f"assets/{rel}"
-(assets / "manifest.json").write_text(json.dumps({"images": images, "audio": audio}, indent=2) + "\n")
+(assets / "manifest.json").write_text(
+    json.dumps(
+        {
+            "characterRoot": "assets/characters/kenney",
+            "images": images,
+            "audio": audio,
+        },
+        indent=2,
+    )
+    + "\n"
+)
 print(f"manifest: {len(images)} images, {len(audio)} audio")
 PY
 

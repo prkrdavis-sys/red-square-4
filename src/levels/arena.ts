@@ -31,6 +31,11 @@ export interface ArenaKeep {
   enterX: number;
 }
 
+export function bossSafeLandingX(arena: ArenaKeep, bossX: number): number {
+  const midpoint = (arena.left + arena.right) / 2;
+  return bossX <= midpoint ? arena.right - 76 : arena.left + 76;
+}
+
 export function arenaKeepBounds(layout: ArenaLayout): ArenaKeep {
   return {
     left: layout.floorStart * TILE,

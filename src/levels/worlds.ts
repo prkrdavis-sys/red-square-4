@@ -1,5 +1,5 @@
 import { parseLevelId, type LevelId, type Theme, worldBossKind } from '../config';
-import { buildCourse, LEDGE, type CourseSpec } from './grid';
+import { compileCourse, LEDGE, type CompiledCourse, type CourseSpec } from './grid';
 
 const { hop, low, mid, high } = LEDGE;
 
@@ -12,6 +12,7 @@ export interface LevelDef {
   theme: Theme;
   name: string;
   rows: string[];
+  course: CompiledCourse;
   isCastle: boolean;
 }
 
@@ -32,12 +33,12 @@ function worldTheme(world: number): Theme {
   }
 }
 
-function course(world: number, spec: CourseSpec): string[] {
-  return buildCourse(spec, worldTheme(world));
+function course(world: number, stage: number, spec: CourseSpec): CompiledCourse {
+  return compileCourse(world, stage, spec, worldTheme(world));
 }
 
-const COURSES: Record<LevelId, string[]> = {
-  '1-1': course(1, {
+const COURSES: Record<LevelId, CompiledCourse> = {
+  '1-1': course(1, 1, {
     width: 176,
     pits: [
       [18, 2],
@@ -58,7 +59,7 @@ const COURSES: Record<LevelId, string[]> = {
     enemies: [12, 42, 90, 108, 148],
     mini: 164,
   }),
-  '1-2': course(1, {
+  '1-2': course(1, 2, {
     width: 196,
     pits: [
       [18, 4],
@@ -92,7 +93,7 @@ const COURSES: Record<LevelId, string[]> = {
     ],
     mini: 184,
   }),
-  '1-3': course(1, {
+  '1-3': course(1, 3, {
     width: 212,
     pits: [
       [20, 3],
@@ -129,7 +130,7 @@ const COURSES: Record<LevelId, string[]> = {
     ],
     mini: 200,
   }),
-  '1-4': course(1, {
+  '1-4': course(1, 4, {
     width: 110,
     pits: [
       [16, 6],
@@ -146,7 +147,7 @@ const COURSES: Record<LevelId, string[]> = {
     enemies: [10, 34, 52],
     boss: 96,
   }),
-  '2-1': course(2, {
+  '2-1': course(2, 1, {
     width: 186,
     pits: [
       [20, 3],
@@ -168,7 +169,7 @@ const COURSES: Record<LevelId, string[]> = {
     enemies: [12, 36, 64, 112, 154],
     mini: 174,
   }),
-  '2-2': course(2, {
+  '2-2': course(2, 2, {
     width: 200,
     pits: [
       [16, 4],
@@ -196,7 +197,7 @@ const COURSES: Record<LevelId, string[]> = {
     airEnemies: [[72, mid]],
     mini: 188,
   }),
-  '2-3': course(2, {
+  '2-3': course(2, 3, {
     width: 210,
     pits: [
       [22, 3],
@@ -229,7 +230,7 @@ const COURSES: Record<LevelId, string[]> = {
     ],
     mini: 198,
   }),
-  '2-4': course(2, {
+  '2-4': course(2, 4, {
     width: 110,
     pits: [
       [16, 7],
@@ -245,7 +246,7 @@ const COURSES: Record<LevelId, string[]> = {
     enemies: [12, 36, 60],
     boss: 96,
   }),
-  '3-1': course(3, {
+  '3-1': course(3, 1, {
     width: 188,
     pits: [
       [20, 4],
@@ -278,7 +279,7 @@ const COURSES: Record<LevelId, string[]> = {
     enemies: [10, 32, 70, 120, 162],
     mini: 176,
   }),
-  '3-2': course(3, {
+  '3-2': course(3, 2, {
     width: 202,
     pits: [
       [16, 3],
@@ -316,7 +317,7 @@ const COURSES: Record<LevelId, string[]> = {
     ],
     mini: 190,
   }),
-  '3-3': course(3, {
+  '3-3': course(3, 3, {
     width: 214,
     pits: [
       [22, 4],
@@ -355,7 +356,7 @@ const COURSES: Record<LevelId, string[]> = {
     ],
     mini: 202,
   }),
-  '3-4': course(3, {
+  '3-4': course(3, 4, {
     width: 116,
     pits: [
       [16, 6],
@@ -374,7 +375,7 @@ const COURSES: Record<LevelId, string[]> = {
     enemies: [10, 34, 62],
     boss: 102,
   }),
-  '4-1': course(4, {
+  '4-1': course(4, 1, {
     width: 192,
     pits: [
       [16, 12],
@@ -406,7 +407,7 @@ const COURSES: Record<LevelId, string[]> = {
     ],
     mini: 180,
   }),
-  '4-2': course(4, {
+  '4-2': course(4, 2, {
     width: 204,
     pits: [
       [14, 12],
@@ -442,7 +443,7 @@ const COURSES: Record<LevelId, string[]> = {
     ],
     mini: 192,
   }),
-  '4-3': course(4, {
+  '4-3': course(4, 3, {
     width: 214,
     pits: [
       [18, 14],
@@ -481,7 +482,7 @@ const COURSES: Record<LevelId, string[]> = {
     ],
     mini: 202,
   }),
-  '4-4': course(4, {
+  '4-4': course(4, 4, {
     width: 118,
     pits: [
       [16, 10],
@@ -500,7 +501,7 @@ const COURSES: Record<LevelId, string[]> = {
     enemies: [12, 38, 66],
     boss: 104,
   }),
-  '5-1': course(5, {
+  '5-1': course(5, 1, {
     width: 192,
     lava: [
       [18, 6],
@@ -534,7 +535,7 @@ const COURSES: Record<LevelId, string[]> = {
     enemies: [12, 32, 70, 108, 152],
     mini: 178,
   }),
-  '5-2': course(5, {
+  '5-2': course(5, 2, {
     width: 204,
     lava: [
       [16, 6],
@@ -570,7 +571,7 @@ const COURSES: Record<LevelId, string[]> = {
     airEnemies: [[82, low]],
     mini: 192,
   }),
-  '5-3': course(5, {
+  '5-3': course(5, 3, {
     width: 216,
     lava: [
       [18, 7],
@@ -620,7 +621,7 @@ const COURSES: Record<LevelId, string[]> = {
     ],
     mini: 204,
   }),
-  '5-4': course(5, {
+  '5-4': course(5, 4, {
     width: 122,
     lava: [
       [14, 8],
@@ -674,13 +675,15 @@ const NAMES: Record<LevelId, string> = {
 export function getLevel(id: LevelId): LevelDef {
   const { world, stage } = parseLevelId(id);
   const theme = worldTheme(world);
+  const compiled = COURSES[id];
   return {
     id,
     world,
     stage,
     theme,
     name: NAMES[id],
-    rows: COURSES[id],
+    rows: compiled.rows,
+    course: compiled,
     isCastle: stage === 4,
   };
 }

@@ -7,9 +7,9 @@ interface OverlayData {
 }
 
 const LINES = [
-  'Original red square, circle baddies, and bosses.',
+  'Original campaign, creature roles, boss phases, and encounters.',
   '',
-  'Kenney.nl  ·  CC0 tiles, backgrounds, jingles, SFX',
+  'Kenney.nl  ·  CC0 creature sprites, tiles, jingles, SFX',
   'New Platformer Pack  ·  Platformer Art Deluxe',
   'Background Elements  ·  Music Jingles  ·  Digital Audio',
   '',
@@ -17,7 +17,7 @@ const LINES = [
   '',
   'Engine  ·  Phaser 3 Arcade Physics',
   '',
-  'Not a Nintendo remake. No Mario, Goomba, or Bowser art.',
+  'Original platforming campaign. No Nintendo art or level layouts.',
 ];
 
 export class CreditsScene extends Phaser.Scene {

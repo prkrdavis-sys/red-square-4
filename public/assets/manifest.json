@@ -1,4 +1,5 @@
 {
+  "characterRoot": "assets/characters/kenney",
   "images": {
     "kenney-grass-solid": "assets/tiles/grass-mid.png",
     "kenney-grass-oneway": "assets/tiles/grass-half.png",

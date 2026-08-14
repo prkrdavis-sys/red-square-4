@@ -1,10 +1,11 @@
 import Phaser from 'phaser';
-import { MAP_ROWS, TILE, type Theme } from '../config';
+import { GROUND_Y, MAP_ROWS, TILE, type Theme } from '../config';
 import { Baddie } from '../entities/Baddie';
 import { Boss } from '../entities/Boss';
 import { Player } from '../entities/Player';
 import { arenaTileKey, onewayTileKey, solidTileKey } from '../systems/textures';
 import { arenaKeepBounds, decorateArena, getArenaLayout, type ArenaKeep } from './arena';
+import type { CompiledCourse } from './grid';
 import { getWorldBossKind } from './worlds';
 
 export interface BuiltLevel {
@@ -15,6 +16,12 @@ export interface BuiltLevel {
   oneways: Phaser.Physics.Arcade.StaticGroup;
   hazards: Phaser.Physics.Arcade.StaticGroup;
   baddies: Phaser.Physics.Arcade.Group;
+  projectiles: Phaser.Physics.Arcade.Group;
+  collectibles: Phaser.Physics.Arcade.Group;
+  shields: Phaser.Physics.Arcade.Group;
+  checkpoints: Phaser.Physics.Arcade.Group;
+  specialAnchors: Phaser.Physics.Arcade.StaticGroup;
+  puzzleTargets: Phaser.Physics.Arcade.StaticGroup;
   miniBoss: Boss | undefined;
   worldBoss: Boss | undefined;
   arena: ArenaKeep | undefined;
@@ -45,12 +52,24 @@ function addStatic(
   return sprite;
 }
 
-export function buildLevel(scene: Phaser.Scene, rows: string[], theme: Theme, world: number): BuiltLevel {
+export function buildLevel(
+  scene: Phaser.Scene,
+  rows: string[],
+  theme: Theme,
+  world: number,
+  course: CompiledCourse,
+): BuiltLevel {
   const cols = rows[0]?.length ?? 0;
   const solids = scene.physics.add.staticGroup();
   const oneways = scene.physics.add.staticGroup();
   const hazards = scene.physics.add.staticGroup();
   const baddies = scene.physics.add.group({ runChildUpdate: false, allowGravity: true });
+  const projectiles = scene.physics.add.group({ runChildUpdate: false, allowGravity: false });
+  const collectibles = scene.physics.add.group({ runChildUpdate: false, allowGravity: false, immovable: true });
+  const shields = scene.physics.add.group({ runChildUpdate: false, allowGravity: false, immovable: true });
+  const checkpoints = scene.physics.add.group({ runChildUpdate: false, allowGravity: false, immovable: true });
+  const specialAnchors = scene.physics.add.staticGroup();
+  const puzzleTargets = scene.physics.add.staticGroup();
 
   let player: Player | undefined;
   let miniBoss: Boss | undefined;
@@ -78,17 +97,28 @@ export function buildLevel(scene: Phaser.Scene, rows: string[], theme: Theme, wo
         case 'P':
           player = new Player(scene, px + TILE / 2, py + TILE / 2);
           break;
-        case 'e': {
-          const alt = (x + y) % 2 === 0 ? 'baddie' : 'baddie-alt';
-          const baddie = new Baddie(scene, px + TILE / 2, py + TILE / 2, alt, 60 + (x % 3) * 12);
-          baddies.add(baddie);
+        case 'e':
           break;
-        }
         case 'm':
-          miniBoss = new Boss(scene, px + TILE / 2, py + TILE / 2 - 8, getWorldBossKind(world), 1);
+          miniBoss = new Boss(
+            scene,
+            px + TILE / 2,
+            py + TILE / 2 - 8,
+            getWorldBossKind(world),
+            1,
+            theme,
+            course.miniVariant,
+          );
           break;
         case 'B':
-          worldBoss = new Boss(scene, px + TILE / 2, py + TILE / 2 - 16, getWorldBossKind(world), 3);
+          worldBoss = new Boss(
+            scene,
+            px + TILE / 2,
+            py + TILE / 2 - 16,
+            getWorldBossKind(world),
+            3,
+            theme,
+          );
           break;
         case '.':
           break;
@@ -103,6 +133,68 @@ export function buildLevel(scene: Phaser.Scene, rows: string[], theme: Theme, wo
   }
 
   player.applyTheme(theme);
+
+  for (const spawn of course.enemies) {
+    const y = (GROUND_Y - 1 - spawn.tilesUp) * TILE + TILE / 2;
+    const baddie = new Baddie(scene, spawn.x * TILE + TILE / 2, y, spawn.kind, 60 + (spawn.x % 3) * 12);
+    baddies.add(baddie);
+  }
+
+  course.collectibles.forEach((pickup, index) => {
+    const collectible = collectibles.create(
+      pickup.x * TILE + TILE / 2,
+      (GROUND_Y - pickup.tilesUp) * TILE - TILE / 2,
+      'memory-sprout',
+    ) as Phaser.Physics.Arcade.Sprite;
+    collectible.setData('index', index);
+    collectible.setDepth(14);
+    collectible.setScale(0.9);
+  });
+
+  const shield = shields.create(
+    course.shield.x * TILE + TILE / 2,
+    (GROUND_Y - course.shield.tilesUp) * TILE - TILE / 2,
+    'shield-pickup',
+  ) as Phaser.Physics.Arcade.Sprite;
+  shield.setDepth(14);
+
+  const checkpoint = checkpoints.create(
+    course.checkpoint.x * TILE + TILE / 2,
+    GROUND_Y * TILE - 30,
+    'checkpoint',
+  ) as Phaser.Physics.Arcade.Sprite;
+  checkpoint.setData('spawnX', course.checkpoint.x * TILE + TILE / 2);
+  checkpoint.setData('spawnY', (GROUND_Y - 1) * TILE + TILE / 2);
+  checkpoint.setDepth(13);
+
+  for (const anchor of course.specialAnchors) {
+    const marker = specialAnchors.create(
+      anchor.x * TILE + TILE / 2,
+      (GROUND_Y - anchor.tilesUp) * TILE - TILE / 2,
+      `special-anchor-${theme}`,
+    ) as Phaser.Physics.Arcade.Sprite;
+    marker.setData('special', course.special);
+    marker.setDepth(12);
+  }
+
+  for (const puzzle of course.puzzles) {
+    const isWall = puzzle.kind === 'ice-wall' || puzzle.kind === 'sand-wall' || puzzle.kind === 'shadow-wall';
+    const width = puzzle.kind === 'down-current' ? TILE * 2.5 : isWall ? 30 : TILE;
+    const height = puzzle.kind === 'down-current' ? TILE * 3 : isWall ? puzzle.height * TILE : 28;
+    const target = puzzleTargets.create(
+      puzzle.x * TILE + TILE / 2,
+      GROUND_Y * TILE - height / 2,
+      `puzzle-${puzzle.kind}`,
+    ) as Phaser.Physics.Arcade.Sprite;
+    target.setDisplaySize(width, height);
+    target.setData('kind', puzzle.kind);
+    target.setData('solid', isWall);
+    target.setAlpha(puzzle.kind === 'down-current' ? 0.42 : 0.9);
+    target.setDepth(isWall ? 14 : 11);
+    const body = target.body as Phaser.Physics.Arcade.StaticBody;
+    body.setSize(width, height);
+    body.updateFromGameObject();
+  }
 
   const heightPx = MAP_ROWS * TILE;
   const boss = worldBoss ?? miniBoss;
@@ -126,6 +218,12 @@ export function buildLevel(scene: Phaser.Scene, rows: string[], theme: Theme, wo
     oneways,
     hazards,
     baddies,
+    projectiles,
+    collectibles,
+    shields,
+    checkpoints,
+    specialAnchors,
+    puzzleTargets,
     miniBoss,
     worldBoss,
     arena,

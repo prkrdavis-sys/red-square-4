@@ -129,6 +129,15 @@ body.touch-play #touch-controls {
   border-color: rgba(255, 255, 255, 0.62);
 }
 
+.touch-btn-special {
+  color: rgba(255, 235, 151, 0.96);
+}
+
+.touch-btn-special .touch-btn-ring {
+  border-color: rgba(255, 224, 123, 0.58);
+  background: rgba(117, 78, 24, 0.2);
+}
+
 #rotate-prompt {
   display: none;
   position: fixed;

@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import { type Theme, themePhysics } from '../config';
+import { STOMP_BOUNCE_VELOCITY, type Theme, themePhysics } from '../config';
 import { maybeShake } from '../data/settings';
 import { audio } from '../systems/audio';
 import { DEATH_BLAST_MS, spawnDeathBlast } from '../systems/explosion';
@@ -11,6 +11,8 @@ export interface PlayerInput {
   jumpJust: boolean;
   down: boolean;
   downJust: boolean;
+  special: boolean;
+  specialJust: boolean;
 }
 
 type HeroFrame =
@@ -27,6 +29,7 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
   jumpBufferUntil = 0;
   droppingUntil = 0;
   invulnerableUntil = 0;
+  shielded = false;
   frozen = false;
   private jumpHeld = false;
   private wasGrounded = true;
@@ -83,6 +86,33 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
     return !this.frozen && this.scene.time.now >= this.invulnerableUntil;
   }
 
+  grantSafety(duration: number): void {
+    this.invulnerableUntil = Math.max(this.invulnerableUntil, this.scene.time.now + duration);
+  }
+
+  giveShield(): void {
+    this.shielded = true;
+    this.view.setTint(0x8deaff);
+  }
+
+  consumeShield(): boolean {
+    if (!this.shielded) {
+      return false;
+    }
+    this.shielded = false;
+    this.grantSafety(1200);
+    this.view.clearTint();
+    this.scene.tweens.add({
+      targets: this.view,
+      alpha: 0.35,
+      yoyo: true,
+      repeat: 5,
+      duration: 65,
+      onComplete: () => this.view.setAlpha(1),
+    });
+    return true;
+  }
+
   flashHurt(): void {
     this.invulnerableUntil = this.scene.time.now + 1200;
     this.scene.tweens.add({
@@ -96,8 +126,16 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
   }
 
   bounce(): void {
-    this.arcadeBody.setVelocityY(-420);
+    this.arcadeBody.setVelocityY(STOMP_BOUNCE_VELOCITY);
     this.squash(0.88, 1.16, 90);
+  }
+
+  bossBounce(bossX: number, safeX: number): void {
+    const away = Math.sign(safeX - bossX) || Math.sign(this.x - bossX) || 1;
+    this.setX(Phaser.Math.Clamp(this.x + away * 18, 24, this.scene.physics.world.bounds.width - 24));
+    this.arcadeBody.setVelocity(away * 360, STOMP_BOUNCE_VELOCITY);
+    this.grantSafety(720);
+    this.squash(0.82, 1.22, 110);
   }
 
   freeze(): void {

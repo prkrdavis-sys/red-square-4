@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 import { GAME_HEIGHT, GAME_WIDTH } from '../config';
 import { maybeShake } from '../data/settings';
+import { spawnFlakBurst } from './flak';
 
 export const DEATH_BLAST_MS = 1500;
 
@@ -281,6 +282,8 @@ export function spawnDeathBlast(scene: Phaser.Scene, x: number, y: number): void
     },
     22,
   );
+
+  spawnFlakBurst(scene, x, y);
 
   scene.time.delayedCall(90, () => maybeShake(scene, 420, 0.018));
   scene.time.delayedCall(DEATH_BLAST_MS + 80, cleanup);

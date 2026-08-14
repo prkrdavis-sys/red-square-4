@@ -1,19 +1,21 @@
 import type Phaser from 'phaser';
 
-export type TouchAction = 'left' | 'right' | 'jump';
+export type TouchAction = 'left' | 'right' | 'jump' | 'special';
 
 export interface TouchState {
   left: boolean;
   right: boolean;
   jump: boolean;
+  special: boolean;
 }
 
-const ACTIONS: readonly TouchAction[] = ['left', 'right', 'jump'];
+const ACTIONS: readonly TouchAction[] = ['left', 'right', 'jump', 'special'];
 
 const held: Record<TouchAction, Set<number>> = {
   left: new Set(),
   right: new Set(),
   jump: new Set(),
+  special: new Set(),
 };
 
 let booted = false;
@@ -24,6 +26,7 @@ function isTouchAction(value: string | undefined): value is TouchAction {
     case 'left':
     case 'right':
     case 'jump':
+    case 'special':
       return true;
     default:
       return false;
@@ -99,6 +102,7 @@ export function getTouchState(): TouchState {
     left: held.left.size > 0,
     right: held.right.size > 0,
     jump: held.jump.size > 0,
+    special: held.special.size > 0,
   };
 }
 

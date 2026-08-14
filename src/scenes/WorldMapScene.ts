@@ -1,6 +1,14 @@
 import Phaser from 'phaser';
 import { ALL_LEVEL_IDS, GAME_HEIGHT, GAME_WIDTH, themeName, themeSky, type LevelId, type Theme } from '../config';
-import { isUnlocked, loadSave, resumeLevelId, session, setLastPlayed } from '../data/progress';
+import {
+  isUnlocked,
+  levelCollectibleCount,
+  loadSave,
+  resumeLevelId,
+  session,
+  setLastPlayed,
+  worldCollectibleCount,
+} from '../data/progress';
 import { applySettings } from '../data/settings';
 import { getLevel } from '../levels/worlds';
 import { audio } from '../systems/audio';
@@ -45,6 +53,7 @@ export class WorldMapScene extends Phaser.Scene {
       const pos = nodePosition(level.world, level.stage);
       return { id, x: pos.x, y: pos.y, world: level.world, stage: level.stage };
     });
+    const save = loadSave();
 
     const footerTop = GAME_HEIGHT - 120;
     for (let world = 1; world <= 5; world += 1) {
@@ -67,9 +76,15 @@ export class WorldMapScene extends Phaser.Scene {
           color: '#fff4d0',
         })
         .setOrigin(0.5);
+      this.add
+        .text(x + 115, 198, `MEMORIES ${worldCollectibleCount(save, world)}/12`, {
+          fontFamily: 'Courier New, monospace',
+          fontSize: '12px',
+          color: '#d9f5a8',
+        })
+        .setOrigin(0.5);
     }
 
-    const save = loadSave();
     const pathGfx = this.add.graphics();
     for (let i = 0; i < this.nodes.length - 1; i += 1) {
       const a = this.nodes[i];
@@ -257,8 +272,9 @@ export class WorldMapScene extends Phaser.Scene {
     const level = getLevel(node.id);
     const cleared = loadSave().cleared.includes(node.id);
     const boss = level.stage === 4 ? 'world boss' : 'mini-boss';
+    const memories = levelCollectibleCount(node.id);
     const meta = cleared ? `${boss}   ·   cleared` : boss;
-    this.hint.setText(`${node.id}   ${level.name}\n${meta}`);
+    this.hint.setText(`${node.id}   ${level.name}\n${meta}   ·   memories ${memories}/3`);
   }
 
   private playSelected(): void {

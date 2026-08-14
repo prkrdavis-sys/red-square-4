@@ -1,4 +1,14 @@
-import { GROUND_Y, JUMP_REACH_TILES, MAP_ROWS, type Theme } from '../config';
+import {
+  GROUND_Y,
+  JUMP_REACH_TILES,
+  MAP_ROWS,
+  enemiesForWorld,
+  specialForTheme,
+  type EnemyKind,
+  type MiniBossVariant,
+  type SpecialKind,
+  type Theme,
+} from '../config';
 import { stampArena } from './arena';
 
 /** Convert tiles-above-ground to a row index. 2 is a full jump from the floor. */
@@ -141,6 +151,37 @@ export interface CourseSpec {
   boss?: number;
 }
 
+export interface EnemySpawn {
+  x: number;
+  tilesUp: number;
+  kind: EnemyKind;
+}
+
+export interface CoursePickup {
+  x: number;
+  tilesUp: number;
+}
+
+export type PuzzleKind = 'vine-bed' | 'ice-wall' | 'sand-wall' | 'down-current' | 'shadow-wall';
+
+export interface PuzzleFeature {
+  x: number;
+  kind: PuzzleKind;
+  height: number;
+}
+
+export interface CompiledCourse {
+  rows: string[];
+  enemies: EnemySpawn[];
+  checkpoint: CoursePickup;
+  collectibles: [CoursePickup, CoursePickup, CoursePickup];
+  shield: CoursePickup;
+  special: SpecialKind;
+  specialAnchors: CoursePickup[];
+  puzzles: PuzzleFeature[];
+  miniVariant: MiniBossVariant | undefined;
+}
+
 export function buildCourse(spec: CourseSpec, theme: Theme = 'grass'): string[] {
   const grid = new Grid(spec.width);
   const playerX = spec.playerX ?? 3;
@@ -184,4 +225,85 @@ export function buildCourse(spec: CourseSpec, theme: Theme = 'grass'): string[] 
     grid.put(spec.boss, GROUND_Y - 1, 'B');
   }
   return grid.lines();
+}
+
+function safeFloorX(rows: string[], desired: number): number {
+  const width = rows[0]?.length ?? 1;
+  for (let radius = 0; radius < width; radius += 1) {
+    const candidates = radius === 0 ? [desired] : [desired - radius, desired + radius];
+    for (const candidate of candidates) {
+      if (candidate < 2 || candidate >= width - 2) {
+        continue;
+      }
+      const ground = rows[GROUND_Y]?.[candidate];
+      const above = rows[GROUND_Y - 1]?.[candidate];
+      if ((ground === '#' || ground === '@') && above === '.') {
+        return candidate;
+      }
+    }
+  }
+  return 3;
+}
+
+function assignEnemyKinds(world: number, stage: number, count: number): EnemyKind[] {
+  const [movement, ranged, terrain] = enemiesForWorld(world);
+  const available =
+    stage === 1 ? [movement] : stage === 2 ? [movement, ranged] : [movement, ranged, terrain];
+  return Array.from({ length: count }, (_, index) => available[index % available.length] ?? movement);
+}
+
+export function compileCourse(world: number, stage: number, spec: CourseSpec, theme: Theme): CompiledCourse {
+  const groundEnemyX = spec.enemies ?? [];
+  const airEnemyPositions = spec.airEnemies ?? [];
+  const rows = buildCourse({ ...spec, enemies: [], airEnemies: [] }, theme);
+  const rawSpawns = [
+    ...groundEnemyX.map((x) => ({ x, tilesUp: 0 })),
+    ...airEnemyPositions.map(([x, tilesUp]) => ({ x, tilesUp })),
+  ];
+  const kinds = assignEnemyKinds(world, stage, rawSpawns.length);
+  const enemies = rawSpawns.map((spawn, index) => ({
+    ...spawn,
+    kind: kinds[index] ?? enemiesForWorld(world)[0],
+  }));
+  const checkpointX = safeFloorX(rows, Math.floor(spec.width * 0.5));
+  const collectibleA = safeFloorX(rows, Math.floor(spec.width * 0.23));
+  const collectibleB = safeFloorX(rows, Math.floor(spec.width * 0.51));
+  const collectibleC = safeFloorX(rows, Math.floor(spec.width * 0.76));
+  const shieldX = safeFloorX(rows, Math.floor(spec.width * 0.68));
+  const anchorCount = Math.min(4, Math.max(2, stage));
+  const specialAnchors = Array.from({ length: anchorCount }, (_, index) => ({
+    x: safeFloorX(rows, Math.floor(spec.width * ((index + 1) / (anchorCount + 1)))),
+    tilesUp: index % 2 === 0 ? 0 : 2,
+  }));
+  const puzzleKind: PuzzleKind =
+    world === 1
+      ? 'vine-bed'
+      : world === 2
+        ? 'ice-wall'
+        : world === 3
+          ? 'sand-wall'
+          : world === 4
+            ? 'down-current'
+            : 'shadow-wall';
+  const puzzleCount = stage === 4 ? 1 : stage;
+  const puzzles = Array.from({ length: puzzleCount }, (_, index) => ({
+    x: safeFloorX(rows, Math.floor(spec.width * ((index + 1) / (puzzleCount + 1)))),
+    kind: puzzleKind,
+    height: Math.min(4, 1 + stage),
+  }));
+  return {
+    rows,
+    enemies,
+    checkpoint: { x: checkpointX, tilesUp: 0 },
+    collectibles: [
+      { x: collectibleA, tilesUp: 2 },
+      { x: collectibleB, tilesUp: stage >= 2 ? 3 : 2 },
+      { x: collectibleC, tilesUp: stage >= 3 ? 4 : 2 },
+    ],
+    shield: { x: shieldX, tilesUp: 1 },
+    special: specialForTheme(theme),
+    specialAnchors,
+    puzzles,
+    miniVariant: stage < 4 ? (stage as MiniBossVariant) : undefined,
+  };
 }

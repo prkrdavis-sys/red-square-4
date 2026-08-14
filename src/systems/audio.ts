@@ -2,7 +2,21 @@ import Phaser from 'phaser';
 
 import { applySettings, loadSettings } from '../data/settings';
 
-type SfxName = 'jump' | 'stomp' | 'hurt' | 'poof' | 'victory' | 'drop' | 'map' | 'select' | 'boss' | 'explode';
+type SfxName =
+  | 'jump'
+  | 'stomp'
+  | 'hurt'
+  | 'poof'
+  | 'victory'
+  | 'drop'
+  | 'map'
+  | 'select'
+  | 'boss'
+  | 'explode'
+  | 'special'
+  | 'collect'
+  | 'phase'
+  | 'enemy-shot';
 
 let audioCtx: AudioContext | null = null;
 
@@ -111,6 +125,21 @@ function synth(name: SfxName): void {
       window.setTimeout(() => beep(220, 0.1, 'square', 0.12, 80), 70);
       window.setTimeout(() => beep(330, 0.12, 'square', 0.13, 40), 150);
       window.setTimeout(() => beep(98, 0.32, 'triangle', 0.14, -20), 240);
+      break;
+    case 'special':
+      beep(240, 0.18, 'triangle', 0.1, 420);
+      window.setTimeout(() => beep(620, 0.12, 'sine', 0.08, 120), 70);
+      break;
+    case 'collect':
+      beep(740, 0.08, 'square', 0.08, 130);
+      window.setTimeout(() => beep(1040, 0.12, 'triangle', 0.07, 100), 80);
+      break;
+    case 'phase':
+      noiseBurst(0.15, 0.1, 800);
+      beep(180, 0.3, 'sawtooth', 0.12, 260);
+      break;
+    case 'enemy-shot':
+      beep(330, 0.09, 'square', 0.045, -120);
       break;
     case 'victory':
       beep(523.25, 0.12, 'square', 0.09);
