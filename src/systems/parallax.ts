@@ -1,6 +1,6 @@
 import Phaser from 'phaser';
 import { GAME_HEIGHT, GAME_WIDTH, type Theme } from '../config';
-import { cloudKey, farKey, hillKey, LANDSCAPE, mountainKey, skyKey } from './landscapes';
+import { cloudKey, ensureOceanPackTextures, farKey, hillKey, LANDSCAPE, mountainKey, skyKey } from './landscapes';
 
 interface ParallaxLayer {
   image: Phaser.GameObjects.TileSprite;
@@ -25,7 +25,7 @@ function layoutFor(theme: Theme): BackdropLayout {
     case 'desert':
       return { cloudY: 8, farY: 146, mountainY: 198, groundY, cloudAlpha: 0.6 };
     case 'ocean':
-      return { cloudY: 8, farY: 122, mountainY: 158, groundY, cloudAlpha: 0.9 };
+      return { cloudY: 20, farY: 268, mountainY: 118, groundY, cloudAlpha: 0.55 };
     case 'castle':
       return { cloudY: 12, farY: 140, mountainY: 190, groundY, cloudAlpha: 0.34 };
     default: {
@@ -66,8 +66,12 @@ function addSun(scene: Phaser.Scene, theme: Theme): void {
       scene.add.circle(1088, 78, 38, 0xffe08a, 1).setScrollFactor(0).setDepth(-48);
       break;
     case 'ocean':
-      scene.add.circle(180, 102, 40, 0xffe6a8, 0.24).setScrollFactor(0).setDepth(-48);
-      scene.add.circle(180, 102, 26, 0xfff2c8, 1).setScrollFactor(0).setDepth(-48);
+      scene.add
+        .rectangle(GAME_WIDTH / 2, 0, GAME_WIDTH, 110, 0x9af0ff, 0.1)
+        .setOrigin(0.5, 0)
+        .setScrollFactor(0)
+        .setDepth(-49);
+      scene.add.ellipse(GAME_WIDTH / 2, -8, 420, 70, 0xd8fbff, 0.12).setScrollFactor(0).setDepth(-49);
       break;
     case 'castle':
       scene.add.circle(1108, 84, 22, 0xd8d0e8, 0.85).setScrollFactor(0).setDepth(-48);
@@ -80,23 +84,40 @@ function addSun(scene: Phaser.Scene, theme: Theme): void {
   }
 }
 
+function addOceanPackLayers(scene: Phaser.Scene, layers: ParallaxLayer[]): void {
+  const pack = ensureOceanPackTextures(scene);
+  if (pack.coral) {
+    layers.push({ image: addStrip(scene, 208, 512, pack.coral, -33, 0.92), factor: 0.22 });
+  }
+  if (pack.reefs) {
+    layers.push({ image: addStrip(scene, 96, 420, pack.reefs, -28, 1), factor: 0.27 });
+  }
+}
+
 export class Parallax {
   private readonly layers: ParallaxLayer[] = [];
 
   constructor(scene: Phaser.Scene, theme: Theme) {
     const layout = layoutFor(theme);
 
-    scene.add
-      .image(0, 0, skyKey(theme))
-      .setOrigin(0, 0)
-      .setDisplaySize(GAME_WIDTH, GAME_HEIGHT)
-      .setScrollFactor(0)
-      .setDepth(-50);
+    if (theme === 'ocean') {
+      this.layers.push({ image: addStrip(scene, 0, GAME_HEIGHT, skyKey(theme), -50, 1), factor: 0.05 });
+    } else {
+      scene.add
+        .image(0, 0, skyKey(theme))
+        .setOrigin(0, 0)
+        .setDisplaySize(GAME_WIDTH, GAME_HEIGHT)
+        .setScrollFactor(0)
+        .setDepth(-50);
+    }
 
     addSun(scene, theme);
 
     const clouds = addStrip(scene, layout.cloudY, LANDSCAPE.cloudH, cloudKey(theme), -44, layout.cloudAlpha);
     const far = addStrip(scene, layout.farY, LANDSCAPE.farH, farKey(theme), -40, 1);
+    if (theme === 'ocean') {
+      addOceanPackLayers(scene, this.layers);
+    }
     const mountains = addStrip(scene, layout.mountainY, LANDSCAPE.mountainH, mountainKey(theme), -30, 1);
     const ground = addStrip(scene, layout.groundY, LANDSCAPE.groundH, hillKey(theme), -20, 1);
 

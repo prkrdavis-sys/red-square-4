@@ -14,6 +14,7 @@
     "bg-snow": "assets/bg/snow.png",
     "bg-desert": "assets/bg/sand.png",
     "bg-ocean": "assets/bg/ocean.png",
+    "bg-ocean-midground": "assets/bg/ocean-midground.png",
     "bg-castle": "assets/bg/castle.png"
   },
   "audio": {

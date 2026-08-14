@@ -110,6 +110,7 @@ copy_first "$BG/snow.png" "blue_land.png" "pointy_mountains.png" "mountain1.png"
 copy_first "$BG/sand.png" "blue_desert.png" "colored_desert.png" "piramid.png" "hills1.png"
 copy_first "$BG/castle.png" "bg_castle.png" "uncolored_castle.png" "colored_castle.png" "castle.png"
 copy_first "$BG/ocean.png" "*/environment/background.png" "background.png"
+copy_first "$BG/ocean-midground.png" "*/environment/midground.png" "midground.png"
 
 copy_first "$AUDIO/victory.ogg" "jingles_STEEL15.ogg" "jingles_RETRO15.ogg" "jingles_SAX15.ogg"
 copy_first "$AUDIO/jump.ogg" "phaseJump1.ogg" "*jump*.ogg"
@@ -142,6 +143,7 @@ mapping = {
     "bg/snow.png": "bg-snow",
     "bg/sand.png": "bg-desert",
     "bg/ocean.png": "bg-ocean",
+    "bg/ocean-midground.png": "bg-ocean-midground",
     "bg/castle.png": "bg-castle",
 }
 audio_map = {

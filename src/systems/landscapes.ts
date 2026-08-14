@@ -104,18 +104,18 @@ function palette(theme: Theme): LandscapePalette {
       };
     case 'ocean':
       return {
-        skyTop: 0x3a88c8,
-        skyHorizon: 0x9fd4f4,
-        cloud: 0xf3fbff,
-        cloudShade: 0xc5e4f6,
-        far: 0x6aa3b8,
-        farCap: 0xd8eef6,
-        mountain: 0x2f6a48,
-        mountainShade: 0x1f4a34,
-        cap: 0xd5c090,
-        ground: 0x1b6f9a,
-        groundShade: 0x0e3a58,
-        groundTop: 0x5ec4e0,
+        skyTop: 0x2a90a8,
+        skyHorizon: 0x031018,
+        cloud: 0x7bebf3,
+        cloudShade: 0x3c8ad0,
+        far: 0x0a243c,
+        farCap: 0x163a52,
+        mountain: 0x0c4844,
+        mountainShade: 0x072e32,
+        cap: 0x7bebf3,
+        ground: 0x143848,
+        groundShade: 0x07141c,
+        groundTop: 0x2a5c68,
       };
     case 'castle':
       return {
@@ -364,7 +364,421 @@ function mixColor(a: number, b: number, t: number): number {
   return (r << 16) | (g << 8) | bl;
 }
 
+function fillEllipse(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  rx: number,
+  ry: number,
+  width: number,
+): void {
+  const draw = (cx: number) => {
+    ctx.beginPath();
+    ctx.ellipse(cx, y, Math.max(0.6, rx), Math.max(0.6, ry), 0, 0, Math.PI * 2);
+    ctx.fill();
+  };
+  draw(x);
+  if (x - rx < 0) {
+    draw(x + width);
+  }
+  if (x + rx > width) {
+    draw(x - width);
+  }
+}
+
+function paintGodRays(ctx: CanvasRenderingContext2D, width: number, height: number): void {
+  const rays = [
+    { x: 160, tw: 36, bw: 170, drift: 80, a: 0.08 },
+    { x: 420, tw: 18, bw: 90, drift: 36, a: 0.045 },
+    { x: 710, tw: 44, bw: 200, drift: 110, a: 0.07 },
+    { x: 1080, tw: 22, bw: 120, drift: 48, a: 0.05 },
+    { x: 1420, tw: 38, bw: 180, drift: 70, a: 0.075 },
+    { x: 1780, tw: 16, bw: 86, drift: 28, a: 0.04 },
+    { x: 2140, tw: 42, bw: 190, drift: 96, a: 0.065 },
+    { x: 2460, tw: 24, bw: 100, drift: 40, a: 0.05 },
+  ];
+  ctx.save();
+  ctx.globalCompositeOperation = 'lighter';
+  for (const ray of rays) {
+    const draw = (ox: number) => {
+      ctx.fillStyle = `rgba(170, 232, 255, ${ray.a})`;
+      ctx.beginPath();
+      ctx.moveTo(ox + ray.x - ray.tw / 2, -12);
+      ctx.lineTo(ox + ray.x + ray.tw / 2, -12);
+      ctx.lineTo(ox + ray.x + ray.drift + ray.bw / 2, height * 0.78);
+      ctx.lineTo(ox + ray.x + ray.drift - ray.bw / 2, height * 0.78);
+      ctx.closePath();
+      ctx.fill();
+    };
+    draw(0);
+    draw(width);
+    draw(-width);
+  }
+  ctx.restore();
+}
+
+function paintCaustics(ctx: CanvasRenderingContext2D, width: number, height: number): void {
+  ctx.save();
+  ctx.globalCompositeOperation = 'lighter';
+  for (let i = 0; i < 18; i += 1) {
+    const x = ((i * 173) % width) + 40;
+    const y = 16 + (i % 6) * (height / 8);
+    ctx.fillStyle = `rgba(150, 230, 255, ${0.035 + (i % 3) * 0.012})`;
+    fillEllipse(ctx, x, y, 70 + (i % 4) * 18, 10 + (i % 3) * 3, width);
+  }
+  for (let x = 0; x <= width; x += 2) {
+    const y =
+      12 +
+      height * 0.06 +
+      7 * Math.sin((x / width) * Math.PI * 2 * 6) +
+      4 * Math.sin((x / width) * Math.PI * 2 * 13 + 0.8);
+    ctx.fillStyle = 'rgba(210, 250, 255, 0.07)';
+    ctx.fillRect(x, y, 2, 2);
+  }
+  ctx.restore();
+}
+
+function stampCyanReef(
+  ctx: CanvasRenderingContext2D,
+  cx: number,
+  cy: number,
+  scale: number,
+  width: number,
+): void {
+  const outline = [
+    [0, -38],
+    [-11, -34],
+    [-22, -22],
+    [-36, -10],
+    [-42, 6],
+    [-34, 20],
+    [-18, 28],
+    [-4, 24],
+    [10, 30],
+    [26, 22],
+    [40, 8],
+    [38, -8],
+    [24, -20],
+    [12, -32],
+  ];
+  const paintPoly = (color: number, ox: number, oy: number, shrink: number) => {
+    ctx.fillStyle = css(color);
+    const draw = (wx: number) => {
+      ctx.beginPath();
+      outline.forEach((point, i) => {
+        const px = wx + cx + ox + point[0] * scale * shrink;
+        const py = cy + oy + point[1] * scale * shrink;
+        if (i === 0) {
+          ctx.moveTo(px, py);
+        } else {
+          ctx.lineTo(px, py);
+        }
+      });
+      ctx.closePath();
+      ctx.fill();
+    };
+    draw(0);
+    if (cx - 48 * scale < 0) {
+      draw(width);
+    }
+    if (cx + 48 * scale > width) {
+      draw(-width);
+    }
+  };
+  paintPoly(0x1a3a62, 3, 4, 1);
+  paintPoly(0x2668a1, 0, 0, 1);
+  paintPoly(0x3c8ad0, -2, -6, 0.62);
+  ctx.fillStyle = css(0x7bebf3);
+  for (const tip of [
+    [-6, -34],
+    [4, -36],
+    [14, -28],
+    [-20, -20],
+  ]) {
+    fillEllipse(ctx, cx + tip[0] * scale, cy + tip[1] * scale, 3.2 * scale, 2.2 * scale, width);
+  }
+}
+
+function stampKelp(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  baseY: number,
+  height: number,
+  width: number,
+  body: number,
+  highlight: number,
+): void {
+  const steps = 18;
+  const left: [number, number][] = [];
+  const right: [number, number][] = [];
+  for (let i = 0; i <= steps; i += 1) {
+    const t = i / steps;
+    const y = baseY - height * t;
+    const sway = Math.sin(t * Math.PI * 2.5 + x * 0.02) * (7 + t * 18);
+    const half = Math.max(1.2, (6.2 - t * 4.4) * (height / 170));
+    left.push([x + sway - half, y]);
+    right.push([x + sway + half, y]);
+  }
+  const paint = (ox: number) => {
+    ctx.fillStyle = css(body);
+    ctx.beginPath();
+    ctx.moveTo(left[0][0] + ox, left[0][1]);
+    for (const point of left) {
+      ctx.lineTo(point[0] + ox, point[1]);
+    }
+    for (let i = right.length - 1; i >= 0; i -= 1) {
+      const point = right[i];
+      if (point) {
+        ctx.lineTo(point[0] + ox, point[1]);
+      }
+    }
+    ctx.closePath();
+    ctx.fill();
+    ctx.strokeStyle = css(highlight, 0.55);
+    ctx.lineWidth = 1.6;
+    ctx.beginPath();
+    for (let i = 0; i < left.length; i += 1) {
+      const l = left[i];
+      const r = right[i];
+      if (!l || !r) {
+        continue;
+      }
+      const px = (l[0] + r[0]) * 0.5 - 1.1 + ox;
+      if (i === 0) {
+        ctx.moveTo(px, l[1]);
+      } else {
+        ctx.lineTo(px, l[1]);
+      }
+    }
+    ctx.stroke();
+  };
+  paint(0);
+  if (x < 36) {
+    paint(width);
+  }
+  if (x > width - 36) {
+    paint(-width);
+  }
+}
+
+function drawOceanSeamounts(ctx: CanvasRenderingContext2D, colors: LandscapePalette, texH: number): void {
+  const width = LANDSCAPE.stripW;
+  const clumps = [
+    { x: 180, y: texH - 70, s: 0.72 },
+    { x: 520, y: texH - 110, s: 1.05 },
+    { x: 860, y: texH - 54, s: 0.58 },
+    { x: 1240, y: texH - 96, s: 0.9 },
+    { x: 1680, y: texH - 64, s: 0.7 },
+    { x: 2060, y: texH - 120, s: 1.12 },
+    { x: 2420, y: texH - 80, s: 0.8 },
+  ];
+  for (const clump of clumps) {
+    ctx.fillStyle = css(colors.far, 0.9);
+    stampDarkReef(ctx, clump.x, clump.y, clump.s, width);
+  }
+}
+
+function stampDarkReef(
+  ctx: CanvasRenderingContext2D,
+  cx: number,
+  cy: number,
+  scale: number,
+  width: number,
+): void {
+  const lumps = [
+    { dx: 0, dy: 8, rx: 46, ry: 22 },
+    { dx: -28, dy: 0, rx: 24, ry: 18 },
+    { dx: 30, dy: 2, rx: 26, ry: 16 },
+    { dx: -8, dy: -16, rx: 18, ry: 16 },
+    { dx: 16, dy: -12, rx: 16, ry: 14 },
+  ];
+  for (const lump of lumps) {
+    fillEllipse(ctx, cx + lump.dx * scale, cy + lump.dy * scale, lump.rx * scale, lump.ry * scale, width);
+  }
+}
+
+function drawOceanReefs(ctx: CanvasRenderingContext2D, colors: LandscapePalette, texH: number): void {
+  const width = LANDSCAPE.stripW;
+  const kelp = [
+    { x: 90, h: 120 },
+    { x: 160, h: 88 },
+    { x: 420, h: 140 },
+    { x: 490, h: 96 },
+    { x: 780, h: 110 },
+    { x: 980, h: 150 },
+    { x: 1060, h: 92 },
+    { x: 1320, h: 128 },
+    { x: 1580, h: 104 },
+    { x: 1660, h: 146 },
+    { x: 1980, h: 90 },
+    { x: 2220, h: 134 },
+    { x: 2310, h: 86 },
+    { x: 2480, h: 118 },
+  ];
+  for (const blade of kelp) {
+    stampKelp(ctx, blade.x, texH + 8, blade.h, width, colors.mountain, 0x1e8a6a);
+    stampKelp(ctx, blade.x + 14, texH + 8, blade.h * 0.72, width, colors.mountainShade, 0x167a5c);
+  }
+  const reefs = [
+    { x: 280, y: 96, s: 0.92 },
+    { x: 900, y: 58, s: 0.7 },
+    { x: 1480, y: 110, s: 0.84 },
+    { x: 2060, y: 72, s: 0.76 },
+  ];
+  for (const reef of reefs) {
+    stampCyanReef(ctx, reef.x, reef.y, reef.s, width);
+  }
+}
+
+function drawOceanFloor(ctx: CanvasRenderingContext2D, colors: LandscapePalette, texH: number): void {
+  const width = LANDSCAPE.stripW;
+  const ridge = ridgeHeights(
+    width,
+    texH,
+    [
+      { x: 180, w: 280, h: 55 },
+      { x: 560, w: 340, h: 80 },
+      { x: 980, w: 220, h: 45 },
+      { x: 1380, w: 300, h: 70 },
+      { x: 1840, w: 260, h: 58 },
+      { x: 2260, w: 240, h: 74 },
+      { x: 2480, w: 160, h: 40 },
+    ],
+    [
+      { amp: 18, cycles: 2, phase: 0.3 },
+      { amp: 10, cycles: 4, phase: 1.5 },
+      { amp: 6, cycles: 7, phase: 0.9 },
+    ],
+    0.72,
+  );
+  ctx.fillStyle = css(colors.groundShade);
+  fillBelow(ctx, ridge, texH, width);
+  ctx.fillStyle = css(colors.ground);
+  fillBand(ctx, ridge, texH, width, 120);
+  ctx.fillStyle = css(colors.groundTop);
+  fillBand(ctx, ridge, texH, width, 22);
+  const floorKelp = [
+    { x: 70, h: 150 },
+    { x: 300, h: 210 },
+    { x: 340, h: 130 },
+    { x: 640, h: 180 },
+    { x: 900, h: 240 },
+    { x: 1180, h: 160 },
+    { x: 1480, h: 220 },
+    { x: 1520, h: 140 },
+    { x: 1860, h: 190 },
+    { x: 2140, h: 250 },
+    { x: 2180, h: 155 },
+    { x: 2440, h: 170 },
+  ];
+  for (const blade of floorKelp) {
+    const y = texH - (sampleHeight(ridge, blade.x, width) ?? 0) + 6;
+    stampKelp(ctx, blade.x, y, blade.h, width, 0x0a3a38, 0x1a7a58);
+  }
+  ctx.fillStyle = css(0x2a8aaa, 0.7);
+  for (const rock of [
+    { x: 210, r: 16 },
+    { x: 720, r: 12 },
+    { x: 1290, r: 18 },
+    { x: 1760, r: 11 },
+    { x: 2330, r: 15 },
+  ]) {
+    const y = texH - (sampleHeight(ridge, rock.x, width) ?? 0) + 4;
+    fillEllipse(ctx, rock.x, y, rock.r, rock.r * 0.55, width);
+    ctx.fillStyle = css(0x7bebf3, 0.35);
+    fillEllipse(ctx, rock.x - 3, y - 3, rock.r * 0.35, rock.r * 0.18, width);
+    ctx.fillStyle = css(0x2a8aaa, 0.7);
+  }
+}
+
+function sourceImageOf(scene: Phaser.Scene, key: string): HTMLImageElement | HTMLCanvasElement | undefined {
+  if (!scene.textures.exists(key)) {
+    return undefined;
+  }
+  const image = scene.textures.get(key).getSourceImage();
+  if (image instanceof HTMLImageElement || image instanceof HTMLCanvasElement) {
+    return image;
+  }
+  return undefined;
+}
+
+function createKeyedTexture(
+  scene: Phaser.Scene,
+  srcKey: string,
+  destKey: string,
+  keyColor: number,
+  tolerance: number,
+  scale: number,
+): boolean {
+  const src = sourceImageOf(scene, srcKey);
+  if (!src) {
+    return false;
+  }
+  const srcW = src instanceof HTMLImageElement ? src.naturalWidth : src.width;
+  const srcH = src instanceof HTMLImageElement ? src.naturalHeight : src.height;
+  if (srcW < 8 || srcH < 8) {
+    return false;
+  }
+  if (scene.textures.exists(destKey)) {
+    return true;
+  }
+  const w = Math.max(1, Math.round(srcW * scale));
+  const h = Math.max(1, Math.round(srcH * scale));
+  if (scene.textures.exists(destKey)) {
+    scene.textures.remove(destKey);
+  }
+  const texture = scene.textures.createCanvas(destKey, w, h);
+  if (!texture) {
+    return false;
+  }
+  const ctx = texture.getContext();
+  ctx.clearRect(0, 0, w, h);
+  ctx.imageSmoothingEnabled = false;
+  ctx.drawImage(src, 0, 0, w, h);
+  const pixels = ctx.getImageData(0, 0, w, h);
+  const kr = (keyColor >> 16) & 0xff;
+  const kg = (keyColor >> 8) & 0xff;
+  const kb = keyColor & 0xff;
+  for (let i = 0; i < pixels.data.length; i += 4) {
+    const r = pixels.data[i] ?? 0;
+    const g = pixels.data[i + 1] ?? 0;
+    const b = pixels.data[i + 2] ?? 0;
+    if (Math.abs(r - kr) + Math.abs(g - kg) + Math.abs(b - kb) <= tolerance) {
+      pixels.data[i + 3] = 0;
+    }
+  }
+  ctx.putImageData(pixels, 0, 0);
+  texture.refresh();
+  return true;
+}
+
+export function ensureOceanPackTextures(scene: Phaser.Scene): { reefs?: string; coral?: string } {
+  const pack: { reefs?: string; coral?: string } = {};
+  if (createKeyedTexture(scene, 'bg-ocean', 'ocean-pack-reefs', 0x244b7e, 20, 2.15)) {
+    pack.reefs = 'ocean-pack-reefs';
+  }
+  if (createKeyedTexture(scene, 'bg-ocean-midground', 'ocean-pack-coral', 0x13283c, 12, 1)) {
+    pack.coral = 'ocean-pack-coral';
+  }
+  return pack;
+}
+
 function drawSky(scene: Phaser.Scene, theme: Theme, colors: LandscapePalette): void {
+  if (theme === 'ocean') {
+    paintCanvas(scene, skyKey(theme), LANDSCAPE.stripW, GAME_HEIGHT, (ctx) => {
+      const steps = 48;
+      const slice = Math.ceil(GAME_HEIGHT / steps) + 1;
+      for (let i = 0; i < steps; i += 1) {
+        const t = i / (steps - 1);
+        const bent = t * t * 0.55 + t * 0.45;
+        ctx.fillStyle = css(mixColor(colors.skyTop, colors.skyHorizon, bent));
+        ctx.fillRect(0, (GAME_HEIGHT / steps) * i, LANDSCAPE.stripW, slice);
+      }
+      paintGodRays(ctx, LANDSCAPE.stripW, GAME_HEIGHT);
+      paintCaustics(ctx, LANDSCAPE.stripW, 210);
+    });
+    return;
+  }
   paintCanvas(scene, skyKey(theme), 16, GAME_HEIGHT, (ctx) => {
     const steps = 36;
     const slice = Math.ceil(GAME_HEIGHT / steps) + 1;
@@ -433,6 +847,30 @@ function cloudPlan(theme: Theme): { x: number; y: number; s: number }[] {
 
 function drawClouds(scene: Phaser.Scene, theme: Theme, colors: LandscapePalette): void {
   paintCanvas(scene, cloudKey(theme), LANDSCAPE.stripW, LANDSCAPE.cloudH, (ctx) => {
+    if (theme === 'ocean') {
+      const motes = [
+        { x: 140, y: 70, r: 5 },
+        { x: 310, y: 120, r: 3 },
+        { x: 480, y: 46, r: 4 },
+        { x: 640, y: 96, r: 6 },
+        { x: 820, y: 58, r: 3 },
+        { x: 990, y: 132, r: 5 },
+        { x: 1180, y: 40, r: 4 },
+        { x: 1360, y: 88, r: 7 },
+        { x: 1540, y: 64, r: 3 },
+        { x: 1720, y: 118, r: 5 },
+        { x: 1920, y: 52, r: 4 },
+        { x: 2140, y: 100, r: 6 },
+        { x: 2320, y: 38, r: 3 },
+        { x: 2480, y: 84, r: 5 },
+      ];
+      ctx.fillStyle = css(colors.cloud, 0.35);
+      for (const mote of motes) {
+        fillCircle(ctx, mote.x, mote.y, mote.r, LANDSCAPE.stripW);
+        fillCircle(ctx, mote.x + 8, mote.y - 14, Math.max(2, mote.r - 2), LANDSCAPE.stripW);
+      }
+      return;
+    }
     for (const cloud of cloudPlan(theme)) {
       stampCloud(ctx, cloud.x, cloud.y, cloud.s, LANDSCAPE.stripW, colors.cloud, colors.cloudShade);
     }
@@ -488,27 +926,6 @@ function snowPeaks(far: boolean, texH: number): Peak[] {
     { x: 1940, w: 120, h: 85 },
     { x: 2240, w: 200, h: 160 },
     { x: 2480, w: 150, h: 100 },
-  ];
-}
-
-function oceanPeaks(far: boolean, texH: number): Peak[] {
-  const s = texH / 310;
-  if (far) {
-    return [
-      { x: 300, w: 180, h: 70 * s },
-      { x: 820, w: 240, h: 100 * s },
-      { x: 1420, w: 160, h: 60 * s },
-      { x: 1960, w: 220, h: 90 * s },
-      { x: 2420, w: 150, h: 55 * s },
-    ];
-  }
-  return [
-    { x: 240, w: 210, h: 90 },
-    { x: 620, w: 130, h: 50 },
-    { x: 1080, w: 260, h: 115 },
-    { x: 1580, w: 150, h: 65 },
-    { x: 2040, w: 230, h: 100 },
-    { x: 2420, w: 140, h: 55 },
   ];
 }
 
@@ -629,6 +1046,14 @@ function drawRange(scene: Phaser.Scene, key: string, theme: Theme, colors: Lands
   const width = LANDSCAPE.stripW;
   const texH = far ? LANDSCAPE.farH : LANDSCAPE.mountainH;
   paintCanvas(scene, key, width, texH, (ctx) => {
+    if (theme === 'ocean') {
+      if (far) {
+        drawOceanSeamounts(ctx, colors, texH);
+      } else {
+        drawOceanReefs(ctx, colors, texH);
+      }
+      return;
+    }
     if (theme === 'desert') {
       ctx.fillStyle = css(far ? colors.far : colors.mountain);
       ctx.fillRect(0, texH * 0.3, width, texH * 0.7);
@@ -672,7 +1097,7 @@ function drawRange(scene: Phaser.Scene, key: string, theme: Theme, colors: Lands
       return;
     }
 
-    const peaks = theme === 'snow' ? snowPeaks(far, texH) : theme === 'ocean' ? oceanPeaks(far, texH) : grassPeaks(far, texH);
+    const peaks = theme === 'snow' ? snowPeaks(far, texH) : grassPeaks(far, texH);
     const ridge = ridgeHeights(
       width,
       texH,
@@ -703,29 +1128,7 @@ function drawGround(scene: Phaser.Scene, theme: Theme, colors: LandscapePalette)
   const texH = LANDSCAPE.groundH;
   paintCanvas(scene, hillKey(theme), width, texH, (ctx) => {
     if (theme === 'ocean') {
-      const heights = new Array<number>(width + 1);
-      for (let x = 0; x <= width; x += 1) {
-        const surfaceY =
-          32 +
-          12 * Math.sin((x / width) * Math.PI * 2 * 5) +
-          6 * Math.sin((x / width) * Math.PI * 2 * 11 + 1.2) +
-          3 * Math.sin((x / width) * Math.PI * 2 * 17 + 0.4);
-        heights[x] = texH - surfaceY;
-      }
-      ctx.fillStyle = css(colors.groundShade);
-      fillBelow(ctx, heights, texH, width);
-      ctx.fillStyle = css(colors.ground);
-      fillBand(ctx, heights, texH, width, 140);
-      ctx.fillStyle = css(colors.groundTop);
-      fillBand(ctx, heights, texH, width, 42);
-      ctx.strokeStyle = css(0xd8f6ff, 0.7);
-      ctx.lineWidth = 3;
-      ctx.beginPath();
-      ctx.moveTo(0, texH - (heights[0] ?? 0));
-      for (let x = 2; x <= width; x += 2) {
-        ctx.lineTo(x, texH - (heights[x] ?? 0));
-      }
-      ctx.stroke();
+      drawOceanFloor(ctx, colors, texH);
       return;
     }
 

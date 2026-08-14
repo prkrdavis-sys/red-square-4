@@ -123,7 +123,7 @@ export class PlayScene extends Phaser.Scene {
 
     if (def.theme === 'ocean') {
       this.add
-        .rectangle(0, 220, this.built.widthPx, this.built.heightPx, 0x0a4a6a, 0.22)
+        .rectangle(0, 0, this.built.widthPx, this.built.heightPx, 0x073044, 0.16)
         .setOrigin(0, 0)
         .setDepth(8);
       this.add.particles(0, 0, 'poof-particle', {
