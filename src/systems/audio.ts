@@ -18,13 +18,65 @@ type SfxName =
   | 'phase'
   | 'enemy-shot';
 
-let audioCtx: AudioContext | null = null;
+type SafariAudioState = AudioContextState | 'interrupted';
 
-function ctx(): AudioContext {
-  if (!audioCtx) {
-    audioCtx = new AudioContext();
+type AudioWindow = Window & {
+  webkitAudioContext?: typeof AudioContext;
+};
+
+const UNLOCK_EVENTS = ['pointerdown', 'mousedown', 'touchstart', 'click', 'keydown'] as const;
+
+let audioCtx: AudioContext | null = null;
+let unlockInstalled = false;
+
+function audioContextConstructor(): typeof AudioContext | undefined {
+  const audioWindow = window as AudioWindow;
+  return window.AudioContext ?? audioWindow.webkitAudioContext;
+}
+
+function ctx(): AudioContext | null {
+  if (audioCtx && audioCtx.state !== 'closed') {
+    return audioCtx;
+  }
+  const Ctor = audioContextConstructor();
+  if (!Ctor) {
+    return null;
+  }
+  try {
+    audioCtx = new Ctor();
+  } catch {
+    audioCtx = null;
   }
   return audioCtx;
+}
+
+function sceneContext(scene?: Phaser.Scene): AudioContext | null {
+  if (audioCtx && audioCtx.state !== 'closed') {
+    return audioCtx;
+  }
+  const fromPhaser = (scene?.sound as { context?: AudioContext } | undefined)?.context;
+  if (fromPhaser && fromPhaser.state !== 'closed') {
+    audioCtx = fromPhaser;
+    return audioCtx;
+  }
+  return ctx();
+}
+
+function needsResume(context: AudioContext): boolean {
+  const state = context.state as SafariAudioState;
+  return state === 'suspended' || state === 'interrupted';
+}
+
+function prime(context: AudioContext): void {
+  try {
+    const buffer = context.createBuffer(1, 1, context.sampleRate || 44100);
+    const source = context.createBufferSource();
+    source.buffer = buffer;
+    source.connect(context.destination);
+    source.start(0);
+  } catch {
+    // Safari throws here when the context is not yet allowed to run.
+  }
 }
 
 function peak(base: number): number {
@@ -35,8 +87,7 @@ function peak(base: number): number {
   return base * settings.volume;
 }
 
-function envGain(duration: number, gainPeak: number): GainNode {
-  const context = ctx();
+function envGain(context: AudioContext, duration: number, gainPeak: number): GainNode {
   const gain = context.createGain();
   gain.gain.setValueAtTime(0.0001, context.currentTime);
   gain.gain.exponentialRampToValueAtTime(Math.max(0.0001, gainPeak), context.currentTime + 0.01);
@@ -47,27 +98,27 @@ function envGain(duration: number, gainPeak: number): GainNode {
 
 function beep(freq: number, duration: number, type: OscillatorType, gainPeak = 0.12, slide = 0): void {
   const scaled = peak(gainPeak);
-  if (scaled <= 0) {
+  const context = ctx();
+  if (scaled <= 0 || !context) {
     return;
   }
-  const context = ctx();
   const osc = context.createOscillator();
   osc.type = type;
   osc.frequency.setValueAtTime(freq, context.currentTime);
   if (slide !== 0) {
     osc.frequency.exponentialRampToValueAtTime(Math.max(40, freq + slide), context.currentTime + duration);
   }
-  osc.connect(envGain(duration, scaled));
+  osc.connect(envGain(context, duration, scaled));
   osc.start();
   osc.stop(context.currentTime + duration + 0.02);
 }
 
 function noiseBurst(duration: number, gainPeak: number, freq = 900): void {
   const scaled = peak(gainPeak);
-  if (scaled <= 0) {
+  const context = ctx();
+  if (scaled <= 0 || !context) {
     return;
   }
-  const context = ctx();
   const bufferSize = Math.floor(context.sampleRate * duration);
   const buffer = context.createBuffer(1, bufferSize, context.sampleRate);
   const data = buffer.getChannelData(0);
@@ -80,7 +131,7 @@ function noiseBurst(duration: number, gainPeak: number, freq = 900): void {
   filter.type = 'lowpass';
   filter.frequency.value = freq;
   src.connect(filter);
-  filter.connect(envGain(duration, scaled));
+  filter.connect(envGain(context, duration, scaled));
   src.start();
 }
 
@@ -154,27 +205,80 @@ function synth(name: SfxName): void {
   }
 }
 
+function emit(scene: Phaser.Scene, name: SfxName): void {
+  const settings = loadSettings();
+  if (settings.muted) {
+    return;
+  }
+  const cacheKey = `sfx-${name}`;
+  if (scene.cache.audio.exists(cacheKey) && !scene.sound.locked) {
+    const base = name === 'victory' || name === 'explode' ? 0.7 : 0.45;
+    scene.sound.play(cacheKey, { volume: base * settings.volume });
+    return;
+  }
+  synth(name);
+}
+
 export const audio = {
-  unlock(): void {
-    const context = ctx();
-    if (context.state === 'suspended') {
-      void context.resume();
+  ensureContext(): AudioContext | null {
+    return ctx();
+  },
+
+  install(): void {
+    if (unlockInstalled) {
+      return;
     }
+    unlockInstalled = true;
+    const resume = () => {
+      void this.unlock();
+    };
+    for (const type of UNLOCK_EVENTS) {
+      window.addEventListener(type, resume, { capture: true });
+    }
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible' && audioCtx) {
+        resume();
+      }
+    });
+  },
+
+  unlock(scene?: Phaser.Scene): Promise<boolean> {
+    this.install();
+    const context = sceneContext(scene);
+    if (scene?.sound.locked) {
+      scene.sound.unlock();
+    }
+    if (!context) {
+      return Promise.resolve(false);
+    }
+    prime(context);
+    if (!needsResume(context)) {
+      return Promise.resolve(context.state === 'running');
+    }
+    return context
+      .resume()
+      .then(() => {
+        prime(context);
+        return context.state === 'running';
+      })
+      .catch(() => false);
   },
 
   play(scene: Phaser.Scene, name: SfxName): void {
-    this.unlock();
     applySettings(scene);
     const settings = loadSettings();
     if (settings.muted) {
       return;
     }
-    const cacheKey = `sfx-${name}`;
-    if (scene.cache.audio.exists(cacheKey)) {
-      const base = name === 'victory' || name === 'explode' ? 0.7 : 0.45;
-      scene.sound.play(cacheKey, { volume: base * settings.volume });
+    const context = sceneContext(scene);
+    if (context && !needsResume(context) && !scene.sound.locked) {
+      emit(scene, name);
       return;
     }
-    synth(name);
+    void this.unlock(scene).then(() => {
+      if (!loadSettings().muted) {
+        emit(scene, name);
+      }
+    });
   },
 };

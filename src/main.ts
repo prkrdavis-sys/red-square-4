@@ -7,7 +7,10 @@ import { PlayScene } from './scenes/PlayScene';
 import { SettingsScene } from './scenes/SettingsScene';
 import { TitleScene } from './scenes/TitleScene';
 import { WorldMapScene } from './scenes/WorldMapScene';
+import { audio } from './systems/audio';
 import { bootTouchControls, watchLandscapePrompt } from './systems/touch-controls';
+
+audio.install();
 
 const config: Phaser.Types.Core.GameConfig = {
   type: Phaser.AUTO,
