@@ -100,15 +100,22 @@ export class TitleScene extends Phaser.Scene {
       this.scene.start('WorldMapScene');
     };
 
-    buttons.push(
-      new MenuButton(this, GAME_WIDTH / 2, 390, hasProgress ? 'CONTINUE' : 'PLAY', () => startCampaign(false)),
-    );
+    const entries: Array<{ label: string; action: () => void }> = [
+      { label: hasProgress ? 'CONTINUE' : 'PLAY', action: () => startCampaign(false) },
+    ];
     if (hasProgress) {
-      buttons.push(new MenuButton(this, GAME_WIDTH / 2, 454, 'NEW GAME', () => startCampaign(true)));
+      entries.push({ label: 'NEW GAME', action: () => startCampaign(true) });
     }
-    const y0 = hasProgress ? 518 : 454;
-    buttons.push(new MenuButton(this, GAME_WIDTH / 2, y0, 'SETTINGS', () => launchOverlay(this, 'SettingsScene')));
-    buttons.push(new MenuButton(this, GAME_WIDTH / 2, y0 + 64, 'CREDITS', () => launchOverlay(this, 'CreditsScene')));
+    entries.push(
+      { label: 'SKINS', action: () => launchOverlay(this, 'SkinsScene') },
+      { label: 'SETTINGS', action: () => launchOverlay(this, 'SettingsScene') },
+      { label: 'CREDITS', action: () => launchOverlay(this, 'CreditsScene') },
+    );
+    const spacing = 60;
+    const firstY = 626 - (entries.length - 1) * spacing;
+    entries.forEach((entry, index) => {
+      buttons.push(new MenuButton(this, GAME_WIDTH / 2, firstY + index * spacing, entry.label, entry.action));
+    });
 
     new MenuNav(this, buttons);
 

@@ -5,6 +5,7 @@ import {
   collectibleMask,
   getCheckpoint,
   levelCollectibleCount,
+  loadSave,
   markCleared,
   nextLevelId,
   resetSessionLives,
@@ -13,6 +14,7 @@ import {
   setLastPlayed,
 } from '../data/progress';
 import { applySettings } from '../data/settings';
+import { skinForLevel, type SkinDef } from '../data/skins';
 import { Baddie } from '../entities/Baddie';
 import { Boss } from '../entities/Boss';
 import { EnemyProjectile } from '../entities/EnemyProjectile';
@@ -25,6 +27,7 @@ import { audio } from '../systems/audio';
 import { forgetFlak, rememberFlak, restoreFlak, setFlakGroup } from '../systems/flak';
 import { Parallax } from '../systems/parallax';
 import { getTouchState, hideTouchControls, showTouchControls } from '../systems/touch-controls';
+import { skinThumbKey } from '../systems/textures';
 import { showBossFightBanner } from '../ui/boss-fight';
 import { addPanel, launchOverlay, MenuButton, MenuNav, textStyle } from '../ui/menu';
 import { WorldSpecial } from '../systems/world-special';
@@ -567,14 +570,16 @@ export class PlayScene extends Phaser.Scene {
   private defeatBoss(boss: Boss, worldBoss: boolean): void {
     this.completing = true;
     this.built.player.freeze();
+    const firstClear = !loadSave().cleared.includes(this.levelId);
     markCleared(this.levelId);
     audio.play(this, 'poof');
     const def = getLevel(this.levelId);
     const message = worldBoss ? `WORLD ${def.world} CLEARED!` : `${this.levelId}  CLEAR!`;
+    const unlockedSkin = firstClear ? skinForLevel(this.levelId) : undefined;
     boss.poofAway();
     this.time.delayedCall(500, () => {
       audio.play(this, 'victory');
-      this.showCompleteMenu(message);
+      this.showCompleteMenu(message, unlockedSkin);
     });
   }
 
@@ -724,7 +729,7 @@ export class PlayScene extends Phaser.Scene {
     this.physics.world.isPaused = this.paused;
   }
 
-  private showCompleteMenu(title: string): void {
+  private showCompleteMenu(title: string, unlockedSkin?: SkinDef): void {
     this.pauseOverlay.setVisible(false);
     this.pauseNav.setEnabled(false);
     this.physics.world.isPaused = true;
@@ -745,11 +750,30 @@ export class PlayScene extends Phaser.Scene {
     );
 
     const dim = this.add.rectangle(GAME_WIDTH / 2, GAME_HEIGHT / 2, GAME_WIDTH, GAME_HEIGHT, 0x000000, 0.5);
-    const panelHeight = 176 + items.length * 64;
+    const unlockBand = unlockedSkin ? 62 : 0;
+    const panelHeight = 176 + unlockBand + items.length * 64;
     const panel = addPanel(this, GAME_WIDTH / 2, GAME_HEIGHT / 2, 560, panelHeight, title);
     this.add.container(0, 0, [dim, panel]).setScrollFactor(0).setDepth(80);
 
-    const startY = GAME_HEIGHT / 2 - panelHeight / 2 + 108;
+    if (unlockedSkin) {
+      const bannerY = GAME_HEIGHT / 2 - panelHeight / 2 + 86;
+      const label = this.add
+        .text(GAME_WIDTH / 2 + 22, bannerY, `NEW SKIN UNLOCKED\n${unlockedSkin.name}`, {
+          ...textStyle('18px', '#ffe9a8'),
+          align: 'center',
+          lineSpacing: 4,
+        })
+        .setOrigin(0.5)
+        .setScrollFactor(0)
+        .setDepth(84);
+      this.add
+        .image(label.x - label.width / 2 - 34, bannerY, skinThumbKey(unlockedSkin.id))
+        .setScale(1.1)
+        .setScrollFactor(0)
+        .setDepth(84);
+    }
+
+    const startY = GAME_HEIGHT / 2 - panelHeight / 2 + 108 + unlockBand;
     const buttons = items.map((item, index) => {
       const button = new MenuButton(this, GAME_WIDTH / 2, startY + index * 64, item.label, item.action);
       button.setDepth(85);

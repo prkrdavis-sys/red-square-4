@@ -1,5 +1,6 @@
 import { ALL_LEVEL_IDS, parseLevelId, type LevelId } from '../config';
 import { persistReadClient, persistWriteClient } from './persist';
+import { DEFAULT_SKIN_ID, isSkinUnlocked, skinById } from './skins';
 
 const STORAGE_KEY = 'red-square-4-save-v2';
 const LEGACY_STORAGE_KEY = 'red-square-4-save-v1';
@@ -12,6 +13,7 @@ export interface SaveData {
   collectibles: Partial<Record<LevelId, number>>;
   checkpoints: Partial<Record<LevelId, { x: number; y: number }>>;
   creatureCards: string[];
+  equippedSkin: string;
 }
 
 let memory: SaveData | null = null;
@@ -40,6 +42,7 @@ function defaultSave(): SaveData {
     collectibles: {},
     checkpoints: {},
     creatureCards: [],
+    equippedSkin: DEFAULT_SKIN_ID,
   };
 }
 
@@ -76,6 +79,14 @@ function fallbackLastPlayed(unlocked: LevelId[], cleared: LevelId[]): LevelId {
   return leftover ?? unlocked[unlocked.length - 1] ?? '1-1';
 }
 
+function normalizeSkin(id: string, cleared: LevelId[]): string {
+  const skin = skinById(id);
+  if (!skin || !isSkinUnlocked(skin, { cleared })) {
+    return DEFAULT_SKIN_ID;
+  }
+  return skin.id;
+}
+
 function normalizeSave(save: SaveData): SaveData {
   const cleared = uniqueLevels(save.cleared);
   const unlocked = unlockedFrom(cleared, save.unlocked);
@@ -109,6 +120,7 @@ function normalizeSave(save: SaveData): SaveData {
     collectibles,
     checkpoints,
     creatureCards: Array.from(new Set(save.creatureCards.filter((card) => typeof card === 'string'))),
+    equippedSkin: normalizeSkin(save.equippedSkin, cleared),
   };
 }
 
@@ -140,7 +152,16 @@ function parseSave(raw: string | null | undefined): SaveData | null {
     const creatureCards = Array.isArray(parsed.creatureCards)
       ? parsed.creatureCards.filter((card): card is string => typeof card === 'string')
       : [];
-    return normalizeSave({ unlocked, cleared, lastPlayed, collectibles, checkpoints, creatureCards });
+    const equippedSkin = typeof parsed.equippedSkin === 'string' ? parsed.equippedSkin : DEFAULT_SKIN_ID;
+    return normalizeSave({
+      unlocked,
+      cleared,
+      lastPlayed,
+      collectibles,
+      checkpoints,
+      creatureCards,
+      equippedSkin,
+    });
   } catch {
     return null;
   }
@@ -166,6 +187,7 @@ function unionSave(a: SaveData, b: SaveData): SaveData {
     collectibles,
     checkpoints,
     creatureCards: [...a.creatureCards, ...b.creatureCards],
+    equippedSkin: b.equippedSkin === DEFAULT_SKIN_ID ? a.equippedSkin : b.equippedSkin,
   });
 }
 
@@ -284,6 +306,13 @@ export function markCleared(id: LevelId): SaveData {
   save.lastPlayed = next && !nextIsGatedBoss ? next : id;
   writeSave(save);
   return save;
+}
+
+export function setEquippedSkin(id: string): SaveData {
+  const save = loadSave();
+  save.equippedSkin = id;
+  writeSave(save);
+  return loadSave();
 }
 
 export function isUnlocked(id: LevelId): boolean {

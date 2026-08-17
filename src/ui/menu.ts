@@ -257,7 +257,10 @@ export class MenuNav {
   }
 }
 
-export function launchOverlay(from: Phaser.Scene, key: 'SettingsScene' | 'CreditsScene'): void {
+export function launchOverlay(
+  from: Phaser.Scene,
+  key: 'SettingsScene' | 'CreditsScene' | 'SkinsScene',
+): void {
   audio.unlock();
   from.scene.launch(key, { returnKey: from.scene.key });
   from.scene.pause();

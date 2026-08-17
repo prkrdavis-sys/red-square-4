@@ -12,7 +12,7 @@ import {
 import { applySettings } from '../data/settings';
 import { getLevel } from '../levels/worlds';
 import { audio } from '../systems/audio';
-import { MenuButton, textStyle, UI } from '../ui/menu';
+import { launchOverlay, MenuButton, textStyle, UI } from '../ui/menu';
 
 interface NodeView {
   id: LevelId;
@@ -165,6 +165,20 @@ export class WorldMapScene extends Phaser.Scene {
       () => {
         if (!this.scene.isPaused()) {
           this.scene.start('TitleScene');
+        }
+      },
+      200,
+      44,
+    );
+
+    new MenuButton(
+      this,
+      344,
+      GAME_HEIGHT - 36,
+      'SKINS',
+      () => {
+        if (!this.scene.isPaused()) {
+          launchOverlay(this, 'SkinsScene');
         }
       },
       200,

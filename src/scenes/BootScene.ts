@@ -2,7 +2,7 @@ import Phaser from 'phaser';
 import { hydrateSave } from '../data/progress';
 import { applySettings } from '../data/settings';
 import { CHARACTER_ASSETS } from '../systems/characters';
-import { createGameTextures } from '../systems/textures';
+import { applySkin, createGameTextures } from '../systems/textures';
 
 interface AssetManifest {
   characterRoot?: string;
@@ -37,7 +37,10 @@ export class BootScene extends Phaser.Scene {
     const audioKeys = Object.keys(audioFiles);
     const saveReady = hydrateSave();
     const startTitle = () => {
-      void saveReady.finally(() => this.scene.start('TitleScene'));
+      void saveReady.then((save) => {
+        applySkin(this, save.equippedSkin);
+        this.scene.start('TitleScene');
+      });
     };
     if (imageKeys.length === 0 && audioKeys.length === 0) {
       startTitle();
