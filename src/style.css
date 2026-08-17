@@ -25,21 +25,21 @@ body {
 }
 
 :root {
-  --touch-btn-size: 80px;
-  --touch-btn-gap: 12px;
+  --touch-btn-size: 104px;
+  --touch-btn-gap: 14px;
 }
 
 @media (pointer: coarse) and (max-height: 500px), (hover: none) and (max-height: 500px) {
   :root {
-    --touch-btn-size: clamp(72px, 20vmin, 96px);
-    --touch-btn-gap: clamp(10px, 2.4vmin, 16px);
+    --touch-btn-size: clamp(100px, 28vmin, 132px);
+    --touch-btn-gap: clamp(12px, 3vmin, 18px);
   }
 }
 
 @media (pointer: coarse) and (min-height: 501px), (hover: none) and (min-height: 501px) {
   :root {
-    --touch-btn-size: clamp(88px, 14vmin, 128px);
-    --touch-btn-gap: clamp(12px, 1.8vmin, 20px);
+    --touch-btn-size: clamp(116px, 20vmin, 160px);
+    --touch-btn-gap: clamp(14px, 2.2vmin, 22px);
   }
 }
 
@@ -63,18 +63,18 @@ body.touch-play #touch-controls {
 
 .touch-cluster {
   position: absolute;
-  bottom: calc(16px + env(safe-area-inset-bottom, 0px));
+  bottom: calc(10px + env(safe-area-inset-bottom, 0px));
   display: flex;
   align-items: center;
   gap: var(--touch-btn-gap);
 }
 
 .touch-cluster-left {
-  left: calc(16px + env(safe-area-inset-left, 0px));
+  left: calc(10px + env(safe-area-inset-left, 0px));
 }
 
 .touch-cluster-right {
-  right: calc(16px + env(safe-area-inset-right, 0px));
+  right: calc(10px + env(safe-area-inset-right, 0px));
 }
 
 .touch-btn {
@@ -106,15 +106,15 @@ body.touch-play #touch-controls {
     inset 0 1px 0 rgba(255, 255, 255, 0.28);
   backdrop-filter: blur(14px) saturate(1.45);
   -webkit-backdrop-filter: blur(14px) saturate(1.45);
-  -webkit-mask-image: radial-gradient(circle closest-side, transparent 56%, #000 60%);
-  mask-image: radial-gradient(circle closest-side, transparent 56%, #000 60%);
+  -webkit-mask-image: radial-gradient(circle closest-side, transparent 50%, #000 54%);
+  mask-image: radial-gradient(circle closest-side, transparent 50%, #000 54%);
 }
 
 .touch-btn-icon {
   position: relative;
   z-index: 1;
-  width: 46%;
-  height: 46%;
+  width: 52%;
+  height: 52%;
   display: block;
   pointer-events: none;
   filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.45));
