@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import { ALL_LEVEL_IDS, GAME_HEIGHT, GAME_WIDTH, themeName, themeSky, type LevelId, type Theme } from '../config';
+import { ALL_LEVEL_IDS, GAME_HEIGHT, GAME_WIDTH, THEMES, themeName, themeSky, type LevelId } from '../config';
 import {
   isUnlocked,
   levelCollectibleCount,
@@ -22,17 +22,20 @@ interface NodeView {
   stage: number;
 }
 
+function worldBand(): number {
+  return GAME_WIDTH / THEMES.length;
+}
+
 function nodePosition(world: number, stage: number): { x: number; y: number } {
-  const band = 70 + (world - 1) * 242;
+  const band = worldBand();
+  const origin = (world - 1) * band;
   const col = stage === 1 || stage === 4 ? 0 : 1;
   const row = stage <= 2 ? 0 : 1;
   return {
-    x: band + 56 + col * 118,
+    x: origin + band * 0.32 + col * band * 0.42,
     y: 250 + row * 170,
   };
 }
-
-const WORLD_THEMES: Theme[] = ['grass', 'snow', 'desert', 'ocean', 'castle'];
 
 export class WorldMapScene extends Phaser.Scene {
   private nodes: NodeView[] = [];
@@ -56,30 +59,31 @@ export class WorldMapScene extends Phaser.Scene {
     const save = loadSave();
 
     const footerTop = GAME_HEIGHT - 120;
-    for (let world = 1; world <= 5; world += 1) {
-      const theme = WORLD_THEMES[world - 1] ?? 'grass';
-      const x = 48 + (world - 1) * 242;
-      this.add.rectangle(x, 120, 230, footerTop - 128, themeSky(theme), 0.55).setOrigin(0, 0);
+    const band = worldBand();
+    for (let world = 1; world <= THEMES.length; world += 1) {
+      const theme = THEMES[world - 1] ?? 'grass';
+      const x = (world - 1) * band;
+      this.add.rectangle(x + 2, 120, band - 4, footerTop - 128, themeSky(theme), 0.55).setOrigin(0, 0);
       this.add
-        .text(x + 115, 148, `WORLD ${world}`, {
+        .text(x + band / 2, 148, `WORLD ${world}`, {
           fontFamily: 'Courier New, monospace',
-          fontSize: '18px',
+          fontSize: '16px',
           color: '#ffffff',
           stroke: '#000000',
           strokeThickness: 4,
         })
         .setOrigin(0.5);
       this.add
-        .text(x + 115, 174, themeName(theme), {
+        .text(x + band / 2, 174, themeName(theme), {
           fontFamily: 'Courier New, monospace',
-          fontSize: '13px',
+          fontSize: '12px',
           color: '#fff4d0',
         })
         .setOrigin(0.5);
       this.add
-        .text(x + 115, 198, `MEMORIES ${worldCollectibleCount(save, world)}/12`, {
+        .text(x + band / 2, 198, `MEMORIES ${worldCollectibleCount(save, world)}/12`, {
           fontFamily: 'Courier New, monospace',
-          fontSize: '12px',
+          fontSize: '11px',
           color: '#d9f5a8',
         })
         .setOrigin(0.5);
@@ -161,7 +165,7 @@ export class WorldMapScene extends Phaser.Scene {
       this,
       130,
       GAME_HEIGHT - 36,
-      'TITLE',
+      'MAIN MENU',
       () => {
         if (!this.scene.isPaused()) {
           this.scene.start('TitleScene');

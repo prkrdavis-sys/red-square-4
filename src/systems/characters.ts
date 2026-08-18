@@ -180,6 +180,27 @@ const ENEMY_FRAMES: Record<EnemyKind, CharacterFrames> = {
     hurt: 'kenney-block-rest',
     dead: 'kenney-block-fall',
   },
+  'howler-ape': {
+    idle: 'kenney-mouse-rest',
+    move: 'kenney-mouse-walk-a',
+    attack: 'kenney-mouse-walk-b',
+    hurt: 'kenney-mouse-rest',
+    dead: 'kenney-mouse-walk-b',
+  },
+  'dart-mosquito': {
+    idle: 'kenney-fly-rest',
+    move: 'kenney-fly-a',
+    attack: 'kenney-fly-b',
+    hurt: 'kenney-fly-rest',
+    dead: 'kenney-fly-b',
+  },
+  'coil-serpent': {
+    idle: 'kenney-worm-normal-rest',
+    move: 'kenney-worm-normal-a',
+    attack: 'kenney-worm-normal-b',
+    hurt: 'kenney-worm-normal-rest',
+    dead: 'kenney-worm-normal-b',
+  },
 };
 
 const BOSS_FRAMES: Record<BossKind, CharacterFrames> = {
@@ -194,6 +215,13 @@ const BOSS_FRAMES: Record<BossKind, CharacterFrames> = {
     hurt: 'kenney-character-purple-hit',
     dead: 'kenney-character-purple-duck',
   },
+  swinger: {
+    idle: 'kenney-character-green-front',
+    move: 'kenney-character-green-walk-a',
+    attack: 'kenney-character-green-jump',
+    hurt: 'kenney-character-green-hit',
+    dead: 'kenney-character-green-duck',
+  },
 };
 
 const MINI_COLOR: Record<Theme, string> = {
@@ -202,6 +230,7 @@ const MINI_COLOR: Record<Theme, string> = {
   desert: 'yellow',
   ocean: 'pink',
   castle: 'purple',
+  rainforest: 'green',
 };
 
 export function enemyTextureKey(kind: EnemyKind, pose: CharacterPose): string {

@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import { GAME_HEIGHT, type Theme } from '../config';
+import { GAME_HEIGHT, THEMES, type Theme } from '../config';
 
 export const LANDSCAPE = {
   stripW: 2560,
@@ -131,6 +131,21 @@ function palette(theme: Theme): LandscapePalette {
         ground: 0x160c18,
         groundShade: 0x0a060c,
         groundTop: 0x2a1a28,
+      };
+    case 'rainforest':
+      return {
+        skyTop: 0x14382c,
+        skyHorizon: 0x3a7a5a,
+        cloud: 0xc8e8d8,
+        cloudShade: 0x7aaa90,
+        far: 0x1a4a32,
+        farCap: 0x2d6b48,
+        mountain: 0x0f3a24,
+        mountainShade: 0x0a2818,
+        cap: 0x4a8a3a,
+        ground: 0x2a6b28,
+        groundShade: 0x1a4a18,
+        groundTop: 0x3d8a32,
       };
     default: {
       const neverTheme: never = theme;
@@ -838,6 +853,19 @@ function cloudPlan(theme: Theme): { x: number; y: number; s: number }[] {
         { x: 1860, y: 82, s: 1.18 },
         { x: 2360, y: 100, s: 1.32 },
       ];
+    case 'rainforest':
+      return [
+        { x: 140, y: 90, s: 1.18 },
+        { x: 380, y: 124, s: 0.86 },
+        { x: 640, y: 78, s: 1.34 },
+        { x: 920, y: 110, s: 0.72 },
+        { x: 1180, y: 86, s: 1.16 },
+        { x: 1460, y: 128, s: 0.8 },
+        { x: 1740, y: 94, s: 1.22 },
+        { x: 2020, y: 72, s: 0.9 },
+        { x: 2280, y: 108, s: 1.08 },
+        { x: 2480, y: 84, s: 0.76 },
+      ];
     default: {
       const neverTheme: never = theme;
       return neverTheme;
@@ -1166,8 +1194,7 @@ function drawGround(scene: Phaser.Scene, theme: Theme, colors: LandscapePalette)
 }
 
 export function createLandscapeTextures(scene: Phaser.Scene): void {
-  const themes: Theme[] = ['grass', 'snow', 'desert', 'ocean', 'castle'];
-  for (const theme of themes) {
+  for (const theme of THEMES) {
     const colors = palette(theme);
     drawSky(scene, theme, colors);
     drawClouds(scene, theme, colors);
@@ -1201,6 +1228,8 @@ export function hillKey(theme: Theme): string {
       return 'hill-ocean';
     case 'castle':
       return 'hill-castle';
+    case 'rainforest':
+      return 'hill-rainforest';
     default: {
       const neverTheme: never = theme;
       return neverTheme;
@@ -1220,6 +1249,8 @@ export function mountainKey(theme: Theme): string {
       return 'mtn-ocean';
     case 'castle':
       return 'mtn-castle';
+    case 'rainforest':
+      return 'mtn-rainforest';
     default: {
       const neverTheme: never = theme;
       return neverTheme;

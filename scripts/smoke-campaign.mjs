@@ -1,7 +1,7 @@
 import { chromium } from 'playwright';
 
 const baseUrl = process.env.SMOKE_URL ?? 'http://127.0.0.1:5173';
-const levels = Array.from({ length: 5 }, (_, worldIndex) =>
+const levels = Array.from({ length: 6 }, (_, worldIndex) =>
   Array.from({ length: 4 }, (_, stageIndex) => `${worldIndex + 1}-${stageIndex + 1}`),
 ).flat();
 
@@ -121,7 +121,7 @@ const mobileFailures = await smokeViewport(
     isMobile: true,
     deviceScaleFactor: 2,
   },
-  ['1-1', '2-2', '3-3', '4-4', '5-4'],
+  ['1-1', '2-2', '3-3', '4-4', '5-4', '6-4'],
 );
 await browser.close();
 
@@ -130,5 +130,5 @@ if (failures.length > 0) {
   console.error(JSON.stringify(failures, null, 2));
   process.exitCode = 1;
 } else {
-  console.log(`Smoke-tested ${levels.length} desktop levels and 5 landscape-touch representatives.`);
+  console.log(`Smoke-tested ${levels.length} desktop levels and 6 landscape-touch representatives.`);
 }

@@ -4,8 +4,76 @@ import { maybeShake } from '../data/settings';
 import type { ArenaKeep } from '../levels/arena';
 import { audio } from '../systems/audio';
 import { miniBossTextureKey, worldBossTextureKey, type CharacterPose } from '../systems/characters';
+import {
+  estimatedOpaqueBounds,
+  hurtboxFromOpaque,
+  type SpriteOpaqueBounds,
+} from './boss-combat';
 
 type BossState = 'waiting' | 'telegraph' | 'attack' | 'recovery';
+
+const opaqueBoundsCache = new Map<string, SpriteOpaqueBounds>();
+
+function opaqueSpriteBounds(texture: Phaser.Textures.Texture, frame: Phaser.Textures.Frame): SpriteOpaqueBounds {
+  const cached = opaqueBoundsCache.get(texture.key);
+  if (cached) {
+    return cached;
+  }
+  const fallback = estimatedOpaqueBounds(frame.realWidth, frame.realHeight);
+  try {
+    const source = texture.getSourceImage() as CanvasImageSource | undefined;
+    if (!source || typeof document === 'undefined') {
+      return fallback;
+    }
+    const width = frame.realWidth;
+    const height = frame.realHeight;
+    const canvas = document.createElement('canvas');
+    canvas.width = width;
+    canvas.height = height;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) {
+      return fallback;
+    }
+    ctx.drawImage(source, 0, 0);
+    const pixels = ctx.getImageData(0, 0, width, height).data;
+    let minX = width;
+    let minY = height;
+    let maxX = 0;
+    let maxY = 0;
+    for (let y = 0; y < height; y += 1) {
+      for (let x = 0; x < width; x += 1) {
+        if (pixels[(y * width + x) * 4 + 3] <= 12) {
+          continue;
+        }
+        if (x < minX) {
+          minX = x;
+        }
+        if (y < minY) {
+          minY = y;
+        }
+        if (x > maxX) {
+          maxX = x;
+        }
+        if (y > maxY) {
+          maxY = y;
+        }
+      }
+    }
+    if (minX > maxX) {
+      return fallback;
+    }
+    const bounds: SpriteOpaqueBounds = {
+      x: minX,
+      y: minY,
+      width: maxX - minX + 1,
+      height: maxY - minY + 1,
+    };
+    opaqueBoundsCache.set(texture.key, bounds);
+    return bounds;
+  } catch {
+    return fallback;
+  }
+}
 
 const WORLD_BOSS_NAMES: Record<BossKind, string> = {
   hopper: 'Crowned Briar Boar',
@@ -13,6 +81,7 @@ const WORLD_BOSS_NAMES: Record<BossKind, string> = {
   slam: 'Buried Sphinx',
   swimmer: 'Abyssal Octopus',
   charger: 'Many-Eyed Raven King',
+  swinger: 'Canopy Howler',
 };
 
 const MINI_FAMILIES: Record<Theme, string> = {
@@ -21,6 +90,7 @@ const MINI_FAMILIES: Record<Theme, string> = {
   desert: 'Dune Mask',
   ocean: 'Coral Jester',
   castle: 'Clockwork Page',
+  rainforest: 'Leaf Rascal',
 };
 
 export class Boss extends Phaser.Physics.Arcade.Sprite {
@@ -241,6 +311,10 @@ export class Boss extends Phaser.Physics.Arcade.Sprite {
         this.chargeDir = dir === 0 ? this.chargeDir * -1 : dir;
         body.setVelocity(this.chargeDir * (320 + speedBonus), this.phase >= 2 ? -260 : 0);
         break;
+      case 'swinger':
+        this.chargeDir = dir === 0 ? this.chargeDir * -1 : dir;
+        body.setVelocity(this.chargeDir * (260 + speedBonus), -380 - this.phase * 40);
+        break;
       default: {
         const neverKind: never = this.kind;
         return neverKind;
@@ -282,6 +356,16 @@ export class Boss extends Phaser.Physics.Arcade.Sprite {
           body.setVelocityX(this.chargeDir * (280 + this.phase * 45));
         }
         break;
+      case 'swinger':
+        if (body.blocked.left || body.blocked.right) {
+          this.chargeDir *= -1;
+          body.setVelocityX(this.chargeDir * (240 + this.phase * 40));
+        }
+        if (body.blocked.down && this.phase >= 2 && this.scene.time.now > this.hopUntil) {
+          body.setVelocity(dir * (150 + this.phase * 20), -360);
+          this.hopUntil = this.scene.time.now + 400;
+        }
+        break;
       default: {
         const neverKind: never = this.kind;
         return neverKind;
@@ -312,16 +396,12 @@ export class Boss extends Phaser.Physics.Arcade.Sprite {
     this.fitHitbox();
   }
 
-  /** Keep the hurtbox on the visible torso, not the padded Kenney frame. */
+  /** Match the hurtbox to visible pixels, including the head, not empty frame padding. */
   private fitHitbox(): void {
     const body = this.arcadeBody;
-    const frameW = this.width;
-    const frameH = this.height;
-    const padded = frameW >= 96;
-    const hitW = Math.max(22, frameW * (padded ? 0.4 : 0.62));
-    const hitH = Math.max(24, frameH * (padded ? 0.55 : 0.7));
-    body.setSize(hitW, hitH, false);
-    body.setOffset((frameW - hitW) * 0.5, frameH - hitH);
+    const box = hurtboxFromOpaque(opaqueSpriteBounds(this.texture, this.frame));
+    body.setSize(box.width, box.height, false);
+    body.setOffset(box.offsetX, box.offsetY);
   }
 
   private swimTargetY(now: number): number {
@@ -357,12 +437,12 @@ export class Boss extends Phaser.Physics.Arcade.Sprite {
     if (this.x < edges.minX) {
       this.setX(edges.minX);
       if (body.velocity.x < 0) {
-        body.setVelocityX(this.kind === 'charger' || this.kind === 'slider' ? -body.velocity.x * 0.65 : 0);
+        body.setVelocityX(this.kind === 'charger' || this.kind === 'slider' || this.kind === 'swinger' ? -body.velocity.x * 0.65 : 0);
       }
     } else if (this.x > edges.maxX) {
       this.setX(edges.maxX);
       if (body.velocity.x > 0) {
-        body.setVelocityX(this.kind === 'charger' || this.kind === 'slider' ? -body.velocity.x * 0.65 : 0);
+        body.setVelocityX(this.kind === 'charger' || this.kind === 'slider' || this.kind === 'swinger' ? -body.velocity.x * 0.65 : 0);
       }
     }
     if (this.kind !== 'swimmer') {

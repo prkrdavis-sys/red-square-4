@@ -2,7 +2,9 @@ import Phaser from 'phaser';
 import { GROUND_Y, MAP_ROWS, TILE, type Theme } from '../config';
 import { Baddie } from '../entities/Baddie';
 import { Boss } from '../entities/Boss';
+import { MemoryGem } from '../entities/MemoryGem';
 import { Player } from '../entities/Player';
+import { plantForeground } from '../systems/foreground';
 import {
   arenaGateTileKey,
   arenaTileKey,
@@ -28,7 +30,6 @@ export interface BuiltLevel {
   collectibles: Phaser.Physics.Arcade.Group;
   shields: Phaser.Physics.Arcade.Group;
   checkpoints: Phaser.Physics.Arcade.Group;
-  specialAnchors: Phaser.Physics.Arcade.StaticGroup;
   puzzleTargets: Phaser.Physics.Arcade.StaticGroup;
   miniBoss: Boss | undefined;
   worldBoss: Boss | undefined;
@@ -76,7 +77,6 @@ export function buildLevel(
   const collectibles = scene.physics.add.group({ runChildUpdate: false, allowGravity: false, immovable: true });
   const shields = scene.physics.add.group({ runChildUpdate: false, allowGravity: false, immovable: true });
   const checkpoints = scene.physics.add.group({ runChildUpdate: false, allowGravity: false, immovable: true });
-  const specialAnchors = scene.physics.add.staticGroup();
   const puzzleTargets = scene.physics.add.staticGroup();
 
   let player: Player | undefined;
@@ -155,14 +155,13 @@ export function buildLevel(
   }
 
   course.collectibles.forEach((pickup, index) => {
-    const collectible = collectibles.create(
+    const collectible = new MemoryGem(
+      scene,
       pickup.x * TILE + TILE / 2,
       (GROUND_Y - pickup.tilesUp) * TILE - TILE / 2,
-      'memory-sprout',
-    ) as Phaser.Physics.Arcade.Sprite;
+    );
     collectible.setData('index', index);
-    collectible.setDepth(14);
-    collectible.setScale(0.9);
+    collectibles.add(collectible);
   });
 
   const shield = shields.create(
@@ -180,16 +179,6 @@ export function buildLevel(
   checkpoint.setData('spawnX', course.checkpoint.x * TILE + TILE / 2);
   checkpoint.setData('spawnY', (GROUND_Y - 1) * TILE + TILE / 2);
   checkpoint.setDepth(13);
-
-  for (const anchor of course.specialAnchors) {
-    const marker = specialAnchors.create(
-      anchor.x * TILE + TILE / 2,
-      (GROUND_Y - anchor.tilesUp) * TILE - TILE / 2,
-      `special-anchor-${theme}`,
-    ) as Phaser.Physics.Arcade.Sprite;
-    marker.setData('special', course.special);
-    marker.setDepth(12);
-  }
 
   for (const puzzle of course.puzzles) {
     const isWall = puzzle.kind === 'ice-wall' || puzzle.kind === 'sand-wall' || puzzle.kind === 'shadow-wall';
@@ -224,6 +213,8 @@ export function buildLevel(
     bossFences.push(addBossFence(scene, arena.right + 12, heightPx));
   }
 
+  plantForeground(scene, rows, theme, world, course.miniVariant ?? 4);
+
   return {
     widthPx: cols * TILE,
     heightPx,
@@ -236,7 +227,6 @@ export function buildLevel(
     collectibles,
     shields,
     checkpoints,
-    specialAnchors,
     puzzleTargets,
     miniBoss,
     worldBoss,

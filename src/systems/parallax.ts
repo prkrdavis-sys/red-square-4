@@ -28,6 +28,8 @@ function layoutFor(theme: Theme): BackdropLayout {
       return { cloudY: 20, farY: 268, mountainY: 118, groundY, cloudAlpha: 0.55 };
     case 'castle':
       return { cloudY: 12, farY: 140, mountainY: 190, groundY, cloudAlpha: 0.34 };
+    case 'rainforest':
+      return { cloudY: 10, farY: 126, mountainY: 172, groundY, cloudAlpha: 0.7 };
     default: {
       const neverTheme: never = theme;
       return neverTheme;
@@ -76,6 +78,22 @@ function addSun(scene: Phaser.Scene, theme: Theme): void {
     case 'castle':
       scene.add.circle(1108, 84, 22, 0xd8d0e8, 0.85).setScrollFactor(0).setDepth(-48);
       scene.add.circle(1114, 80, 8, 0x2a1830, 0.35).setScrollFactor(0).setDepth(-47);
+      break;
+    case 'rainforest':
+      scene.add.circle(980, 70, 46, 0xffe08a, 0.16).setScrollFactor(0).setDepth(-48);
+      scene.add.circle(980, 70, 22, 0xfff4c4, 0.7).setScrollFactor(0).setDepth(-48);
+      scene.add
+        .rectangle(GAME_WIDTH / 2, 0, 18, 220, 0xfff4c4, 0.06)
+        .setOrigin(0.5, 0)
+        .setScrollFactor(0)
+        .setDepth(-47)
+        .setAngle(-12);
+      scene.add
+        .rectangle(GAME_WIDTH / 2 + 90, 0, 14, 260, 0xfff4c4, 0.05)
+        .setOrigin(0.5, 0)
+        .setScrollFactor(0)
+        .setDepth(-47)
+        .setAngle(8);
       break;
     default: {
       const neverTheme: never = theme;

@@ -6,11 +6,13 @@ import {
   STOMP_BOUNCE_VELOCITY,
   TILE,
   enemyRole,
+  enemyThreatensTile,
   enemiesForWorld,
   parseLevelId,
 } from '../config';
 import { getLevel } from './worlds';
 import { bossSafeLandingX, getArenaLayout, type ArenaKeep } from './arena';
+import { hurtboxFromOpaque, isBossHeadStomp } from '../entities/boss-combat';
 
 describe('biome campaign compilation', () => {
   it('compiles every course with complete progression features', () => {
@@ -22,13 +24,23 @@ describe('biome campaign compilation', () => {
       expect(width).toBeGreaterThan(100);
       expect(level.rows.every((row) => row.length === width)).toBe(true);
       expect(level.course.collectibles).toHaveLength(3);
-      expect(level.course.specialAnchors.length).toBeGreaterThanOrEqual(2);
       expect(level.course.puzzles.length).toBe(level.stage === 4 ? 1 : level.stage);
       expect(level.rows[GROUND_Y]?.[level.course.checkpoint.x]).toMatch(/[#@]/);
       expect(level.course.miniVariant).toBe(level.stage < 4 ? level.stage : undefined);
       expect(level.rows.join('')).toContain(level.stage < 4 ? 'm' : 'B');
-      expect(level.rows.join('')).toContain('G');
       expect(level.rows.join('')).toContain('W');
+    }
+  });
+
+  it('uses solid jump-blocks for the hop hills at the arena entrance', () => {
+    for (const id of ALL_LEVEL_IDS) {
+      const level = getLevel(id);
+      const bossCh = level.stage < 4 ? 'm' : 'B';
+      const bossX = level.rows[GROUND_Y - 1]?.indexOf(bossCh) ?? -1;
+      const layout = getArenaLayout(bossX, level.theme, level.stage === 4, level.rows[0]?.length ?? 0);
+      expect(level.rows[GROUND_Y - 1]?.[layout.floorStart + 2], id).toBe('#');
+      expect(level.rows[GROUND_Y - 1]?.[layout.floorStart + 3], id).toBe('#');
+      expect(level.rows[GROUND_Y - 1]?.[layout.floorStart + 4], id).toBe('#');
     }
   });
 
@@ -71,7 +83,12 @@ describe('biome campaign compilation', () => {
         id,
       ).toBe(false);
       for (const puzzle of level.course.puzzles) {
-        if (puzzle.kind !== 'ice-wall' && puzzle.kind !== 'sand-wall' && puzzle.kind !== 'shadow-wall') {
+        if (
+          puzzle.kind !== 'ice-wall' &&
+          puzzle.kind !== 'sand-wall' &&
+          puzzle.kind !== 'shadow-wall' &&
+          puzzle.kind !== 'moss-curtain'
+        ) {
           continue;
         }
         expect(groundEnemies.some((enemy) => enemy.x === puzzle.x), id).toBe(false);
@@ -83,6 +100,21 @@ describe('biome campaign compilation', () => {
     expect(keep.course.checkpoint.x).toBe(108);
     expect(keep.course.enemies.some((enemy) => enemy.x === 108 && enemy.tilesUp === 0)).toBe(false);
     expect(keep.course.puzzles.some((puzzle) => puzzle.x === 108)).toBe(false);
+  });
+
+  it('keeps spawn and checkpoint outside projectile attack range', () => {
+    for (const id of ALL_LEVEL_IDS) {
+      const level = getLevel(id);
+      const spawnX = level.rows[GROUND_Y - 1]?.indexOf('P') ?? 3;
+      for (const origin of [spawnX, level.course.checkpoint.x]) {
+        for (const enemy of level.course.enemies) {
+          expect(
+            enemyThreatensTile(enemy.kind, enemy.x, origin),
+            `${id} ${enemy.kind}@${enemy.x} vs ${origin}`,
+          ).toBe(false);
+        }
+      }
+    }
   });
 
   it('keeps each enemy roster exclusive to its biome', () => {
@@ -105,5 +137,49 @@ describe('stomp recovery tuning', () => {
     const arena: ArenaKeep = { left: 100, right: 900, top: 100, bottom: 600, enterX: 120 };
     expect(bossSafeLandingX(arena, 300)).toBe(824);
     expect(bossSafeLandingX(arena, 700)).toBe(176);
+  });
+});
+
+describe('boss head stomp', () => {
+  const boss = {
+    top: 200,
+    bottom: 320,
+    left: 400,
+    right: 520,
+    width: 120,
+    height: 120,
+    velocity: { y: 0 },
+  };
+
+  it('accepts a falling landing on the head', () => {
+    expect(
+      isBossHeadStomp(
+        { top: 160, bottom: 220, left: 430, right: 464, width: 34, height: 36, velocity: { y: 200 } },
+        boss,
+      ),
+    ).toBe(true);
+  });
+
+  it('rejects side bumps and rising jumps', () => {
+    expect(
+      isBossHeadStomp(
+        { top: 240, bottom: 276, left: 500, right: 534, width: 34, height: 36, velocity: { y: 120 } },
+        boss,
+      ),
+    ).toBe(false);
+    expect(
+      isBossHeadStomp(
+        { top: 160, bottom: 220, left: 430, right: 464, width: 34, height: 36, velocity: { y: -200 } },
+        boss,
+      ),
+    ).toBe(false);
+  });
+
+  it('keeps the hurtbox on the visible sprite instead of empty frame padding', () => {
+    const box = hurtboxFromOpaque({ x: 25, y: 31, width: 78, height: 97 });
+    expect(box.width).toBeLessThan(78);
+    expect(box.height).toBeGreaterThan(80);
+    expect(box.offsetY).toBeLessThan(40);
+    expect(box.offsetX).toBeGreaterThan(25);
   });
 });

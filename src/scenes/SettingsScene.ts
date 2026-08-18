@@ -1,7 +1,7 @@
 import Phaser from 'phaser';
 import { GAME_HEIGHT, GAME_WIDTH } from '../config';
 import { applySettings, loadSettings, setFullscreen, writeSettings } from '../data/settings';
-import { addPanel, closeOverlay, dimScreen, MenuButton, MenuNav, textStyle } from '../ui/menu';
+import { addPanel, beginOverlay, closeOverlay, dimScreen, dismissOnOutside, MenuButton, MenuNav, textStyle } from '../ui/menu';
 
 interface OverlayData {
   returnKey?: string;
@@ -29,8 +29,10 @@ export class SettingsScene extends Phaser.Scene {
 
   create(data: OverlayData): void {
     this.returnKey = data.returnKey ?? 'TitleScene';
-    dimScreen(this, 0.62);
-    addPanel(this, GAME_WIDTH / 2, GAME_HEIGHT / 2, 620, 520, 'SETTINGS');
+    beginOverlay(this);
+    dimScreen(this, 0.62, () => this.goBack());
+    const panel = addPanel(this, GAME_WIDTH / 2, GAME_HEIGHT / 2, 620, 520, 'SETTINGS');
+    dismissOnOutside(this, panel, () => this.goBack());
 
     this.volumeBtn = new MenuButton(this, GAME_WIDTH / 2, 250, '', () => this.nudgeVolume(1));
     this.volumeBtn.onAdjust = (dir) => this.nudgeVolume(dir);

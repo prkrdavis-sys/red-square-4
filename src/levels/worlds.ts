@@ -28,6 +28,8 @@ function worldTheme(world: number): Theme {
       return 'ocean';
     case 5:
       return 'castle';
+    case 6:
+      return 'rainforest';
     default:
       return 'grass';
   }
@@ -86,7 +88,7 @@ const COURSES: Record<LevelId, CompiledCourse> = {
     ],
     solids: [[72, low, 3]],
     stairs: [[68, 3]],
-    enemies: [12, 30, 76, 102, 128, 172],
+    enemies: [12, 30, 76, 84, 128, 172],
     airEnemies: [
       [56, low],
       [148, mid],
@@ -144,7 +146,7 @@ const COURSES: Record<LevelId, CompiledCourse> = {
       [78, mid, 4],
     ],
     hills: [[56, 6, hop]],
-    enemies: [10, 34, 52],
+    enemies: [10, 34, 70],
     boss: 96,
   }),
   '2-1': course(2, 1, {
@@ -243,7 +245,7 @@ const COURSES: Record<LevelId, CompiledCourse> = {
       [68, low, 5],
       [78, mid, 5],
     ],
-    enemies: [12, 36, 60],
+    enemies: [12, 36, 72],
     boss: 96,
   }),
   '3-1': course(3, 1, {
@@ -310,7 +312,7 @@ const COURSES: Record<LevelId, CompiledCourse> = {
       [140, low, 4],
       [164, low, 4],
     ],
-    enemies: [12, 30, 78, 110, 154, 178],
+    enemies: [12, 30, 78, 90, 154, 178],
     airEnemies: [
       [46, mid],
       [130, high],
@@ -372,7 +374,7 @@ const COURSES: Record<LevelId, CompiledCourse> = {
       [74, low, 5],
       [84, mid, 4],
     ],
-    enemies: [10, 34, 62],
+    enemies: [10, 34, 74],
     boss: 102,
   }),
   '4-1': course(4, 1, {
@@ -436,7 +438,7 @@ const COURSES: Record<LevelId, CompiledCourse> = {
       [160, mid, 4],
       [168, low, 4],
     ],
-    enemies: [10, 36, 72, 100, 148, 180],
+    enemies: [10, 36, 72, 86, 148, 180],
     airEnemies: [
       [48, mid],
       [126, high],
@@ -644,8 +646,126 @@ const COURSES: Record<LevelId, CompiledCourse> = {
       [60, low, 3],
       [64, mid, 3],
     ],
-    enemies: [10, 34, 58],
+    enemies: [10, 34, 68],
     boss: 108,
+  }),
+  '6-1': course(6, 1, {
+    width: 180,
+    pits: [
+      [20, 3],
+      [52, 8],
+      [98, 3],
+      [124, 9],
+    ],
+    hills: [[36, 8, hop]],
+    plats: [
+      [20, low, 4],
+      [52, low, 3],
+      [58, mid, 4],
+      [66, low, 3],
+      [86, mid, 6],
+      [124, low, 3],
+      [130, low, 3],
+      [136, mid, 4],
+    ],
+    stairs: [[82, 3]],
+    enemies: [12, 44, 78, 110, 152],
+    mini: 168,
+  }),
+  '6-2': course(6, 2, {
+    width: 200,
+    pits: [
+      [18, 4],
+      [46, 9],
+      [92, 6],
+      [138, 10],
+    ],
+    hills: [[70, 8, hop]],
+    walls: [[112, 4]],
+    plats: [
+      [18, low, 3],
+      [46, low, 3],
+      [52, mid, 3],
+      [58, low, 4],
+      [84, low, 4],
+      [88, mid, 4],
+      [92, high, 4],
+      [106, low, 5],
+      [113, mid, 4],
+      [138, low, 3],
+      [144, mid, 3],
+      [150, low, 3],
+      [156, mid, 4],
+    ],
+    solids: [[108, low, 3]],
+    stairs: [[66, 3]],
+    enemies: [12, 32, 80, 104, 128, 174],
+    airEnemies: [
+      [56, mid],
+      [148, mid],
+    ],
+    mini: 188,
+  }),
+  '6-3': course(6, 3, {
+    width: 214,
+    pits: [
+      [20, 3],
+      [48, 12],
+      [102, 4],
+      [132, 14],
+      [178, 5],
+    ],
+    walls: [[90, 4]],
+    solids: [
+      [86, low, 3],
+      [90, mid, 3],
+    ],
+    plats: [
+      [20, low, 4],
+      [48, low, 3],
+      [54, mid, 3],
+      [60, high, 4],
+      [68, mid, 3],
+      [74, low, 4],
+      [86, low, 4],
+      [91, mid, 3],
+      [96, low, 4],
+      [132, low, 3],
+      [138, mid, 3],
+      [144, high, 4],
+      [152, high, 3],
+      [158, mid, 3],
+      [164, low, 4],
+      [178, low, 3],
+      [184, mid, 4],
+    ],
+    stairs: [[118, 4]],
+    enemies: [12, 36, 80, 114, 170, 196],
+    airEnemies: [
+      [62, high],
+      [148, high],
+    ],
+    mini: 202,
+  }),
+  '6-4': course(6, 4, {
+    width: 114,
+    pits: [
+      [16, 7],
+      [42, 6],
+      [72, 4],
+    ],
+    plats: [
+      [16, low, 3],
+      [22, mid, 3],
+      [28, low, 3],
+      [42, low, 3],
+      [48, mid, 4],
+      [72, low, 4],
+      [82, mid, 4],
+    ],
+    hills: [[58, 6, hop]],
+    enemies: [10, 36, 66],
+    boss: 100,
   }),
 };
 
@@ -670,6 +790,10 @@ const NAMES: Record<LevelId, string> = {
   '5-2': 'Lava Gallery',
   '5-3': 'Keep Gauntlet',
   '5-4': 'Throne of Eyes',
+  '6-1': 'Drip Trail',
+  '6-2': 'Liana Run',
+  '6-3': 'Mist Canopy',
+  '6-4': 'Howler Crown',
 };
 
 export function getLevel(id: LevelId): LevelDef {

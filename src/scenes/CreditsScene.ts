@@ -1,6 +1,6 @@
 import Phaser from 'phaser';
 import { GAME_HEIGHT, GAME_WIDTH } from '../config';
-import { addPanel, closeOverlay, dimScreen, MenuButton, MenuNav, textStyle, UI } from '../ui/menu';
+import { addPanel, beginOverlay, closeOverlay, dimScreen, dismissOnOutside, MenuButton, MenuNav, textStyle, UI } from '../ui/menu';
 
 interface OverlayData {
   returnKey?: string;
@@ -29,8 +29,10 @@ export class CreditsScene extends Phaser.Scene {
 
   create(data: OverlayData): void {
     this.returnKey = data.returnKey ?? 'TitleScene';
-    dimScreen(this, 0.62);
-    addPanel(this, GAME_WIDTH / 2, GAME_HEIGHT / 2, 720, 560, 'CREDITS');
+    beginOverlay(this);
+    dimScreen(this, 0.62, () => closeOverlay(this, this.returnKey));
+    const panel = addPanel(this, GAME_WIDTH / 2, GAME_HEIGHT / 2, 720, 560, 'CREDITS');
+    dismissOnOutside(this, panel, () => closeOverlay(this, this.returnKey));
 
     this.add
       .text(GAME_WIDTH / 2, 228, LINES.join('\n'), {

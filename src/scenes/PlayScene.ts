@@ -1,5 +1,14 @@
 import Phaser from 'phaser';
-import { GAME_HEIGHT, GAME_WIDTH, START_LIVES, TILE, type LevelId, themeSky } from '../config';
+import {
+  GAME_HEIGHT,
+  GAME_WIDTH,
+  START_LIVES,
+  TILE,
+  enemyThreatensTile,
+  themeSky,
+  type EnemyKind,
+  type LevelId,
+} from '../config';
 import {
   collectMemory,
   collectibleMask,
@@ -17,6 +26,7 @@ import { applySettings } from '../data/settings';
 import { skinForLevel, type SkinDef } from '../data/skins';
 import { Baddie } from '../entities/Baddie';
 import { Boss } from '../entities/Boss';
+import { isBossHeadStomp } from '../entities/boss-combat';
 import { EnemyProjectile } from '../entities/EnemyProjectile';
 import { FlakFragment } from '../entities/FlakFragment';
 import { Player, type PlayerInput } from '../entities/Player';
@@ -29,7 +39,7 @@ import { Parallax } from '../systems/parallax';
 import { getTouchState, hideTouchControls, showTouchControls } from '../systems/touch-controls';
 import { skinThumbKey } from '../systems/textures';
 import { showBossFightBanner } from '../ui/boss-fight';
-import { addPanel, launchOverlay, MenuButton, MenuNav, textStyle } from '../ui/menu';
+import { addPanel, dismissOnOutside, launchOverlay, MenuButton, MenuNav, textStyle } from '../ui/menu';
 import { WorldSpecial } from '../systems/world-special';
 
 interface PlayData {
@@ -69,11 +79,16 @@ function flakFromCollider(
 }
 
 function checkpointSpawnIsSafe(
-  enemies: Array<{ x: number; tilesUp: number }>,
+  enemies: Array<{ x: number; tilesUp: number; kind: EnemyKind }>,
   saved: { x: number; y: number },
 ): boolean {
   const tileX = Math.round((saved.x - TILE / 2) / TILE);
-  return !enemies.some((enemy) => enemy.tilesUp === 0 && Math.abs(enemy.x - tileX) <= 1);
+  return enemies.every((enemy) => {
+    if (enemy.tilesUp === 0 && Math.abs(enemy.x - tileX) <= 1) {
+      return false;
+    }
+    return !enemyThreatensTile(enemy.kind, enemy.x, tileX);
+  });
 }
 
 export class PlayScene extends Phaser.Scene {
@@ -101,6 +116,7 @@ export class PlayScene extends Phaser.Scene {
   private wasDown = false;
   private wasSpecial = false;
   private fightEngaged = false;
+  private threatsLive = false;
   private flak!: Phaser.GameObjects.Group;
   private retainFlak = false;
   private special!: WorldSpecial;
@@ -117,6 +133,7 @@ export class PlayScene extends Phaser.Scene {
     this.wasDown = false;
     this.wasSpecial = false;
     this.fightEngaged = false;
+    this.threatsLive = false;
     this.retainFlak = false;
   }
 
@@ -204,10 +221,10 @@ export class PlayScene extends Phaser.Scene {
     });
 
     if (miniBoss) {
-      this.physics.add.collider(player, miniBoss, () => this.onBossCollide(player, miniBoss, false));
+      this.bindBossCombat(player, miniBoss, false);
     }
     if (worldBoss) {
-      this.physics.add.collider(player, worldBoss, () => this.onBossCollide(player, worldBoss, true));
+      this.bindBossCombat(player, worldBoss, true);
     }
 
     this.physics.add.overlap(player, hazards, () => this.killPlayer('hazard'));
@@ -305,11 +322,36 @@ export class PlayScene extends Phaser.Scene {
       }).setScrollFactor(0).setDepth(30);
     }
 
+    if (def.theme === 'rainforest') {
+      this.add
+        .rectangle(0, 0, this.built.widthPx, this.built.heightPx, 0x0c2818, 0.12)
+        .setOrigin(0, 0)
+        .setDepth(8);
+      this.add.particles(0, 0, 'poof-particle', {
+        x: { min: 0, max: GAME_WIDTH },
+        y: -10,
+        scale: { start: 0.22, end: 0.05 },
+        lifespan: 1400,
+        quantity: 3,
+        frequency: 40,
+        tint: 0x8ab0c0,
+        speedY: { min: 220, max: 380 },
+        speedX: { min: -30, max: 10 },
+        alpha: { start: 0.45, end: 0 },
+      }).setScrollFactor(0).setDepth(30);
+    }
+
     this.createHud(def.name);
     this.createPauseOverlay();
     this.bindKeys();
-    showTouchControls();
+    this.syncTouchHud();
+    const onScenePause = () => this.syncTouchHud();
+    const onSceneResume = () => this.syncTouchHud();
+    this.events.on(Phaser.Scenes.Events.PAUSE, onScenePause);
+    this.events.on(Phaser.Scenes.Events.RESUME, onSceneResume);
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
+      this.events.off(Phaser.Scenes.Events.PAUSE, onScenePause);
+      this.events.off(Phaser.Scenes.Events.RESUME, onSceneResume);
       delete this.game.canvas.dataset.levelId;
       hideTouchControls();
       if (!this.retainFlak) {
@@ -335,12 +377,22 @@ export class PlayScene extends Phaser.Scene {
       audio.play(this, 'special');
     }
 
-    for (const child of baddies.getChildren()) {
-      (child as Baddie).tick(player, this.built.solids, this.built.oneways, this.built.projectiles);
+    if (!this.threatsLive && (input.left || input.right)) {
+      this.threatsLive = true;
+      for (const child of baddies.getChildren()) {
+        if (child instanceof Baddie) {
+          child.armThreats();
+        }
+      }
     }
-    for (const child of this.built.projectiles.getChildren()) {
-      if (child instanceof EnemyProjectile) {
-        child.tick();
+    if (this.threatsLive) {
+      for (const child of baddies.getChildren()) {
+        (child as Baddie).tick(player, this.built.solids, this.built.oneways, this.built.projectiles);
+      }
+      for (const child of this.built.projectiles.getChildren()) {
+        if (child instanceof EnemyProjectile) {
+          child.tick();
+        }
       }
     }
     this.tickBoss(miniBoss, player);
@@ -542,24 +594,40 @@ export class PlayScene extends Phaser.Scene {
     this.killPlayer('baddie');
   }
 
-  private onBossCollide(player: Player, boss: Boss, worldBoss: boolean): void {
+  private bindBossCombat(player: Player, boss: Boss, worldBoss: boolean): void {
+    this.physics.add.collider(
+      player,
+      boss,
+      () => this.onBossHeadStomp(player, boss, worldBoss),
+      () => this.canStompBoss(player, boss),
+    );
+    this.physics.add.overlap(player, boss, () => this.onBossBodyHit(player, boss));
+  }
+
+  private canStompBoss(player: Player, boss: Boss): boolean {
+    return Boolean(boss.active) && !boss.dying && !player.frozen && isBossHeadStomp(player.arcadeBody, boss.arcadeBody);
+  }
+
+  private onBossHeadStomp(player: Player, boss: Boss, worldBoss: boolean): void {
     if (!boss.active || boss.dying || player.frozen) {
       return;
     }
-    const pb = player.arcadeBody;
-    const bb = boss.arcadeBody;
-    const stomped = bb.touching.up && pb.touching.down && pb.velocity.y >= 0;
-    if (stomped) {
-      const result = boss.takeStomp();
-      if (result === 'ignored') {
-        this.bounceFromBoss(player, boss);
-        return;
-      }
-      this.bounceFromBoss(player, boss);
-      audio.play(this, 'stomp');
-      if (result === 'dead') {
-        this.defeatBoss(boss, worldBoss);
-      }
+    const result = boss.takeStomp();
+    this.bounceFromBoss(player, boss);
+    if (result === 'ignored') {
+      return;
+    }
+    audio.play(this, 'stomp');
+    if (result === 'dead') {
+      this.defeatBoss(boss, worldBoss);
+    }
+  }
+
+  private onBossBodyHit(player: Player, boss: Boss): void {
+    if (!boss.active || boss.dying || player.frozen) {
+      return;
+    }
+    if (this.canStompBoss(player, boss)) {
       return;
     }
     if (!boss.isInvulnerable) {
@@ -569,6 +637,7 @@ export class PlayScene extends Phaser.Scene {
 
   private defeatBoss(boss: Boss, worldBoss: boolean): void {
     this.completing = true;
+    this.syncTouchHud();
     this.built.player.freeze();
     const firstClear = !loadSave().cleared.includes(this.levelId);
     markCleared(this.levelId);
@@ -595,6 +664,7 @@ export class PlayScene extends Phaser.Scene {
       return;
     }
     this.completing = true;
+    this.syncTouchHud();
     session.lives -= 1;
     audio.play(this, 'hurt');
     this.built.player.die(() => {
@@ -633,7 +703,7 @@ export class PlayScene extends Phaser.Scene {
       targets: pickup,
       y: pickup.y - 36,
       alpha: 0,
-      scale: 1.4,
+      scale: 1.85,
       duration: 240,
       onComplete: () => pickup.destroy(),
     });
@@ -703,20 +773,31 @@ export class PlayScene extends Phaser.Scene {
   }
 
   private createPauseOverlay(): void {
-    const dim = this.add.rectangle(GAME_WIDTH / 2, GAME_HEIGHT / 2, GAME_WIDTH, GAME_HEIGHT, 0x000000, 0.5);
+    const dim = this.add
+      .rectangle(GAME_WIDTH / 2, GAME_HEIGHT / 2, GAME_WIDTH, GAME_HEIGHT, 0x000000, 0.5)
+      .setInteractive(new Phaser.Geom.Rectangle(0, 0, GAME_WIDTH, GAME_HEIGHT), Phaser.Geom.Rectangle.Contains);
     const panel = addPanel(this, GAME_WIDTH / 2, GAME_HEIGHT / 2, 520, 420, 'PAUSED');
     this.pauseOverlay = this.add.container(0, 0, [dim, panel]).setScrollFactor(0).setDepth(80).setVisible(false);
 
     const resume = new MenuButton(this, GAME_WIDTH / 2, 300, 'RESUME', () => this.togglePause());
     const settings = new MenuButton(this, GAME_WIDTH / 2, 364, 'SETTINGS', () => launchOverlay(this, 'SettingsScene'));
     const map = new MenuButton(this, GAME_WIDTH / 2, 428, 'WORLD MAP', () => this.scene.start('WorldMapScene'));
-    const title = new MenuButton(this, GAME_WIDTH / 2, 492, 'TITLE', () => this.scene.start('TitleScene'));
+    const mainMenu = new MenuButton(this, GAME_WIDTH / 2, 492, 'MAIN MENU', () => this.scene.start('TitleScene'));
     resume.setDepth(85);
     settings.setDepth(85);
     map.setDepth(85);
-    title.setDepth(85);
-    this.pauseNav = new MenuNav(this, [resume, settings, map, title], () => this.togglePause());
+    mainMenu.setDepth(85);
+    this.pauseNav = new MenuNav(this, [resume, settings, map, mainMenu], () => this.togglePause());
     this.pauseNav.setEnabled(false);
+    dismissOnOutside(this, panel, () => this.togglePause(), () => this.paused && !this.completing && !this.scene.isPaused());
+  }
+
+  private syncTouchHud(): void {
+    if (this.paused || this.completing || this.scene.isPaused()) {
+      hideTouchControls();
+    } else {
+      showTouchControls();
+    }
   }
 
   private togglePause(): void {
@@ -727,6 +808,7 @@ export class PlayScene extends Phaser.Scene {
     this.pauseOverlay.setVisible(this.paused);
     this.pauseNav.setEnabled(this.paused);
     this.physics.world.isPaused = this.paused;
+    this.syncTouchHud();
   }
 
   private showCompleteMenu(title: string, unlockedSkin?: SkinDef): void {
@@ -746,7 +828,7 @@ export class PlayScene extends Phaser.Scene {
       { label: 'WORLD MAP', action: () => this.scene.start('WorldMapScene') },
       { label: 'SETTINGS', action: () => launchOverlay(this, 'SettingsScene') },
       { label: 'CREDITS', action: () => launchOverlay(this, 'CreditsScene') },
-      { label: 'TITLE', action: () => this.scene.start('TitleScene') },
+      { label: 'MAIN MENU', action: () => this.scene.start('TitleScene') },
     );
 
     const dim = this.add.rectangle(GAME_WIDTH / 2, GAME_HEIGHT / 2, GAME_WIDTH, GAME_HEIGHT, 0x000000, 0.5);
@@ -784,10 +866,24 @@ export class PlayScene extends Phaser.Scene {
 
   private showBanner(text: string, onDone: () => void): void {
     this.pauseNav.setEnabled(false);
-    this.add.rectangle(GAME_WIDTH / 2, GAME_HEIGHT / 2, GAME_WIDTH, GAME_HEIGHT, 0x000000, 0.45).setScrollFactor(0).setDepth(80);
-    addPanel(this, GAME_WIDTH / 2, GAME_HEIGHT / 2, 560, 280, text);
-    const cont = new MenuButton(this, GAME_WIDTH / 2, 430, 'CONTINUE', onDone);
+    let finished = false;
+    const finish = () => {
+      if (finished) {
+        return;
+      }
+      finished = true;
+      onDone();
+    };
+    const dim = this.add
+      .rectangle(GAME_WIDTH / 2, GAME_HEIGHT / 2, GAME_WIDTH, GAME_HEIGHT, 0x000000, 0.45)
+      .setScrollFactor(0)
+      .setDepth(80)
+      .setInteractive(new Phaser.Geom.Rectangle(0, 0, GAME_WIDTH, GAME_HEIGHT), Phaser.Geom.Rectangle.Contains);
+    dim.on('pointerup', finish);
+    const panel = addPanel(this, GAME_WIDTH / 2, GAME_HEIGHT / 2, 560, 280, text);
+    dismissOnOutside(this, panel, finish, () => !finished);
+    const cont = new MenuButton(this, GAME_WIDTH / 2, 430, 'CONTINUE', finish);
     cont.setDepth(90);
-    new MenuNav(this, [cont], onDone);
+    new MenuNav(this, [cont], finish);
   }
 }

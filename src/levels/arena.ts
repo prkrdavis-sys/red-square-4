@@ -73,6 +73,8 @@ function gateSpec(theme: Theme): GateSpec {
       return { pillarW: 1, gap: 3, height: 6 };
     case 'castle':
       return { pillarW: 2, gap: 3, height: 7 };
+    case 'rainforest':
+      return { pillarW: 1, gap: 3, height: 6 };
     default: {
       const neverTheme: never = theme;
       return neverTheme;
@@ -135,6 +137,8 @@ function merlon(theme: Theme, offset: number): boolean {
       return offset % 3 !== 1;
     case 'castle':
       return offset % 2 === 0;
+    case 'rainforest':
+      return offset % 2 === 0;
     default: {
       const neverTheme: never = theme;
       return neverTheme;
@@ -144,8 +148,8 @@ function merlon(theme: Theme, offset: number): boolean {
 
 function stampThemeArena(grid: Grid, layout: ArenaLayout, theme: Theme): void {
   const { floorStart, floorEnd, wallStart } = layout;
-  grid.hill(floorStart + 2, 3, hop, 'G');
-  grid.hill(Math.max(floorStart + 6, floorEnd - 5), 3, hop, 'G');
+  grid.hill(floorStart + 2, 3, hop);
+  grid.hill(Math.max(floorStart + 6, floorEnd - 5), 3, hop);
   grid.plat(floorStart + 2, rowAboveGround(low), 3, true);
   grid.plat(Math.max(floorStart + 6, wallStart - 6), rowAboveGround(low), 3, true);
   grid.wall(floorEnd - 1, 5, 'W');
@@ -156,14 +160,17 @@ function stampThemeArena(grid: Grid, layout: ArenaLayout, theme: Theme): void {
       grid.plat(floorStart + 6, rowAboveGround(low), 2, true);
       break;
     case 'desert':
-      grid.stairs(floorEnd - 5, 3, 1, 'G');
+      grid.stairs(floorEnd - 5, 3, 1);
       break;
     case 'ocean':
       grid.plat(Math.max(floorStart + 5, wallStart - 8), rowAboveGround(low), 3, true);
       break;
     case 'castle':
-      grid.plat(floorStart + 2, rowAboveGround(low), 4, false, 'G');
+      grid.plat(floorStart + 2, rowAboveGround(low), 4, false);
       grid.wall(floorEnd - 1, 6, 'W');
+      break;
+    case 'rainforest':
+      grid.plat(floorStart + 5, rowAboveGround(low), 3, true);
       break;
     default: {
       const neverTheme: never = theme;
@@ -372,6 +379,8 @@ function floorWash(theme: Theme): number {
       return 0x0a3040;
     case 'castle':
       return 0x4a1020;
+    case 'rainforest':
+      return 0x1a3a18;
     default: {
       const neverTheme: never = theme;
       return neverTheme;
@@ -410,6 +419,11 @@ function addArenaDust(scene: Phaser.Scene, layout: ArenaLayout, theme: Theme): v
       tint = 0xff6622;
       speedY = { min: -22, max: -6 };
       frequency = 200;
+      break;
+    case 'rainforest':
+      tint = 0x8ab05a;
+      speedY = { min: -16, max: -4 };
+      frequency = 240;
       break;
     default: {
       const neverTheme: never = theme;

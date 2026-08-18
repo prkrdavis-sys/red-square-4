@@ -12,6 +12,7 @@ const COOLDOWNS: Record<SpecialKind, number> = {
   burrow: 1250,
   'bubble-pulse': 1000,
   'shadow-blink': 1050,
+  'liana-swing': 1000,
 };
 
 const LABELS: Record<SpecialKind, string> = {
@@ -20,6 +21,7 @@ const LABELS: Record<SpecialKind, string> = {
   burrow: 'BURROW',
   'bubble-pulse': 'BUBBLE',
   'shadow-blink': 'BLINK',
+  'liana-swing': 'SWING',
 };
 
 export class WorldSpecial {
@@ -58,7 +60,7 @@ export class WorldSpecial {
 
     switch (this.kind) {
       case 'grow':
-        this.growPlatform(player, direction);
+        this.growPlatform(player);
         break;
       case 'ice-slide':
         this.iceSlide(player, direction);
@@ -72,6 +74,9 @@ export class WorldSpecial {
       case 'shadow-blink':
         this.shadowBlink(player, direction);
         break;
+      case 'liana-swing':
+        this.lianaSwing(player, direction);
+        break;
       default: {
         const neverKind: never = this.kind;
         return neverKind;
@@ -80,11 +85,11 @@ export class WorldSpecial {
     return true;
   }
 
-  private growPlatform(player: Player, direction: number): void {
+  private growPlatform(player: Player): void {
     this.affectPuzzleTargets(player.x, 'vine-bed', 220);
-    const x = Phaser.Math.Clamp(player.x + direction * 86, TILE, this.built.widthPx - TILE);
+    const x = Phaser.Math.Clamp(player.x, TILE, this.built.widthPx - TILE);
     const y = Phaser.Math.Clamp(player.y + 70, TILE * 2, this.built.heightPx - TILE * 2);
-    const platform = this.built.oneways.create(x - TILE / 2, y, onewayTileKey(this.theme)) as Phaser.Physics.Arcade.Sprite;
+    const platform = this.built.oneways.create(x - TILE, y, onewayTileKey(this.theme)) as Phaser.Physics.Arcade.Sprite;
     platform.setOrigin(0, 0);
     platform.setDisplaySize(TILE * 2, 18);
     platform.setTint(0x8ee36d);
@@ -151,13 +156,22 @@ export class WorldSpecial {
     this.scene.time.delayedCall(100, () => player.setAlpha(1));
   }
 
+  private lianaSwing(player: Player, direction: number): void {
+    this.affectPuzzleTargets(player.x, 'moss-curtain', 240);
+    player.arcadeBody.setVelocityX(direction * 420);
+    player.arcadeBody.setVelocityY(-480);
+    player.setTint(0x8ee36d);
+    this.scene.time.delayedCall(380, () => player.clearTint());
+    this.neutralizeProjectiles(player.x, player.y, 200, direction);
+  }
+
   private affectPuzzleTargets(x: number, kind: string, radius: number): void {
     for (const child of this.built.puzzleTargets.getChildren()) {
       const target = child as Phaser.Physics.Arcade.Sprite;
       if (!target.active || target.getData('kind') !== kind || Math.abs(target.x - x) > radius) {
         continue;
       }
-      if (kind === 'ice-wall') {
+      if (kind === 'ice-wall' || kind === 'moss-curtain') {
         this.scene.tweens.add({
           targets: target,
           scaleY: 0,

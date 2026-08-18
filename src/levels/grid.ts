@@ -3,9 +3,13 @@ import {
   JUMP_REACH_TILES,
   MAP_ROWS,
   enemiesForWorld,
+  enemyRole,
+  enemyThreatensTile,
+  puzzleForTheme,
   specialForTheme,
   type EnemyKind,
   type MiniBossVariant,
+  type PuzzleKind,
   type SpecialKind,
   type Theme,
 } from '../config';
@@ -162,7 +166,7 @@ export interface CoursePickup {
   tilesUp: number;
 }
 
-export type PuzzleKind = 'vine-bed' | 'ice-wall' | 'sand-wall' | 'down-current' | 'shadow-wall';
+export type { PuzzleKind };
 
 export interface PuzzleFeature {
   x: number;
@@ -177,7 +181,6 @@ export interface CompiledCourse {
   collectibles: [CoursePickup, CoursePickup, CoursePickup];
   shield: CoursePickup;
   special: SpecialKind;
-  specialAnchors: CoursePickup[];
   puzzles: PuzzleFeature[];
   miniVariant: MiniBossVariant | undefined;
 }
@@ -238,6 +241,7 @@ function isSolidPuzzle(kind: PuzzleKind): boolean {
     case 'ice-wall':
     case 'sand-wall':
     case 'shadow-wall':
+    case 'moss-curtain':
       return true;
     case 'vine-bed':
     case 'down-current':
@@ -280,6 +284,61 @@ function assignEnemyKinds(world: number, stage: number, count: number): EnemyKin
   return Array.from({ length: count }, (_, index) => available[index % available.length] ?? movement);
 }
 
+function assignSafeEnemyKinds(
+  world: number,
+  stage: number,
+  spawns: Array<{ x: number }>,
+  originXs: number[],
+): EnemyKind[] {
+  const movement = enemiesForWorld(world)[0];
+  const assigned = assignEnemyKinds(world, stage, spawns.length);
+  const threatens = (tileX: number, kind: EnemyKind): boolean =>
+    originXs.some((origin) => enemyThreatensTile(kind, tileX, origin));
+
+  for (let index = 0; index < assigned.length; index += 1) {
+    const kind = assigned[index];
+    const spawnX = spawns[index]?.x;
+    if (kind === undefined || spawnX === undefined || !threatens(spawnX, kind)) {
+      continue;
+    }
+    const swapAt = assigned.findIndex(
+      (candidateKind, candidateIndex) =>
+        candidateIndex !== index &&
+        enemyRole(candidateKind) === 'movement' &&
+        !threatens(spawns[candidateIndex]?.x ?? 0, kind),
+    );
+    if (swapAt >= 0) {
+      assigned[index] = assigned[swapAt] ?? movement;
+      assigned[swapAt] = kind;
+      continue;
+    }
+    assigned[index] = movement;
+  }
+
+  for (const needed of new Set(assignEnemyKinds(world, stage, 3))) {
+    if (assigned.includes(needed)) {
+      continue;
+    }
+    let best = -1;
+    let bestDist = -1;
+    for (let index = 0; index < assigned.length; index += 1) {
+      const spawnX = spawns[index]?.x ?? 0;
+      if (enemyRole(assigned[index] ?? movement) !== 'movement' || threatens(spawnX, needed)) {
+        continue;
+      }
+      const dist = Math.min(...originXs.map((origin) => Math.abs(spawnX - origin)));
+      if (dist > bestDist) {
+        bestDist = dist;
+        best = index;
+      }
+    }
+    if (best >= 0) {
+      assigned[best] = needed;
+    }
+  }
+  return assigned;
+}
+
 export function compileCourse(world: number, stage: number, spec: CourseSpec, theme: Theme): CompiledCourse {
   const groundEnemyX = spec.enemies ?? [];
   const airEnemyPositions = spec.airEnemies ?? [];
@@ -288,17 +347,18 @@ export function compileCourse(world: number, stage: number, spec: CourseSpec, th
     ...groundEnemyX.map((x) => ({ x, tilesUp: 0 })),
     ...airEnemyPositions.map(([x, tilesUp]) => ({ x, tilesUp })),
   ];
-  const kinds = assignEnemyKinds(world, stage, rawSpawns.length);
-  const enemies = rawSpawns.map((spawn, index) => ({
-    ...spawn,
-    kind: kinds[index] ?? enemiesForWorld(world)[0],
-  }));
   const blocked = new Set<number>();
   occupy(blocked, spec.playerX ?? 3, 3);
   for (const x of groundEnemyX) {
     occupy(blocked, x, 2);
   }
+  const spawnX = spec.playerX ?? 3;
   const checkpointX = safeFloorX(rows, Math.floor(spec.width * 0.5), blocked);
+  const kinds = assignSafeEnemyKinds(world, stage, rawSpawns, [spawnX, checkpointX]);
+  const enemies = rawSpawns.map((spawn, index) => ({
+    ...spawn,
+    kind: kinds[index] ?? enemiesForWorld(world)[0],
+  }));
   const featureBlocked = new Set(blocked);
   occupy(featureBlocked, checkpointX, 1);
   const collectibleA = safeFloorX(rows, Math.floor(spec.width * 0.23), featureBlocked);
@@ -309,22 +369,7 @@ export function compileCourse(world: number, stage: number, spec: CourseSpec, th
   occupy(featureBlocked, collectibleC, 1);
   const shieldX = safeFloorX(rows, Math.floor(spec.width * 0.68), featureBlocked);
   occupy(featureBlocked, shieldX, 1);
-  const anchorCount = Math.min(4, Math.max(2, stage));
-  const specialAnchors = Array.from({ length: anchorCount }, (_, index) => {
-    const x = safeFloorX(rows, Math.floor(spec.width * ((index + 1) / (anchorCount + 1))), featureBlocked);
-    occupy(featureBlocked, x, 1);
-    return { x, tilesUp: index % 2 === 0 ? 0 : 2 };
-  });
-  const puzzleKind: PuzzleKind =
-    world === 1
-      ? 'vine-bed'
-      : world === 2
-        ? 'ice-wall'
-        : world === 3
-          ? 'sand-wall'
-          : world === 4
-            ? 'down-current'
-            : 'shadow-wall';
+  const puzzleKind = puzzleForTheme(theme);
   const puzzleBlocked = new Set(blocked);
   if (isSolidPuzzle(puzzleKind)) {
     occupy(puzzleBlocked, checkpointX, 1);
@@ -350,7 +395,6 @@ export function compileCourse(world: number, stage: number, spec: CourseSpec, th
     ],
     shield: { x: shieldX, tilesUp: 1 },
     special: specialForTheme(theme),
-    specialAnchors,
     puzzles,
     miniVariant: stage < 4 ? (stage as MiniBossVariant) : undefined,
   };

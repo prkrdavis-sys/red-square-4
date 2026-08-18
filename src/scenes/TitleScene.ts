@@ -1,6 +1,6 @@
 import Phaser from 'phaser';
 import { GAME_WIDTH } from '../config';
-import { loadSave, resetSave, resetSessionLives, resumeLevelId } from '../data/progress';
+import { hasCampaignProgress, loadSave, resetSave, resetSessionLives, resumeLevelId } from '../data/progress';
 import { applySettings } from '../data/settings';
 import { audio } from '../systems/audio';
 import { Parallax } from '../systems/parallax';
@@ -75,7 +75,7 @@ export class TitleScene extends Phaser.Scene {
       .setOrigin(0.5);
 
     const save = loadSave();
-    const hasProgress = save.cleared.length > 0 || save.unlocked.length > 1;
+    const hasProgress = hasCampaignProgress(save);
     if (hasProgress) {
       this.add
         .text(

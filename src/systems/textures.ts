@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import { TILE, type EnemyKind, type Theme } from '../config';
+import { THEMES, TILE, type BossKind, type EnemyKind, type Theme } from '../config';
 import { loadSave } from '../data/progress';
 import {
   CLASSIC_PALETTE,
@@ -10,6 +10,7 @@ import {
   type HeroPalette,
   type SkinDef,
 } from '../data/skins';
+import { createForegroundTextures } from './foreground';
 import { createLandscapeTextures } from './landscapes';
 
 function gfx(scene: Phaser.Scene): Phaser.GameObjects.Graphics {
@@ -464,6 +465,8 @@ function tileColors(theme: Theme): { top: number; mid: number; dirt: number; dar
       return { top: 0x3ecf8e, mid: 0x2a9d6e, dirt: 0x2d6b7a, dark: 0x163b45, speck: 0x49b8c9 };
     case 'castle':
       return { top: 0x5a3d66, mid: 0x3e2948, dirt: 0x2a1c32, dark: 0x120814, speck: 0x6e4a7a };
+    case 'rainforest':
+      return { top: 0x3a9a3a, mid: 0x2a7028, dirt: 0x4a3420, dark: 0x2a1c10, speck: 0x6a8a32 };
     default: {
       const neverTheme: never = theme;
       return neverTheme;
@@ -490,6 +493,11 @@ function drawSolidTile(scene: Phaser.Scene, theme: Theme): void {
     g.lineStyle(2, 0x1a0c20, 0.8);
     g.lineBetween(2, 40, TILE - 2, 40);
     g.lineBetween(TILE / 2, 18, TILE / 2, TILE - 2);
+  } else if (theme === 'rainforest') {
+    g.fillStyle(0x1e5a28, 0.7);
+    g.fillRect(14, 8, 4, 8);
+    g.fillEllipse(16, 8, 10, 6);
+    g.fillEllipse(22, 10, 8, 5);
   }
   commit(g, `tile-${theme}-solid`, TILE, TILE);
 }
@@ -506,6 +514,8 @@ function arenaPalette(theme: Theme): { floor: number; inlay: number; line: numbe
       return { floor: 0x1b4a58, inlay: 0x2a8aaa, line: 0x49b8c9, flag: 0x2f6f88, pole: 0x163b45 };
     case 'castle':
       return { floor: 0x2a1c32, inlay: 0x6e4a7a, line: 0x8a3048, flag: 0x8a2030, pole: 0x3e2948 };
+    case 'rainforest':
+      return { floor: 0x3a2814, inlay: 0x1e5a28, line: 0x8ab05a, flag: 0x2d8a3a, pole: 0x4a3018 };
     default: {
       const neverTheme: never = theme;
       return neverTheme;
@@ -525,6 +535,8 @@ function masonryColors(theme: Theme): { brick: number; brickAlt: number; mortar:
       return { brick: 0x5a7a88, brickAlt: 0x3e5e6c, mortar: 0x1a3038, highlight: 0x8ab0bc };
     case 'castle':
       return { brick: 0x6a5a78, brickAlt: 0x4e3e5c, mortar: 0x241828, highlight: 0x9a88a8 };
+    case 'rainforest':
+      return { brick: 0x4a6a32, brickAlt: 0x3a5428, mortar: 0x1a2810, highlight: 0x7aaa4a };
     default: {
       const neverTheme: never = theme;
       return neverTheme;
@@ -556,6 +568,12 @@ function drawArenaTile(scene: Phaser.Scene, theme: Theme): void {
   } else if (theme === 'ocean') {
     g.fillStyle(0x49b8c9, 0.35);
     g.fillEllipse(TILE / 2, 38, 28, 10);
+  } else if (theme === 'rainforest') {
+    g.fillStyle(0x3d8a32, 0.45);
+    g.fillEllipse(TILE / 2, 40, 26, 9);
+    g.fillStyle(0x8ab05a, 0.5);
+    g.fillCircle(18, 16, 4);
+    g.fillCircle(46, 18, 3);
   }
   commit(g, `tile-${theme}-arena`, TILE, TILE);
 }
@@ -667,8 +685,8 @@ function drawArenaGate(scene: Phaser.Scene, theme: Theme): void {
   const postTop = 172;
   const leftX = inset;
   const rightX = w - inset - postW;
-  const postFill = theme === 'grass' ? a.pole : m.brick;
-  const postAlt = theme === 'grass' ? 0x8a5a28 : m.brickAlt;
+  const postFill = theme === 'grass' || theme === 'rainforest' ? a.pole : m.brick;
+  const postAlt = theme === 'grass' || theme === 'rainforest' ? 0x8a5a28 : m.brickAlt;
   const leftCenter = leftX + postW / 2;
   const rightCenter = rightX + postW / 2;
   const cx = w / 2;
@@ -774,19 +792,86 @@ function drawParticle(scene: Phaser.Scene): void {
   commit(g, 'poof-particle', 16, 16);
 }
 
+function drawMemoryRays(scene: Phaser.Scene): void {
+  const g = gfx(scene);
+  const cx = 64;
+  const cy = 64;
+  g.fillStyle(0xfff4b0, 0.22);
+  g.fillCircle(cx, cy, 28);
+  const rayCount = 12;
+  for (let i = 0; i < rayCount; i += 1) {
+    const long = i % 2 === 0;
+    const angle = (i / rayCount) * Math.PI * 2;
+    const inner = 18;
+    const outer = long ? 62 : 44;
+    const spread = long ? 0.1 : 0.065;
+    g.fillStyle(long ? 0xfff6c0 : 0xffe066, long ? 0.8 : 0.48);
+    g.fillTriangle(
+      cx + Math.cos(angle) * inner,
+      cy + Math.sin(angle) * inner,
+      cx + Math.cos(angle - spread) * outer,
+      cy + Math.sin(angle - spread) * outer,
+      cx + Math.cos(angle + spread) * outer,
+      cy + Math.sin(angle + spread) * outer,
+    );
+  }
+  commit(g, 'memory-rays', 128, 128);
+}
+
 function drawCampaignPickups(scene: Phaser.Scene): void {
   const memory = gfx(scene);
-  memory.fillStyle(0x173f2b, 1);
-  memory.fillEllipse(16, 20, 22, 18);
-  memory.fillStyle(0x65c96d, 1);
-  memory.fillEllipse(12, 16, 13, 18);
-  memory.fillStyle(0xa8ed83, 1);
-  memory.fillEllipse(20, 12, 12, 16);
-  memory.fillStyle(0xffe88f, 1);
-  memory.fillCircle(17, 17, 4);
-  memory.lineStyle(3, 0x3f7f46, 1);
-  memory.lineBetween(16, 20, 16, 31);
-  commit(memory, 'memory-sprout', 32, 36);
+  const cx = 36;
+  memory.fillStyle(0xfff4b0, 0.32);
+  memory.fillCircle(cx, 38, 34);
+  memory.fillStyle(0x4a2408, 1);
+  fillPoly(memory, [
+    { x: cx, y: 4 },
+    { x: 68, y: 30 },
+    { x: cx, y: 70 },
+    { x: 4, y: 30 },
+  ]);
+  memory.fillStyle(0xf0c75a, 1);
+  fillPoly(memory, [
+    { x: cx, y: 10 },
+    { x: 18, y: 30 },
+    { x: cx, y: 30 },
+  ]);
+  memory.fillStyle(0xd4a017, 1);
+  fillPoly(memory, [
+    { x: cx, y: 10 },
+    { x: 54, y: 30 },
+    { x: cx, y: 30 },
+  ]);
+  memory.fillStyle(0x8a5a10, 1);
+  fillPoly(memory, [
+    { x: cx, y: 30 },
+    { x: 18, y: 30 },
+    { x: cx, y: 64 },
+  ]);
+  memory.fillStyle(0xb07a14, 1);
+  fillPoly(memory, [
+    { x: cx, y: 30 },
+    { x: 54, y: 30 },
+    { x: cx, y: 64 },
+  ]);
+  memory.fillStyle(0xffe88a, 1);
+  fillPoly(memory, [
+    { x: 24, y: 30 },
+    { x: 48, y: 30 },
+    { x: cx, y: 20 },
+  ]);
+  memory.lineStyle(2, 0x5a2a08, 0.45);
+  memory.lineBetween(cx, 10, cx, 64);
+  memory.lineBetween(18, 30, 54, 30);
+  memory.lineBetween(cx, 10, 18, 30);
+  memory.lineBetween(cx, 10, 54, 30);
+  memory.lineBetween(18, 30, cx, 64);
+  memory.lineBetween(54, 30, cx, 64);
+  memory.fillStyle(0xfffef0, 0.95);
+  memory.fillEllipse(26, 22, 14, 8);
+  memory.fillCircle(44, 36, 3.4);
+  commit(memory, 'memory-gem', 72, 72);
+  drawMemoryRays(scene);
 
   const shield = gfx(scene);
   shield.fillStyle(0x12233f, 1);
@@ -818,6 +903,7 @@ function drawSpecialAnchor(scene: Phaser.Scene, theme: Theme): void {
     desert: [0x9c6728, 0xf2cf72],
     ocean: [0x146c84, 0x83ebee],
     castle: [0x542e72, 0xc58cef],
+    rainforest: [0x1e5a28, 0x8ee36d],
   };
   const [dark, bright] = colors[theme];
   const g = gfx(scene);
@@ -852,6 +938,10 @@ function projectileColor(kind: EnemyKind): number {
     case 'gargoyle-page':
     case 'wall-mimic':
       return 0xbd63e6;
+    case 'howler-ape':
+    case 'dart-mosquito':
+    case 'coil-serpent':
+      return 0x6ad08a;
     default: {
       const neverKind: never = kind;
       return neverKind;
@@ -897,6 +987,7 @@ function drawPuzzleTextures(scene: Phaser.Scene): void {
     { key: 'sand-wall', dark: 0x8f602b, bright: 0xe7bd61 },
     { key: 'down-current', dark: 0x12546b, bright: 0x65d9e5 },
     { key: 'shadow-wall', dark: 0x3b2350, bright: 0xa96bd2 },
+    { key: 'moss-curtain', dark: 0x1a3a1c, bright: 0x6ad08a },
   ];
   for (const definition of definitions) {
     const g = gfx(scene);
@@ -1232,6 +1323,7 @@ export function createGameTextures(scene: Phaser.Scene): void {
   drawSpikedBoss(scene, 'boss-slam', 96, 0x5a3a10, 0xc4a05a);
   drawFinBoss(scene, 'boss-swimmer', 96);
   drawSpikedBoss(scene, 'boss-charger', 104, 0x2a1020, 0x6a2040);
+  drawSpikedBoss(scene, 'boss-swinger', 100, 0x143820, 0x3d8a32);
   drawLavaTile(scene);
   drawParticle(scene);
   drawCampaignPickups(scene);
@@ -1244,11 +1336,11 @@ export function createGameTextures(scene: Phaser.Scene): void {
   drawFlakPieces(scene);
   drawCartoonStar(scene);
   createLandscapeTextures(scene);
+  createForegroundTextures(scene);
   drawNode(scene);
   drawLockedNode(scene);
 
-  const themes: Theme[] = ['grass', 'snow', 'desert', 'ocean', 'castle'];
-  for (const theme of themes) {
+  for (const theme of THEMES) {
     drawSpecialAnchor(scene, theme);
     drawSolidTile(scene, theme);
     drawOnewayTile(scene, theme);
@@ -1302,6 +1394,7 @@ export function kenneyArenaGateKey(theme: Theme): string {
   switch (theme) {
     case 'grass':
     case 'desert':
+    case 'rainforest':
       return 'kenney-brick-brown';
     case 'snow':
     case 'ocean':
@@ -1318,6 +1411,7 @@ export function kenneyArenaWallKey(theme: Theme): string {
   switch (theme) {
     case 'grass':
     case 'desert':
+    case 'rainforest':
       return 'kenney-bricks-brown';
     case 'snow':
     case 'ocean':
@@ -1335,6 +1429,7 @@ export type ArenaFlagColor = 'red' | 'green' | 'blue' | 'yellow';
 export function arenaFlagColor(theme: Theme): ArenaFlagColor {
   switch (theme) {
     case 'grass':
+    case 'rainforest':
       return 'green';
     case 'snow':
     case 'ocean':
@@ -1363,7 +1458,7 @@ export function kenneyWindowKey(): string {
   return 'kenney-window';
 }
 
-export function bossTextureKey(kind: 'hopper' | 'slider' | 'slam' | 'swimmer' | 'charger'): string {
+export function bossTextureKey(kind: BossKind): string {
   switch (kind) {
     case 'hopper':
       return 'boss-hopper';
@@ -1375,6 +1470,8 @@ export function bossTextureKey(kind: 'hopper' | 'slider' | 'slam' | 'swimmer' | 
       return 'boss-swimmer';
     case 'charger':
       return 'boss-charger';
+    case 'swinger':
+      return 'boss-swinger';
     default: {
       const neverKind: never = kind;
       return neverKind;

@@ -6,12 +6,16 @@ export const GROUND_Y = 9;
 /** Full jump peak is just over 2 tiles, so ledges must step by this much. */
 export const JUMP_REACH_TILES = 2;
 export const STOMP_BOUNCE_VELOCITY = -840;
+export const RANGED_ATTACK_RANGE = 620;
+export const TERRAIN_ATTACK_RANGE = 420;
 
 export const START_LIVES = 3;
 
-export type Theme = 'grass' | 'snow' | 'desert' | 'ocean' | 'castle';
+export type Theme = 'grass' | 'snow' | 'desert' | 'ocean' | 'castle' | 'rainforest';
 
-export type BossKind = 'hopper' | 'slider' | 'slam' | 'swimmer' | 'charger';
+export const THEMES: Theme[] = ['grass', 'snow', 'desert', 'ocean', 'castle', 'rainforest'];
+
+export type BossKind = 'hopper' | 'slider' | 'slam' | 'swimmer' | 'charger' | 'swinger';
 
 export type EnemyKind =
   | 'bramble-hopper'
@@ -28,11 +32,16 @@ export type EnemyKind =
   | 'angler-eel'
   | 'clockwork-hound'
   | 'gargoyle-page'
-  | 'wall-mimic';
+  | 'wall-mimic'
+  | 'howler-ape'
+  | 'dart-mosquito'
+  | 'coil-serpent';
 
 export type EnemyRole = 'movement' | 'ranged' | 'terrain';
 
-export type SpecialKind = 'grow' | 'ice-slide' | 'burrow' | 'bubble-pulse' | 'shadow-blink';
+export type SpecialKind = 'grow' | 'ice-slide' | 'burrow' | 'bubble-pulse' | 'shadow-blink' | 'liana-swing';
+
+export type PuzzleKind = 'vine-bed' | 'ice-wall' | 'sand-wall' | 'down-current' | 'shadow-wall' | 'moss-curtain';
 
 export type MiniBossVariant = 1 | 2 | 3;
 
@@ -48,6 +57,29 @@ export function specialForTheme(theme: Theme): SpecialKind {
       return 'bubble-pulse';
     case 'castle':
       return 'shadow-blink';
+    case 'rainforest':
+      return 'liana-swing';
+    default: {
+      const neverTheme: never = theme;
+      return neverTheme;
+    }
+  }
+}
+
+export function puzzleForTheme(theme: Theme): PuzzleKind {
+  switch (theme) {
+    case 'grass':
+      return 'vine-bed';
+    case 'snow':
+      return 'ice-wall';
+    case 'desert':
+      return 'sand-wall';
+    case 'ocean':
+      return 'down-current';
+    case 'castle':
+      return 'shadow-wall';
+    case 'rainforest':
+      return 'moss-curtain';
     default: {
       const neverTheme: never = theme;
       return neverTheme;
@@ -62,24 +94,48 @@ export function enemyRole(kind: EnemyKind): EnemyRole {
     case 'dune-scarab':
     case 'reef-crab':
     case 'clockwork-hound':
+    case 'howler-ape':
       return 'movement';
     case 'acorn-slinger':
     case 'snowball-finch':
     case 'cactus-imp':
     case 'bubble-archerfish':
     case 'gargoyle-page':
+    case 'dart-mosquito':
       return 'ranged';
     case 'mossback-beetle':
     case 'frost-mole':
     case 'sandwyrm':
     case 'angler-eel':
     case 'wall-mimic':
+    case 'coil-serpent':
       return 'terrain';
     default: {
       const neverKind: never = kind;
       return neverKind;
     }
   }
+}
+
+export function enemyAttackRange(kind: EnemyKind): number {
+  const role = enemyRole(kind);
+  switch (role) {
+    case 'ranged':
+      return RANGED_ATTACK_RANGE;
+    case 'terrain':
+      return TERRAIN_ATTACK_RANGE;
+    case 'movement':
+      return 0;
+    default: {
+      const neverRole: never = role;
+      return neverRole;
+    }
+  }
+}
+
+export function enemyThreatensTile(kind: EnemyKind, enemyTileX: number, originTileX: number): boolean {
+  const range = enemyAttackRange(kind);
+  return range > 0 && Math.abs(enemyTileX - originTileX) * TILE < range;
 }
 
 export function enemiesForWorld(world: number): readonly [EnemyKind, EnemyKind, EnemyKind] {
@@ -94,6 +150,8 @@ export function enemiesForWorld(world: number): readonly [EnemyKind, EnemyKind, 
       return ['reef-crab', 'bubble-archerfish', 'angler-eel'];
     case 5:
       return ['clockwork-hound', 'gargoyle-page', 'wall-mimic'];
+    case 6:
+      return ['howler-ape', 'dart-mosquito', 'coil-serpent'];
     default:
       return ['bramble-hopper', 'acorn-slinger', 'mossback-beetle'];
   }
@@ -119,7 +177,11 @@ export type LevelId =
   | '5-1'
   | '5-2'
   | '5-3'
-  | '5-4';
+  | '5-4'
+  | '6-1'
+  | '6-2'
+  | '6-3'
+  | '6-4';
 
 export interface ThemePhysics {
   accel: number;
@@ -141,6 +203,8 @@ export function themeSky(theme: Theme): number {
       return 0x145a78;
     case 'castle':
       return 0x140e1c;
+    case 'rainforest':
+      return 0x1e4a3c;
     default: {
       const neverTheme: never = theme;
       return neverTheme;
@@ -160,6 +224,8 @@ export function themePhysics(theme: Theme): ThemePhysics {
       return { accel: 1200, maxSpeed: 240, groundDrag: 900, gravity: 980, jump: -560 };
     case 'castle':
       return { accel: 1800, maxSpeed: 300, groundDrag: 1800, gravity: 1950, jump: -740 };
+    case 'rainforest':
+      return { accel: 1700, maxSpeed: 300, groundDrag: 1400, gravity: 1700, jump: -730 };
     default: {
       const neverTheme: never = theme;
       return neverTheme;
@@ -179,6 +245,8 @@ export function themeName(theme: Theme): string {
       return 'Deep Current';
     case 'castle':
       return 'Dread Keep';
+    case 'rainforest':
+      return 'Canopy Deep';
     default: {
       const neverTheme: never = theme;
       return neverTheme;
@@ -198,6 +266,8 @@ export function worldBossKind(world: number): BossKind {
       return 'swimmer';
     case 5:
       return 'charger';
+    case 6:
+      return 'swinger';
     default:
       return 'hopper';
   }
@@ -229,4 +299,8 @@ export const ALL_LEVEL_IDS: LevelId[] = [
   '5-2',
   '5-3',
   '5-4',
+  '6-1',
+  '6-2',
+  '6-3',
+  '6-4',
 ];

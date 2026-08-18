@@ -5,7 +5,7 @@ import { isSkinUnlocked, SKINS, type SkinDef } from '../data/skins';
 import { applySettings } from '../data/settings';
 import { audio } from '../systems/audio';
 import { applySkin, skinThumbKey } from '../systems/textures';
-import { addPanel, closeOverlay, dimScreen, MenuButton, textStyle, UI } from '../ui/menu';
+import { addPanel, beginOverlay, closeOverlay, dimScreen, dismissOnOutside, MenuButton, textStyle, UI } from '../ui/menu';
 
 interface OverlayData {
   returnKey?: string;
@@ -39,12 +39,14 @@ export class SkinsScene extends Phaser.Scene {
   create(data: OverlayData): void {
     this.returnKey = data.returnKey ?? 'TitleScene';
     this.cells = [];
-    dimScreen(this, 0.66);
+    beginOverlay(this);
+    dimScreen(this, 0.66, () => this.goBack());
     applySettings(this);
 
     const save = loadSave();
     const rows = Math.ceil(SKINS.length / COLUMNS);
-    addPanel(this, GAME_WIDTH / 2, GAME_HEIGHT / 2, COLUMNS * CELL_W + 60, rows * CELL_H + 264, 'SKINS');
+    const panel = addPanel(this, GAME_WIDTH / 2, GAME_HEIGHT / 2, COLUMNS * CELL_W + 60, rows * CELL_H + 264, 'SKINS');
+    dismissOnOutside(this, panel, () => this.goBack());
 
     const unlockedCount = SKINS.filter((skin) => isSkinUnlocked(skin, save)).length;
     this.add

@@ -5,6 +5,7 @@ import { DEFAULT_SKIN_ID, isSkinUnlocked, skinById } from './skins';
 const STORAGE_KEY = 'red-square-4-save-v2';
 const LEGACY_STORAGE_KEY = 'red-square-4-save-v1';
 const REMOTE_PATH = '/__save';
+const STARTING_UNLOCKED: LevelId[] = ALL_LEVEL_IDS.filter((id) => parseLevelId(id).stage === 1);
 
 export interface SaveData {
   unlocked: LevelId[];
@@ -36,7 +37,7 @@ function cloneSave(save: SaveData): SaveData {
 
 function defaultSave(): SaveData {
   return {
-    unlocked: ['1-1'],
+    unlocked: [...STARTING_UNLOCKED],
     cleared: [],
     lastPlayed: '1-1',
     collectibles: {},
@@ -71,7 +72,7 @@ function unlockedFrom(cleared: LevelId[], extra: LevelId[]): LevelId[] {
     const next = nextLevelId(id);
     return next ? [next] : [];
   });
-  return uniqueLevels(['1-1', ...extra, ...cleared, ...nextIds]);
+  return uniqueLevels([...STARTING_UNLOCKED, ...extra, ...cleared, ...nextIds]);
 }
 
 function fallbackLastPlayed(unlocked: LevelId[], cleared: LevelId[]): LevelId {
@@ -135,7 +136,7 @@ function parseSave(raw: string | null | undefined): SaveData | null {
     }
     const unlocked: LevelId[] = Array.isArray(parsed.unlocked)
       ? parsed.unlocked.filter(isLevelId)
-      : ['1-1'];
+      : [...STARTING_UNLOCKED];
     const cleared: LevelId[] = Array.isArray(parsed.cleared) ? parsed.cleared.filter(isLevelId) : [];
     const lastPlayed =
       typeof parsed.lastPlayed === 'string' && isLevelId(parsed.lastPlayed)
@@ -317,6 +318,10 @@ export function setEquippedSkin(id: string): SaveData {
 
 export function isUnlocked(id: LevelId): boolean {
   return loadSave().unlocked.includes(id);
+}
+
+export function hasCampaignProgress(save: SaveData = loadSave()): boolean {
+  return save.cleared.length > 0 || save.unlocked.some((id) => parseLevelId(id).stage !== 1);
 }
 
 export function collectibleMask(id: LevelId, save: SaveData = loadSave()): number {

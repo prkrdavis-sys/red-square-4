@@ -74,6 +74,10 @@ const LEVEL_SKINS: SkinSeed[] = [
   { name: 'Gargoyle Page', body: 0x707888, shade: 0x434a58, gloss: 0xb4bcc8, ink: 0x14181e, boot: 0x22262e, accessory: 'horns' },
   { name: 'Wall Mimic', body: 0x8a6a4a, shade: 0x584028, gloss: 0xc8a882, ink: 0x201408, boot: 0x2c1e10, accessory: 'cap' },
   { name: 'Dread Champion', body: 0x2a2230, shade: 0x14101c, gloss: 0x7a6a90, ink: 0x000000, boot: 0x1c1626, accessory: 'halo' },
+  { name: 'Howler Ape', body: 0x6a4a28, shade: 0x3e2a14, gloss: 0xc4a070, ink: 0x1a1008, boot: 0x2a1c10, accessory: 'bandana' },
+  { name: 'Dart Mosquito', body: 0x8ab03a, shade: 0x4a6a1c, gloss: 0xd4e878, ink: 0x1c2808, boot: 0x2c3a14, accessory: 'antenna' },
+  { name: 'Coil Serpent', body: 0x2a6a48, shade: 0x164830, gloss: 0x7ac4a0, ink: 0x0c1c14, boot: 0x1a2c20, accessory: 'scarf' },
+  { name: 'Canopy Crown', body: 0x1e4a28, shade: 0x0e2a18, gloss: 0x6ad08a, ink: 0x08140c, boot: 0x142418, accessory: 'crown' },
 ];
 
 function skinIdForLevel(level: LevelId): string {
@@ -89,6 +93,9 @@ export const SKINS: SkinDef[] = [
   },
   ...ALL_LEVEL_IDS.map((level, index) => {
     const seed = LEVEL_SKINS[index];
+    if (!seed) {
+      throw new Error(`Missing skin seed for ${level}`);
+    }
     return {
       id: skinIdForLevel(level),
       name: seed.name,
