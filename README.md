@@ -10,7 +10,16 @@ npm run assets   # optional: download Kenney / ansimuz packs
 npm run dev
 ```
 
-Open the URL Vite prints (usually `http://localhost:5173`).
+Open the URL Vite prints (usually `http://localhost:5173`). On a phone, use the LAN address Vite prints so you can add it to the home screen.
+
+## Install on a phone
+
+This is a standalone web app. After you open it in **Safari** (iPhone) or **Chrome** (Android), add it to the home screen. Launching that icon opens the game in its own window, without browser chrome.
+
+- **iPhone / iPad:** Safari → Share → Add to Home Screen
+- **Android:** Chrome → menu → Add to Home Screen / Install app
+
+Home-screen install needs HTTPS (or localhost). Deploy the `dist` folder, or run `npm run build` then `npm run preview` for a local check.
 
 ## Controls
 
