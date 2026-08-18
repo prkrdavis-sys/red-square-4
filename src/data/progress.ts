@@ -270,12 +270,6 @@ export async function hydrateSave(): Promise<SaveData> {
   }
 }
 
-export function resetSave(): SaveData {
-  const save = defaultSave();
-  writeSave(save);
-  return save;
-}
-
 export function resumeLevelId(save: SaveData = loadSave()): LevelId {
   if (save.unlocked.includes(save.lastPlayed)) {
     return save.lastPlayed;

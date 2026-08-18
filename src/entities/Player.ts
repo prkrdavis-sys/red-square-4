@@ -31,6 +31,7 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
   invulnerableUntil = 0;
   shielded = false;
   frozen = false;
+  private swinging = false;
   private jumpHeld = false;
   private wasGrounded = true;
   private visualLockUntil = 0;
@@ -90,6 +91,26 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
     this.invulnerableUntil = Math.max(this.invulnerableUntil, this.scene.time.now + duration);
   }
 
+  flashTint(color: number, duration: number): void {
+    this.view.setTint(color);
+    this.scene.time.delayedCall(duration, () => {
+      if (this.shielded) {
+        this.view.setTint(0x8deaff);
+        return;
+      }
+      this.view.clearTint();
+    });
+  }
+
+  burstSpeed(speed: number, duration: number): void {
+    const body = this.arcadeBody;
+    const previousMax = body.maxVelocity.x;
+    body.setMaxVelocity(Math.max(previousMax, speed), 1400);
+    this.scene.time.delayedCall(duration, () => {
+      body.setMaxVelocity(previousMax, 1400);
+    });
+  }
+
   giveShield(): void {
     this.shielded = true;
     this.view.setTint(0x8deaff);
@@ -140,6 +161,8 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
 
   freeze(): void {
     this.frozen = true;
+    this.swinging = false;
+    this.arcadeBody.checkCollision.none = false;
     this.arcadeBody.setVelocity(0, 0);
     this.arcadeBody.allowGravity = false;
     this.squashTween?.stop();
@@ -158,6 +181,8 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
 
   die(onComplete: () => void): void {
     this.frozen = true;
+    this.swinging = false;
+    this.arcadeBody.checkCollision.none = false;
     this.arcadeBody.setVelocity(0, 0);
     this.arcadeBody.allowGravity = false;
     this.arcadeBody.enable = false;
@@ -261,11 +286,48 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
     this.arcadeBody.setMaxVelocity(physics.maxSpeed, 1400);
   }
 
+  beginSwing(): void {
+    this.swinging = true;
+    this.arcadeBody.setVelocity(0, 0);
+    this.arcadeBody.setAcceleration(0, 0);
+    this.arcadeBody.allowGravity = false;
+    this.arcadeBody.checkCollision.none = true;
+    this.view.setTexture('player-jump');
+  }
+
+  poseOnVine(lean: number): void {
+    this.view.setTexture('player-jump');
+    this.view.setAngle(lean);
+    this.syncView();
+    this.shadow.setPosition(this.x, this.y + 22);
+    this.shadow.setAlpha(0.16);
+  }
+
+  endSwing(vx: number, vy: number): void {
+    this.swinging = false;
+    this.arcadeBody.checkCollision.none = false;
+    if (!this.active || this.frozen) {
+      return;
+    }
+    this.arcadeBody.allowGravity = true;
+    this.arcadeBody.setVelocity(vx, vy);
+    this.view.setAngle(this.flipX ? -8 : 8);
+  }
+
   tick(input: PlayerInput, theme: Theme): void {
     if (this.frozen) {
       this.syncView();
       this.shadow.setPosition(this.x, this.y + 22);
       this.shadow.setAlpha(0.22);
+      return;
+    }
+
+    if (this.swinging) {
+      this.arcadeBody.setVelocity(0, 0);
+      this.arcadeBody.setAcceleration(0, 0);
+      this.syncView();
+      this.shadow.setPosition(this.x, this.y + 22);
+      this.shadow.setAlpha(0.16);
       return;
     }
 

@@ -2,6 +2,7 @@ import Phaser from 'phaser';
 import { type BossKind, type MiniBossVariant, type Theme } from '../config';
 import { maybeShake } from '../data/settings';
 import type { ArenaKeep } from '../levels/arena';
+import { liftOntoFloor } from '../levels/colliders';
 import { audio } from '../systems/audio';
 import { miniBossTextureKey, worldBossTextureKey, type CharacterPose } from '../systems/characters';
 import {
@@ -136,9 +137,10 @@ export class Boss extends Phaser.Physics.Arcade.Sprite {
     this.miniVariant = miniVariant;
     this.spawnY = y;
     const body = this.body as Phaser.Physics.Arcade.Body;
-    body.setBounce(0.05, 0);
+    body.setBounce(0, 0);
     body.setCollideWorldBounds(true);
     body.setMaxVelocity(360, 1400);
+    body.pushable = false;
     this.setDepth(16);
     if (hp === 1) {
       this.setScale(1.3 + (miniVariant ?? 1) * 0.08);
@@ -399,9 +401,16 @@ export class Boss extends Phaser.Physics.Arcade.Sprite {
   /** Match the hurtbox to visible pixels, including the head, not empty frame padding. */
   private fitHitbox(): void {
     const body = this.arcadeBody;
+    const prevBottom = body.bottom;
     const box = hurtboxFromOpaque(opaqueSpriteBounds(this.texture, this.frame));
     body.setSize(box.width, box.height, false);
     body.setOffset(box.offsetX, box.offsetY);
+    body.updateBounds();
+    const sink = liftOntoFloor(body.bottom, prevBottom);
+    if (sink > 0) {
+      this.y -= sink;
+      body.y -= sink;
+    }
   }
 
   private swimTargetY(now: number): number {
@@ -429,8 +438,9 @@ export class Boss extends Phaser.Physics.Arcade.Sprite {
   }
 
   private contain(): void {
+    const arena = this.arena;
     const edges = this.edges();
-    if (!edges) {
+    if (!arena || !edges) {
       return;
     }
     const body = this.arcadeBody;
@@ -445,16 +455,24 @@ export class Boss extends Phaser.Physics.Arcade.Sprite {
         body.setVelocityX(this.kind === 'charger' || this.kind === 'slider' || this.kind === 'swinger' ? -body.velocity.x * 0.65 : 0);
       }
     }
-    if (this.kind !== 'swimmer') {
+    if (this.kind === 'swimmer') {
+      if (this.y < edges.minY) {
+        this.setY(edges.minY);
+        if (body.velocity.y < 0) {
+          body.setVelocityY(0);
+        }
+      } else if (this.y > edges.maxY) {
+        this.setY(edges.maxY);
+        if (body.velocity.y > 0) {
+          body.setVelocityY(0);
+        }
+      }
       return;
     }
-    if (this.y < edges.minY) {
-      this.setY(edges.minY);
-      if (body.velocity.y < 0) {
-        body.setVelocityY(0);
-      }
-    } else if (this.y > edges.maxY) {
-      this.setY(edges.maxY);
+    const sink = liftOntoFloor(body.bottom, arena.bottom);
+    if (sink > 0) {
+      this.y -= sink;
+      body.y -= sink;
       if (body.velocity.y > 0) {
         body.setVelocityY(0);
       }

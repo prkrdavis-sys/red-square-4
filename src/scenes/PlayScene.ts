@@ -35,6 +35,7 @@ import { bossSafeLandingX } from '../levels/arena';
 import { getLevel } from '../levels/worlds';
 import { audio } from '../systems/audio';
 import { forgetFlak, rememberFlak, restoreFlak, setFlakGroup } from '../systems/flak';
+import { Foreground } from '../systems/foreground';
 import { Parallax } from '../systems/parallax';
 import { getTouchState, hideTouchControls, showTouchControls } from '../systems/touch-controls';
 import { skinThumbKey } from '../systems/textures';
@@ -95,6 +96,7 @@ export class PlayScene extends Phaser.Scene {
   private levelId: LevelId = '1-1';
   private built!: BuiltLevel;
   private parallax!: Parallax;
+  private foreground!: Foreground;
   private cursors!: Phaser.Types.Input.Keyboard.CursorKeys;
   private keyA!: Phaser.Input.Keyboard.Key;
   private keyD!: Phaser.Input.Keyboard.Key;
@@ -145,6 +147,7 @@ export class PlayScene extends Phaser.Scene {
     this.cameras.main.setBackgroundColor(themeSky(def.theme));
     this.built = buildLevel(this, def.rows, def.theme, def.world, def.course);
     this.parallax = new Parallax(this, def.theme);
+    this.foreground = new Foreground(this, def.theme, this.built.widthPx, def.world, def.stage);
     audio.playTheme(this, def.theme);
     this.special = new WorldSpecial(this, this.built, def.theme, def.course.special);
     const savedCheckpoint = getCheckpoint(this.levelId);
@@ -153,7 +156,7 @@ export class PlayScene extends Phaser.Scene {
     }
 
     this.physics.world.setBounds(0, 0, this.built.widthPx, this.built.heightPx + 400);
-    this.physics.world.TILE_BIAS = 40;
+    this.physics.world.TILE_BIAS = TILE;
 
     const {
       player,
@@ -405,6 +408,7 @@ export class PlayScene extends Phaser.Scene {
     }
 
     this.parallax.update(this.cameras.main.scrollX);
+    this.foreground.update(this.cameras.main.scrollX);
 
     this.hudLives.setText('Lives');
     this.hudLifeIcons.forEach((icon, index) => {
@@ -516,7 +520,21 @@ export class PlayScene extends Phaser.Scene {
     if (!player || player.isDropping) {
       return false;
     }
-    return player.arcadeBody.velocity.y >= 0;
+    const body = player.arcadeBody;
+    if (body.velocity.y < 0) {
+      return false;
+    }
+    const platform = objectA === player || ('gameObject' in objectA && objectA.gameObject === player) ? objectB : objectA;
+    const plat =
+      'top' in platform && 'bottom' in platform
+        ? platform
+        : 'body' in platform
+          ? platform.body
+          : undefined;
+    if (!plat || !('top' in plat)) {
+      return true;
+    }
+    return body.bottom - body.deltaY() <= plat.top + 10;
   }
 
   private flakOneWayProcess(

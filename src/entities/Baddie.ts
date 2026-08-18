@@ -34,6 +34,8 @@ export class Baddie extends Phaser.Physics.Arcade.Sprite {
   private threatsArmed = false;
   private charge?: Phaser.GameObjects.Sprite;
   private readonly baseY: number;
+  private readonly hitW: number;
+  private readonly hitH: number;
 
   constructor(scene: Phaser.Scene, x: number, y: number, kind: EnemyKind, speed = 70) {
     super(scene, x, y, enemyTextureKey(kind, 'idle'));
@@ -44,8 +46,11 @@ export class Baddie extends Phaser.Physics.Arcade.Sprite {
     this.speed = speed;
     this.baseY = y;
     const body = this.body as Phaser.Physics.Arcade.Body;
-    body.setSize(Math.max(24, this.width * 0.68), Math.max(24, this.height * 0.7));
+    this.hitW = Math.max(24, this.width * 0.68);
+    this.hitH = Math.max(24, this.height * 0.7);
+    body.setSize(this.hitW, this.hitH);
     body.setBounce(0, 0);
+    body.pushable = false;
     this.setDepth(15);
     this.once('destroy', () => this.clearCharge());
   }
@@ -219,6 +224,7 @@ export class Baddie extends Phaser.Physics.Arcade.Sprite {
     const tremble = Math.sin(now / 32) * (2.4 + t * 4.5);
     this.setAngle(-facing * (7 + t * 11) + tremble);
     this.setScale(0.9 - t * 0.08, 1.1 + t * 0.14);
+    this.fitPhysicsToScale();
     const flash = Math.sin(now / (72 - t * 42));
     this.setTint(flash > 0 ? 0xfff3c4 : 0xff6a3a);
     this.updateCharge(now, facing, t);
@@ -232,6 +238,7 @@ export class Baddie extends Phaser.Physics.Arcade.Sprite {
     this.windingUp = false;
     this.setAngle(0);
     this.setScale(1);
+    this.fitPhysicsToScale();
     const muzzleX = this.charge?.x ?? this.muzzleX(player.x > this.x ? 1 : -1);
     const muzzleY = this.charge?.y ?? this.muzzleY();
     this.clearCharge();
@@ -243,6 +250,8 @@ export class Baddie extends Phaser.Physics.Arcade.Sprite {
       scaleY: 0.82,
       duration: 90,
       yoyo: true,
+      onUpdate: () => this.fitPhysicsToScale(),
+      onComplete: () => this.fitPhysicsToScale(),
     });
   }
 
@@ -250,6 +259,7 @@ export class Baddie extends Phaser.Physics.Arcade.Sprite {
     this.windingUp = false;
     this.setAngle(0);
     this.setScale(1);
+    this.fitPhysicsToScale();
     this.clearCharge();
     this.restoreRestTint(this.scene.time.now);
   }
@@ -360,6 +370,16 @@ export class Baddie extends Phaser.Physics.Arcade.Sprite {
       return;
     }
     this.setTexture(texture);
+  }
+
+  /** Keep the world hitbox stable when the sprite squashes for windup. */
+  private fitPhysicsToScale(): void {
+    if (this.dying) {
+      return;
+    }
+    const sx = Math.max(0.05, Math.abs(this.scaleX));
+    const sy = Math.max(0.05, Math.abs(this.scaleY));
+    this.arcadeBody.setSize(this.hitW / sx, this.hitH / sy);
   }
 
   private patrol(solids: Phaser.Physics.Arcade.StaticGroup, oneways?: Phaser.Physics.Arcade.StaticGroup): void {

@@ -1,15 +1,16 @@
 import Phaser from 'phaser';
-import { GROUND_Y, THEMES, TILE, type Theme } from '../config';
+import { GAME_HEIGHT, GAME_WIDTH, THEMES, TILE, type Theme } from '../config';
 
-/** Foreground dressing may never rise more than three tiles off the floor. */
+/** Near-camera dressing may never rise more than three tiles off the bottom of the view. */
 export const FOREGROUND_MAX_TILES = 3;
 export const FOREGROUND_MAX_PX = FOREGROUND_MAX_TILES * TILE;
 
 const LIP_W = 384;
-const LIP_H = 72;
-const LIP_DEPTH = 26;
-const PROP_DEPTH = 28;
-const SPAWN_CLEAR_TILES = 6;
+const LIP_H = 96;
+const NEAR_FACTOR = 1.24;
+const FRINGE_FACTOR = 1.4;
+const NEAR_DEPTH = 33;
+const FRINGE_DEPTH = 36;
 
 type PropMotion = 'still' | 'sway' | 'flicker' | 'bob';
 type PropSize = 'small' | 'large';
@@ -85,62 +86,75 @@ function specsFor(theme: Theme): PropSpec[] {
   switch (theme) {
     case 'grass':
       return [
-        { id: 'tuft', w: 58, h: 42, motion: 'sway', alpha: 0.96, weight: 3.4, footprint: 1, size: 'small' },
-        { id: 'flowers', w: 74, h: 78, motion: 'sway', alpha: 0.92, weight: 1.7, footprint: 1, size: 'small' },
-        { id: 'shroom', w: 46, h: 54, motion: 'still', alpha: 0.96, weight: 0.9, footprint: 1, size: 'small' },
-        { id: 'fern', w: 96, h: 118, motion: 'sway', alpha: 0.86, weight: 1.5, footprint: 2, size: 'large' },
-        { id: 'bush', w: 124, h: 100, motion: 'still', alpha: 0.84, weight: 1.9, footprint: 2, size: 'large' },
-        { id: 'bush-lg', w: 176, h: 148, motion: 'still', alpha: 0.8, weight: 1.1, footprint: 3, size: 'large' },
+        { id: 'tuft', w: 70, h: 52, motion: 'sway', alpha: 0.96, weight: 3.2, footprint: 1, size: 'small' },
+        { id: 'stone', w: 72, h: 40, motion: 'still', alpha: 0.96, weight: 1.2, footprint: 1, size: 'small' },
+        { id: 'daisy', w: 78, h: 96, motion: 'sway', alpha: 0.94, weight: 1.8, footprint: 1, size: 'small' },
+        { id: 'flowers', w: 86, h: 88, motion: 'sway', alpha: 0.92, weight: 1.5, footprint: 1, size: 'small' },
+        { id: 'shroom', w: 52, h: 58, motion: 'still', alpha: 0.96, weight: 0.8, footprint: 1, size: 'small' },
+        { id: 'clump', w: 140, h: 92, motion: 'still', alpha: 0.9, weight: 2.2, footprint: 2, size: 'large' },
+        { id: 'fern', w: 108, h: 132, motion: 'sway', alpha: 0.88, weight: 1.3, footprint: 2, size: 'large' },
+        { id: 'bush', w: 136, h: 112, motion: 'still', alpha: 0.88, weight: 1.7, footprint: 2, size: 'large' },
+        { id: 'bush-lg', w: 180, h: 158, motion: 'still', alpha: 0.86, weight: 1.0, footprint: 3, size: 'large' },
       ];
     case 'snow':
       return [
-        { id: 'tuft', w: 54, h: 38, motion: 'sway', alpha: 0.94, weight: 2.8, footprint: 1, size: 'small' },
-        { id: 'mound', w: 110, h: 72, motion: 'still', alpha: 0.9, weight: 2.0, footprint: 2, size: 'small' },
-        { id: 'rock', w: 78, h: 52, motion: 'still', alpha: 0.94, weight: 1.2, footprint: 1, size: 'small' },
-        { id: 'crystals', w: 70, h: 92, motion: 'flicker', alpha: 0.88, weight: 1.1, footprint: 1, size: 'small' },
-        { id: 'snowman', w: 64, h: 96, motion: 'still', alpha: 0.92, weight: 0.7, footprint: 1, size: 'large' },
-        { id: 'pine', w: 88, h: 184, motion: 'sway', alpha: 0.82, weight: 1.3, footprint: 2, size: 'large' },
+        { id: 'tuft', w: 62, h: 44, motion: 'sway', alpha: 0.94, weight: 2.6, footprint: 1, size: 'small' },
+        { id: 'cap', w: 88, h: 48, motion: 'still', alpha: 0.95, weight: 1.6, footprint: 1, size: 'small' },
+        { id: 'rock', w: 82, h: 54, motion: 'still', alpha: 0.94, weight: 1.2, footprint: 1, size: 'small' },
+        { id: 'mound', w: 124, h: 80, motion: 'still', alpha: 0.92, weight: 2.0, footprint: 2, size: 'small' },
+        { id: 'drift', w: 150, h: 62, motion: 'still', alpha: 0.92, weight: 1.6, footprint: 2, size: 'small' },
+        { id: 'crystals', w: 74, h: 100, motion: 'flicker', alpha: 0.88, weight: 1.0, footprint: 1, size: 'small' },
+        { id: 'snowman', w: 70, h: 108, motion: 'still', alpha: 0.92, weight: 0.6, footprint: 1, size: 'large' },
+        { id: 'pine', w: 96, h: 184, motion: 'sway', alpha: 0.86, weight: 1.2, footprint: 2, size: 'large' },
       ];
     case 'desert':
       return [
-        { id: 'grass', w: 56, h: 44, motion: 'sway', alpha: 0.94, weight: 2.6, footprint: 1, size: 'small' },
-        { id: 'rock', w: 80, h: 46, motion: 'still', alpha: 0.94, weight: 1.5, footprint: 1, size: 'small' },
-        { id: 'skull', w: 58, h: 40, motion: 'still', alpha: 0.95, weight: 0.7, footprint: 1, size: 'small' },
-        { id: 'pot', w: 48, h: 50, motion: 'still', alpha: 0.94, weight: 0.6, footprint: 1, size: 'small' },
-        { id: 'tumble', w: 56, h: 56, motion: 'still', alpha: 0.88, weight: 0.8, footprint: 1, size: 'small' },
-        { id: 'pear', w: 78, h: 110, motion: 'still', alpha: 0.86, weight: 1.3, footprint: 2, size: 'large' },
-        { id: 'cactus', w: 72, h: 176, motion: 'sway', alpha: 0.84, weight: 1.5, footprint: 2, size: 'large' },
+        { id: 'grass', w: 64, h: 50, motion: 'sway', alpha: 0.94, weight: 2.4, footprint: 1, size: 'small' },
+        { id: 'ridge', w: 128, h: 46, motion: 'still', alpha: 0.94, weight: 1.8, footprint: 2, size: 'small' },
+        { id: 'rock', w: 86, h: 50, motion: 'still', alpha: 0.94, weight: 1.4, footprint: 1, size: 'small' },
+        { id: 'bloom', w: 58, h: 86, motion: 'sway', alpha: 0.92, weight: 1.1, footprint: 1, size: 'small' },
+        { id: 'skull', w: 62, h: 44, motion: 'still', alpha: 0.95, weight: 0.6, footprint: 1, size: 'small' },
+        { id: 'pot', w: 52, h: 54, motion: 'still', alpha: 0.94, weight: 0.5, footprint: 1, size: 'small' },
+        { id: 'tumble', w: 60, h: 60, motion: 'still', alpha: 0.88, weight: 0.7, footprint: 1, size: 'small' },
+        { id: 'pear', w: 84, h: 118, motion: 'still', alpha: 0.88, weight: 1.2, footprint: 2, size: 'large' },
+        { id: 'cactus', w: 76, h: 176, motion: 'sway', alpha: 0.86, weight: 1.4, footprint: 2, size: 'large' },
       ];
     case 'ocean':
       return [
-        { id: 'grass', w: 60, h: 52, motion: 'sway', alpha: 0.9, weight: 2.8, footprint: 1, size: 'small' },
-        { id: 'shell', w: 50, h: 36, motion: 'still', alpha: 0.94, weight: 1.1, footprint: 1, size: 'small' },
-        { id: 'star', w: 48, h: 40, motion: 'still', alpha: 0.92, weight: 0.9, footprint: 1, size: 'small' },
-        { id: 'anemone', w: 58, h: 78, motion: 'bob', alpha: 0.88, weight: 1.4, footprint: 1, size: 'small' },
-        { id: 'fan', w: 92, h: 118, motion: 'sway', alpha: 0.82, weight: 1.3, footprint: 2, size: 'large' },
-        { id: 'coral', w: 110, h: 104, motion: 'still', alpha: 0.84, weight: 1.5, footprint: 2, size: 'large' },
-        { id: 'kelp', w: 54, h: 168, motion: 'sway', alpha: 0.8, weight: 1.6, footprint: 1, size: 'large' },
+        { id: 'grass', w: 68, h: 58, motion: 'sway', alpha: 0.9, weight: 2.6, footprint: 1, size: 'small' },
+        { id: 'reed', w: 48, h: 110, motion: 'sway', alpha: 0.86, weight: 1.6, footprint: 1, size: 'small' },
+        { id: 'shell', w: 54, h: 40, motion: 'still', alpha: 0.94, weight: 1.0, footprint: 1, size: 'small' },
+        { id: 'star', w: 52, h: 44, motion: 'still', alpha: 0.92, weight: 0.8, footprint: 1, size: 'small' },
+        { id: 'stone', w: 90, h: 48, motion: 'still', alpha: 0.94, weight: 1.3, footprint: 1, size: 'small' },
+        { id: 'anemone', w: 64, h: 86, motion: 'bob', alpha: 0.88, weight: 1.3, footprint: 1, size: 'small' },
+        { id: 'fan', w: 100, h: 128, motion: 'sway', alpha: 0.84, weight: 1.2, footprint: 2, size: 'large' },
+        { id: 'coral', w: 118, h: 112, motion: 'still', alpha: 0.86, weight: 1.4, footprint: 2, size: 'large' },
+        { id: 'kelp', w: 58, h: 176, motion: 'sway', alpha: 0.82, weight: 1.5, footprint: 1, size: 'large' },
       ];
     case 'castle':
       return [
-        { id: 'rubble', w: 78, h: 44, motion: 'still', alpha: 0.94, weight: 2.2, footprint: 1, size: 'small' },
-        { id: 'bones', w: 62, h: 36, motion: 'still', alpha: 0.94, weight: 0.9, footprint: 1, size: 'small' },
-        { id: 'bramble', w: 100, h: 86, motion: 'sway', alpha: 0.84, weight: 1.4, footprint: 2, size: 'large' },
-        { id: 'fence', w: 132, h: 112, motion: 'still', alpha: 0.78, weight: 1.2, footprint: 2, size: 'large' },
-        { id: 'column', w: 54, h: 120, motion: 'still', alpha: 0.88, weight: 0.9, footprint: 1, size: 'large' },
-        { id: 'candelabra', w: 62, h: 148, motion: 'flicker', alpha: 0.9, weight: 1.0, footprint: 1, size: 'large' },
-        { id: 'gargoyle', w: 84, h: 92, motion: 'still', alpha: 0.88, weight: 0.7, footprint: 2, size: 'large' },
+        { id: 'rubble', w: 86, h: 48, motion: 'still', alpha: 0.94, weight: 2.0, footprint: 1, size: 'small' },
+        { id: 'cobble', w: 110, h: 52, motion: 'still', alpha: 0.94, weight: 1.6, footprint: 2, size: 'small' },
+        { id: 'bones', w: 66, h: 40, motion: 'still', alpha: 0.94, weight: 0.8, footprint: 1, size: 'small' },
+        { id: 'spike', w: 74, h: 88, motion: 'still', alpha: 0.9, weight: 1.1, footprint: 1, size: 'small' },
+        { id: 'bramble', w: 108, h: 92, motion: 'sway', alpha: 0.86, weight: 1.3, footprint: 2, size: 'large' },
+        { id: 'fence', w: 140, h: 118, motion: 'still', alpha: 0.82, weight: 1.2, footprint: 2, size: 'large' },
+        { id: 'column', w: 58, h: 128, motion: 'still', alpha: 0.9, weight: 0.8, footprint: 1, size: 'large' },
+        { id: 'candelabra', w: 66, h: 156, motion: 'flicker', alpha: 0.9, weight: 0.9, footprint: 1, size: 'large' },
+        { id: 'gargoyle', w: 90, h: 100, motion: 'still', alpha: 0.9, weight: 0.6, footprint: 2, size: 'large' },
       ];
     case 'rainforest':
       return [
-        { id: 'tuft', w: 64, h: 50, motion: 'sway', alpha: 0.95, weight: 3.2, footprint: 1, size: 'small' },
-        { id: 'moss', w: 90, h: 54, motion: 'still', alpha: 0.94, weight: 1.8, footprint: 1, size: 'small' },
-        { id: 'shroom', w: 66, h: 64, motion: 'flicker', alpha: 0.92, weight: 1.1, footprint: 1, size: 'small' },
-        { id: 'orchid', w: 74, h: 98, motion: 'sway', alpha: 0.9, weight: 1.2, footprint: 1, size: 'small' },
-        { id: 'bloom', w: 68, h: 104, motion: 'sway', alpha: 0.9, weight: 1.0, footprint: 1, size: 'small' },
-        { id: 'vine', w: 118, h: 88, motion: 'sway', alpha: 0.86, weight: 1.5, footprint: 2, size: 'large' },
-        { id: 'fern', w: 132, h: 168, motion: 'sway', alpha: 0.84, weight: 1.7, footprint: 2, size: 'large' },
-        { id: 'leaf', w: 148, h: 190, motion: 'sway', alpha: 0.82, weight: 1.3, footprint: 2, size: 'large' },
+        { id: 'tuft', w: 72, h: 56, motion: 'sway', alpha: 0.95, weight: 2.8, footprint: 1, size: 'small' },
+        { id: 'bank', w: 132, h: 58, motion: 'still', alpha: 0.94, weight: 1.8, footprint: 2, size: 'small' },
+        { id: 'moss', w: 96, h: 56, motion: 'still', alpha: 0.94, weight: 1.5, footprint: 1, size: 'small' },
+        { id: 'shroom', w: 70, h: 68, motion: 'flicker', alpha: 0.92, weight: 1.0, footprint: 1, size: 'small' },
+        { id: 'orchid', w: 80, h: 104, motion: 'sway', alpha: 0.9, weight: 1.1, footprint: 1, size: 'small' },
+        { id: 'bloom', w: 72, h: 110, motion: 'sway', alpha: 0.9, weight: 0.9, footprint: 1, size: 'small' },
+        { id: 'drip', w: 92, h: 140, motion: 'sway', alpha: 0.86, weight: 1.2, footprint: 2, size: 'large' },
+        { id: 'vine', w: 124, h: 92, motion: 'sway', alpha: 0.86, weight: 1.3, footprint: 2, size: 'large' },
+        { id: 'fern', w: 140, h: 176, motion: 'sway', alpha: 0.86, weight: 1.5, footprint: 2, size: 'large' },
+        { id: 'leaf', w: 156, h: 190, motion: 'sway', alpha: 0.84, weight: 1.2, footprint: 2, size: 'large' },
       ];
     default: {
       const neverTheme: never = theme;
@@ -248,7 +262,22 @@ function stampBlades(
   }
 }
 
+function paintFringeBank(ctx: CanvasRenderingContext2D, bank: number, top: number): void {
+  ctx.fillStyle = css(bank);
+  ctx.fillRect(0, LIP_H - 28, LIP_W, 28);
+  ctx.fillStyle = css(top);
+  ctx.beginPath();
+  ctx.moveTo(0, LIP_H);
+  for (let x = 0; x <= LIP_W; x += 6) {
+    ctx.lineTo(x, LIP_H - 24 - 5 * Math.sin(x * 0.09) - 2.5 * Math.sin(x * 0.21));
+  }
+  ctx.lineTo(LIP_W, LIP_H);
+  ctx.closePath();
+  ctx.fill();
+}
+
 function paintGrassLip(ctx: CanvasRenderingContext2D): void {
+  paintFringeBank(ctx, 0x246218, 0x3d9e2f);
   const clumps = [18, 46, 78, 112, 148, 186, 224, 258, 296, 332, 362];
   for (const x of clumps) {
     wrapDraw( x, LIP_W, 28, (ox) => {
@@ -347,12 +376,46 @@ function paintGrassProp(ctx: CanvasRenderingContext2D, id: string, w: number, h:
       fillCircle(ctx, cx - 8, h - 88, 3.4);
       fillCircle(ctx, cx + 36, h - 70, 3);
       return;
+    case 'daisy':
+      ctx.strokeStyle = css(0x2d7a22);
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.moveTo(cx, h);
+      ctx.quadraticCurveTo(cx - 6, h - 40, cx + 2, h - 72);
+      ctx.stroke();
+      stampBlades(ctx, cx - 8, h, 3, 28, 0x3d9e2f, 0x246218);
+      for (let i = 0; i < 8; i += 1) {
+        const a = (Math.PI * 2 * i) / 8;
+        ctx.fillStyle = css(0xfff8e8);
+        fillEllipse(ctx, cx + 2 + Math.cos(a) * 12, h - 74 + Math.sin(a) * 10, 8, 5);
+      }
+      ctx.fillStyle = css(0xffe066);
+      fillCircle(ctx, cx + 2, h - 74, 7);
+      ctx.fillStyle = css(0xfff4c4);
+      fillCircle(ctx, cx, h - 76, 2.4);
+      return;
+    case 'stone':
+      ctx.fillStyle = css(0x6a7a48);
+      fillEllipse(ctx, cx, h - 12, 28, 14);
+      ctx.fillStyle = css(0x4a5a32);
+      fillEllipse(ctx, cx + 10, h - 10, 14, 10);
+      ctx.fillStyle = css(0xa8b878, 0.45);
+      fillEllipse(ctx, cx - 8, h - 18, 10, 5);
+      return;
+    case 'clump':
+      stampBush(ctx, cx - 22, h, 0.86, 0x1e4a14, 0x2d7a22, 0x58c43c);
+      stampBush(ctx, cx + 26, h, 1.05, 0x245818, 0x3d9e2f, 0x8ee06a);
+      stampBlades(ctx, cx, h, 5, 34, 0x6bcc3a, 0x3d9e2f);
+      ctx.fillStyle = css(0xffe066);
+      fillCircle(ctx, cx + 8, h - 64, 3);
+      return;
     default:
       return;
   }
 }
 
 function paintSnowLip(ctx: CanvasRenderingContext2D): void {
+  paintFringeBank(ctx, 0xb4d0e2, 0xf4fbff);
   ctx.fillStyle = css(0xf4fbff, 0.95);
   ctx.beginPath();
   ctx.moveTo(0, LIP_H);
@@ -474,12 +537,28 @@ function paintSnowProp(ctx: CanvasRenderingContext2D, id: string, w: number, h: 
         ctx.fill();
       }
       return;
+    case 'cap':
+      ctx.fillStyle = css(0xd8ecf8);
+      fillEllipse(ctx, cx, h - 14, 36, 16);
+      ctx.fillStyle = css(0xffffff);
+      fillEllipse(ctx, cx - 6, h - 22, 22, 10);
+      stampBlades(ctx, cx + 8, h - 8, 3, 22, 0xc5dcd0, 0x8aa8b4);
+      return;
+    case 'drift':
+      ctx.fillStyle = css(0xcfe7f7);
+      fillEllipse(ctx, cx - 20, h - 16, 48, 18);
+      fillEllipse(ctx, cx + 28, h - 12, 36, 14);
+      ctx.fillStyle = css(0xffffff, 0.85);
+      fillEllipse(ctx, cx - 8, h - 26, 30, 10);
+      fillEllipse(ctx, cx + 24, h - 20, 18, 7);
+      return;
     default:
       return;
   }
 }
 
 function paintDesertLip(ctx: CanvasRenderingContext2D): void {
+  paintFringeBank(ctx, 0xa67428, 0xe0b05a);
   ctx.fillStyle = css(0xd4a24a, 0.55);
   for (let x = 0; x <= LIP_W; x += 2) {
     const y = LIP_H - 10 - 4 * Math.sin(x * 0.04) - 2 * Math.sin(x * 0.11);
@@ -593,12 +672,34 @@ function paintDesertProp(ctx: CanvasRenderingContext2D, id: string, w: number, h
       ctx.fillStyle = css(0xffe066);
       fillCircle(ctx, cx, h - 148, 2.4);
       return;
+    case 'ridge':
+      ctx.fillStyle = css(0xc4923e);
+      fillEllipse(ctx, cx - 16, h - 12, 44, 14);
+      ctx.fillStyle = css(0xe0b05a);
+      fillEllipse(ctx, cx + 18, h - 16, 36, 16);
+      ctx.fillStyle = css(0xf0d48a, 0.55);
+      fillEllipse(ctx, cx, h - 22, 28, 8);
+      return;
+    case 'bloom':
+      stampBlades(ctx, cx, h, 3, 28, 0xc4a05a, 0x8a6a30);
+      ctx.strokeStyle = css(0x8a6a30);
+      ctx.lineWidth = 2.4;
+      ctx.beginPath();
+      ctx.moveTo(cx, h);
+      ctx.quadraticCurveTo(cx + 8, h - 40, cx - 2, h - 70);
+      ctx.stroke();
+      ctx.fillStyle = css(0xe85a3a);
+      fillCircle(ctx, cx - 2, h - 74, 8);
+      ctx.fillStyle = css(0xffe066);
+      fillCircle(ctx, cx - 3, h - 74, 3);
+      return;
     default:
       return;
   }
 }
 
 function paintOceanLip(ctx: CanvasRenderingContext2D): void {
+  paintFringeBank(ctx, 0x07141c, 0x143848);
   ctx.fillStyle = css(0x1a4050, 0.7);
   ctx.beginPath();
   ctx.moveTo(0, LIP_H);
@@ -745,12 +846,37 @@ function paintOceanProp(ctx: CanvasRenderingContext2D, id: string, w: number, h:
       });
       ctx.stroke();
       return;
+    case 'reed':
+      for (const reed of [
+        { x: cx - 8, h: 92, lean: -10 },
+        { x: cx + 4, h: 104, lean: 6 },
+        { x: cx + 12, h: 78, lean: 14 },
+      ]) {
+        ctx.strokeStyle = css(0x1e8a6a);
+        ctx.lineWidth = 3.2;
+        ctx.beginPath();
+        ctx.moveTo(reed.x, h);
+        ctx.quadraticCurveTo(reed.x + reed.lean * 0.4, h - reed.h * 0.5, reed.x + reed.lean, h - reed.h);
+        ctx.stroke();
+        ctx.fillStyle = css(0x3ecf8e);
+        fillEllipse(ctx, reed.x + reed.lean, h - reed.h, 5, 3);
+      }
+      return;
+    case 'stone':
+      ctx.fillStyle = css(0x2a5c68);
+      fillEllipse(ctx, cx, h - 14, 32, 16);
+      ctx.fillStyle = css(0x163b45);
+      fillEllipse(ctx, cx + 12, h - 12, 16, 10);
+      ctx.fillStyle = css(0x7bebf3, 0.35);
+      fillEllipse(ctx, cx - 8, h - 20, 10, 5);
+      return;
     default:
       return;
   }
 }
 
 function paintCastleLip(ctx: CanvasRenderingContext2D): void {
+  paintFringeBank(ctx, 0x0a060c, 0x2a1a28);
   ctx.fillStyle = css(0x1a1018, 0.85);
   ctx.fillRect(0, LIP_H - 18, LIP_W, 18);
   ctx.strokeStyle = css(0x3a2438, 0.9);
@@ -889,6 +1015,30 @@ function paintCastleProp(ctx: CanvasRenderingContext2D, id: string, w: number, h
       ctx.fillStyle = css(0x5a4a68, 0.5);
       fillEllipse(ctx, cx - 6, h - 46, 8, 4);
       return;
+    case 'cobble':
+      ctx.fillStyle = css(0x3e2e4c);
+      fillEllipse(ctx, cx - 18, h - 12, 28, 14);
+      ctx.fillStyle = css(0x6a5a78);
+      fillEllipse(ctx, cx + 16, h - 16, 24, 16);
+      ctx.fillStyle = css(0x4e3e5c);
+      fillEllipse(ctx, cx, h - 22, 18, 12);
+      ctx.fillStyle = css(0x9a88a8, 0.4);
+      fillEllipse(ctx, cx - 10, h - 18, 8, 4);
+      return;
+    case 'spike':
+      ctx.fillStyle = css(0x1a1218);
+      ctx.fillRect(cx - 18, h - 10, 36, 10);
+      for (const x of [cx - 14, cx - 2, cx + 12]) {
+        ctx.fillStyle = css(0x2a2228);
+        ctx.fillRect(x, h - 72, 5, 64);
+        ctx.beginPath();
+        ctx.moveTo(x - 2, h - 72);
+        ctx.lineTo(x + 2.5, h - 86);
+        ctx.lineTo(x + 7, h - 72);
+        ctx.closePath();
+        ctx.fill();
+      }
+      return;
     default:
       return;
   }
@@ -960,6 +1110,7 @@ function stampMistOrchid(
 }
 
 function paintRainforestLip(ctx: CanvasRenderingContext2D): void {
+  paintFringeBank(ctx, 0x0a2818, 0x1a4a18);
   ctx.fillStyle = css(0x0a2818, 0.84);
   ctx.beginPath();
   ctx.moveTo(0, LIP_H);
@@ -1170,6 +1321,24 @@ function paintRainforestProp(ctx: CanvasRenderingContext2D, id: string, w: numbe
       stampElephantEar(ctx, cx - 6, h - 128, 26, 40, -0.12, 0x2a6b28, 0x1a4a18, 0x6ad08a);
       stampElephantEar(ctx, cx + 18, h - 150, 22, 34, 0.16, 0x3d8a32, 0x1e5a28, 0xc8e8d8);
       return;
+    case 'bank':
+      ctx.fillStyle = css(0x2a1c10);
+      fillEllipse(ctx, cx, h - 16, 52, 18);
+      ctx.fillStyle = css(0x1a4a18);
+      fillEllipse(ctx, cx - 10, h - 24, 36, 14);
+      ctx.fillStyle = css(0x6a8a32, 0.8);
+      fillEllipse(ctx, cx + 8, h - 28, 22, 10);
+      ctx.fillStyle = css(0x8ee36d, 0.45);
+      fillCircle(ctx, cx - 16, h - 30, 3);
+      fillCircle(ctx, cx + 18, h - 26, 2.4);
+      return;
+    case 'drip':
+      ctx.fillStyle = css(0x4a3018);
+      ctx.fillRect(cx - 3, h - 28, 6, 28);
+      stampElephantEar(ctx, cx + 4, h - 96, 28, 58, 0.18, 0x1e5a28, 0x0a2818, 0x6ad08a);
+      ctx.fillStyle = css(0x8ab0c0, 0.55);
+      fillCircle(ctx, cx + 18, h - 48, 2.6);
+      return;
     default:
       return;
   }
@@ -1184,36 +1353,6 @@ export function createForegroundTextures(scene: Phaser.Scene): void {
       });
     }
   }
-}
-
-function isSolidGround(cell: string): boolean {
-  return cell === '#' || cell === '@';
-}
-
-interface GroundRun {
-  start: number;
-  length: number;
-  arena: boolean;
-}
-
-function groundRuns(row: string): GroundRun[] {
-  const runs: GroundRun[] = [];
-  let i = 0;
-  while (i < row.length) {
-    const cell = row[i] ?? '.';
-    if (!isSolidGround(cell)) {
-      i += 1;
-      continue;
-    }
-    const arena = cell === '@';
-    const start = i;
-    const match = arena ? '@' : '#';
-    while (i < row.length && row[i] === match) {
-      i += 1;
-    }
-    runs.push({ start, length: i - start, arena });
-  }
-  return runs;
 }
 
 function mulberry32(seed: number): () => number {
@@ -1238,11 +1377,17 @@ function pickWeighted(specs: PropSpec[], roll: number): PropSpec {
   return specs[specs.length - 1] ?? specs[0];
 }
 
+function nearScale(spec: PropSpec): number {
+  const want = spec.size === 'large' ? 1.08 : 1.22;
+  return Math.min(want, FOREGROUND_MAX_PX / spec.h);
+}
+
 function attachMotion(
   scene: Phaser.Scene,
   sprite: Phaser.GameObjects.Image,
   motion: PropMotion,
   salt: number,
+  scale: number,
 ): void {
   switch (motion) {
     case 'still':
@@ -1250,7 +1395,7 @@ function attachMotion(
     case 'sway':
       scene.tweens.add({
         targets: sprite,
-        angle: { from: -2.6, to: 2.6 },
+        angle: { from: -2.8, to: 2.8 },
         duration: 1500 + (salt % 900),
         yoyo: true,
         repeat: -1,
@@ -1261,7 +1406,7 @@ function attachMotion(
     case 'bob':
       scene.tweens.add({
         targets: sprite,
-        scaleY: { from: 0.96, to: 1.05 },
+        scaleY: { from: scale * 0.96, to: scale * 1.05 },
         duration: 1300 + (salt % 700),
         yoyo: true,
         repeat: -1,
@@ -1286,91 +1431,49 @@ function attachMotion(
   }
 }
 
-function plantLip(scene: Phaser.Scene, theme: Theme, run: GroundRun): void {
-  const key = foregroundLipKey(theme);
-  if (!scene.textures.exists(key) || run.length < 1) {
-    return;
-  }
-  scene.add
-    .tileSprite(run.start * TILE, GROUND_Y * TILE + 8, run.length * TILE, LIP_H, key)
-    .setOrigin(0, 0.42)
-    .setDepth(LIP_DEPTH)
-    .setAlpha(0.94);
-}
+/** Camera-near dressing, independent of the playfield tiles the player runs on. */
+export class Foreground {
+  private readonly fringe: Phaser.GameObjects.TileSprite | undefined;
 
-function canFit(row: string, start: number, tiles: number): boolean {
-  if (start < 0 || start + tiles > row.length) {
-    return false;
-  }
-  for (let i = 0; i < tiles; i += 1) {
-    if (!isSolidGround(row[start + i] ?? '.')) {
-      return false;
-    }
-  }
-  return true;
-}
-
-export function plantForeground(
-  scene: Phaser.Scene,
-  rows: string[],
-  theme: Theme,
-  world: number,
-  stage: number,
-): void {
-  const row = rows[GROUND_Y] ?? '';
-  const rand = mulberry32(world * 7919 + stage * 104729 + theme.charCodeAt(0));
-  const kit = specsFor(theme);
-  const density = stage >= 3 ? 0.7 : 0.58;
-
-  for (const run of groundRuns(row)) {
-    plantLip(scene, theme, run);
-    if (run.length < 2) {
-      continue;
+  constructor(scene: Phaser.Scene, theme: Theme, widthPx: number, world: number, stage: number) {
+    const lipKey = foregroundLipKey(theme);
+    if (scene.textures.exists(lipKey)) {
+      this.fringe = scene.add
+        .tileSprite(0, GAME_HEIGHT + 6, GAME_WIDTH, LIP_H, lipKey)
+        .setOrigin(0, 1)
+        .setScrollFactor(0)
+        .setDepth(FRINGE_DEPTH)
+        .setAlpha(0.96);
     }
 
-    let x = run.start;
-    const end = run.start + run.length;
-    while (x < end) {
-      if (x < SPAWN_CLEAR_TILES) {
-        x += 1;
-        continue;
-      }
-      if (rand() > density) {
-        x += 1;
-        continue;
-      }
-
-      const pool = run.arena ? kit.filter((spec) => spec.size === 'small') : kit;
-      if (pool.length === 0) {
-        break;
-      }
-      if (run.arena && rand() > 0.28) {
-        x += 1;
-        continue;
-      }
-
-      const spec = pickWeighted(pool, rand());
-      if (!canFit(row, x, spec.footprint)) {
-        x += 1;
-        continue;
-      }
-
+    const rand = mulberry32(world * 7919 + stage * 104729 + theme.charCodeAt(0) + 17);
+    const kit = specsFor(theme);
+    const span = widthPx * NEAR_FACTOR + GAME_WIDTH * 0.4;
+    let x = 28;
+    while (x < span) {
+      const spec = pickWeighted(kit, rand());
       const key = propKey(theme, spec.id);
       if (!scene.textures.exists(key)) {
-        x += spec.footprint;
+        x += 48;
         continue;
       }
-
-      const px = (x + spec.footprint / 2) * TILE + (rand() - 0.5) * 14;
+      const scale = nearScale(spec);
       const sprite = scene.add
-        .image(px, GROUND_Y * TILE + 10, key)
+        .image(x, GAME_HEIGHT + 10, key)
         .setOrigin(0.5, 1)
-        .setDepth(spec.size === 'large' ? PROP_DEPTH : PROP_DEPTH - 1)
-        .setAlpha(run.arena ? spec.alpha * 0.9 : spec.alpha)
+        .setScrollFactor(NEAR_FACTOR, 0)
+        .setDepth(spec.size === 'large' ? NEAR_DEPTH : NEAR_DEPTH - 1)
+        .setAlpha(spec.alpha)
+        .setScale(scale)
         .setFlipX(rand() > 0.5);
-      attachMotion(scene, sprite, spec.motion, Math.floor(rand() * 4000));
+      attachMotion(scene, sprite, spec.motion, Math.floor(rand() * 4000), scale);
+      x += spec.w * scale * 0.72 + 36 + rand() * 70;
+    }
+  }
 
-      x += spec.footprint + 1 + Math.floor(rand() * (spec.size === 'large' ? 3 : 2));
+  update(scrollX: number): void {
+    if (this.fringe) {
+      this.fringe.tilePositionX = scrollX * FRINGE_FACTOR;
     }
   }
 }

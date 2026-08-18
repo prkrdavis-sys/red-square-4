@@ -1,6 +1,6 @@
 import Phaser from 'phaser';
 import './style.css';
-import { GAME_HEIGHT, GAME_WIDTH } from './config';
+import { GAME_HEIGHT, GAME_WIDTH, TILE } from './config';
 import { BootScene } from './scenes/BootScene';
 import { CreditsScene } from './scenes/CreditsScene';
 import { PlayScene } from './scenes/PlayScene';
@@ -25,7 +25,8 @@ const config: Phaser.Types.Core.GameConfig = {
     default: 'arcade',
     arcade: {
       gravity: { x: 0, y: 1800 },
-      debug: false,
+      fps: 120,
+      tileBias: TILE,
     },
   },
   scale: {

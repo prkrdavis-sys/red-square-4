@@ -1,6 +1,6 @@
 import Phaser from 'phaser';
 import { GAME_WIDTH } from '../config';
-import { hasCampaignProgress, loadSave, resetSave, resetSessionLives, resumeLevelId } from '../data/progress';
+import { hasCampaignProgress, loadSave, resetSessionLives, resumeLevelId } from '../data/progress';
 import { applySettings } from '../data/settings';
 import { audio } from '../systems/audio';
 import { Parallax } from '../systems/parallax';
@@ -89,29 +89,21 @@ export class TitleScene extends Phaser.Scene {
     }
     const buttons: MenuButton[] = [];
 
-    const startCampaign = (fresh: boolean) => {
+    const startCampaign = () => {
       if (this.scene.isPaused()) {
         return;
       }
       audio.unlock();
-      if (fresh) {
-        resetSave();
-      }
       resetSessionLives();
       this.scene.start('WorldMapScene');
     };
 
     const entries: Array<{ label: string; action: () => void }> = [
-      { label: hasProgress ? 'CONTINUE' : 'PLAY', action: () => startCampaign(false) },
-    ];
-    if (hasProgress) {
-      entries.push({ label: 'NEW GAME', action: () => startCampaign(true) });
-    }
-    entries.push(
+      { label: hasProgress ? 'CONTINUE' : 'PLAY', action: startCampaign },
       { label: 'SKINS', action: () => launchOverlay(this, 'SkinsScene') },
       { label: 'SETTINGS', action: () => launchOverlay(this, 'SettingsScene') },
       { label: 'CREDITS', action: () => launchOverlay(this, 'CreditsScene') },
-    );
+    ];
     const spacing = 60;
     const firstY = 626 - (entries.length - 1) * spacing;
     entries.forEach((entry, index) => {

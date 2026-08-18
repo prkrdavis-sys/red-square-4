@@ -39,7 +39,7 @@ export type EnemyKind =
 
 export type EnemyRole = 'movement' | 'ranged' | 'terrain';
 
-export type SpecialKind = 'grow' | 'ice-slide' | 'burrow' | 'bubble-pulse' | 'shadow-blink' | 'liana-swing';
+export type SpecialKind = 'grow' | 'frost-path' | 'sand-surge' | 'bubble-pulse' | 'shadow-blink' | 'liana-swing';
 
 export type PuzzleKind = 'vine-bed' | 'ice-wall' | 'sand-wall' | 'down-current' | 'shadow-wall' | 'moss-curtain';
 
@@ -50,9 +50,9 @@ export function specialForTheme(theme: Theme): SpecialKind {
     case 'grass':
       return 'grow';
     case 'snow':
-      return 'ice-slide';
+      return 'frost-path';
     case 'desert':
-      return 'burrow';
+      return 'sand-surge';
     case 'ocean':
       return 'bubble-pulse';
     case 'castle':

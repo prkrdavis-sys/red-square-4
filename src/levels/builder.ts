@@ -4,7 +4,6 @@ import { Baddie } from '../entities/Baddie';
 import { Boss } from '../entities/Boss';
 import { MemoryGem } from '../entities/MemoryGem';
 import { Player } from '../entities/Player';
-import { plantForeground } from '../systems/foreground';
 import {
   arenaGateTileKey,
   arenaTileKey,
@@ -15,6 +14,7 @@ import {
   solidTileKey,
 } from '../systems/textures';
 import { arenaKeepBounds, decorateArena, getArenaLayout, type ArenaKeep } from './arena';
+import { colliderBox, colliderRuns, enableOneWayCollision, ONEWAY_HEIGHT, type ColliderRun } from './colliders';
 import type { CompiledCourse } from './grid';
 import { getWorldBossKind } from './worlds';
 
@@ -37,28 +37,35 @@ export interface BuiltLevel {
   bossFences: Phaser.GameObjects.Rectangle[];
 }
 
-const ONEWAY_HEIGHT = 18;
+function addTileImage(scene: Phaser.Scene, x: number, y: number, key: string, oneWay = false): void {
+  const image = scene.add.image(x, y, key).setOrigin(0, 0);
+  image.setDisplaySize(TILE, oneWay ? ONEWAY_HEIGHT : TILE);
+}
 
-function addStatic(
+function addColliderRun(group: Phaser.Physics.Arcade.StaticGroup, run: ColliderRun, key: string): void {
+  const box = colliderBox(run);
+  const sprite = group.create(box.x, box.y, key) as Phaser.Physics.Arcade.Sprite;
+  sprite.setOrigin(0, 0);
+  sprite.setVisible(false);
+  sprite.setDisplaySize(box.width, box.height);
+  const body = sprite.body as Phaser.Physics.Arcade.StaticBody;
+  body.updateFromGameObject();
+  if (run.kind === 'oneway') {
+    enableOneWayCollision(body);
+  }
+}
+
+function addHazard(
   group: Phaser.Physics.Arcade.StaticGroup,
   x: number,
   y: number,
   key: string,
-  oneWay = false,
-): Phaser.Physics.Arcade.Sprite {
+): void {
   const sprite = group.create(x, y, key) as Phaser.Physics.Arcade.Sprite;
   sprite.setOrigin(0, 0);
-  const height = oneWay ? ONEWAY_HEIGHT : TILE;
-  sprite.setDisplaySize(TILE, height);
+  sprite.setDisplaySize(TILE, TILE);
   const body = sprite.body as Phaser.Physics.Arcade.StaticBody;
   body.updateFromGameObject();
-  if (oneWay) {
-    body.checkCollision.up = true;
-    body.checkCollision.down = false;
-    body.checkCollision.left = false;
-    body.checkCollision.right = false;
-  }
-  return sprite;
 }
 
 export function buildLevel(
@@ -91,22 +98,22 @@ export function buildLevel(
       const py = y * TILE;
       switch (cell) {
         case '#':
-          addStatic(solids, px, py, pickTile(scene, solidTileKey(theme), `kenney-${theme}-solid`));
+          addTileImage(scene, px, py, pickTile(scene, solidTileKey(theme), `kenney-${theme}-solid`));
           break;
         case '@':
-          addStatic(solids, px, py, arenaTileKey(theme));
+          addTileImage(scene, px, py, arenaTileKey(theme));
           break;
         case 'G':
-          addStatic(solids, px, py, pickTile(scene, arenaGateTileKey(theme), kenneyArenaGateKey(theme)));
+          addTileImage(scene, px, py, pickTile(scene, arenaGateTileKey(theme), kenneyArenaGateKey(theme)));
           break;
         case 'W':
-          addStatic(solids, px, py, pickTile(scene, arenaWallTileKey(theme), kenneyArenaWallKey(theme)));
+          addTileImage(scene, px, py, pickTile(scene, arenaWallTileKey(theme), kenneyArenaWallKey(theme)));
           break;
         case '=':
-          addStatic(oneways, px, py, pickTile(scene, onewayTileKey(theme), `kenney-${theme}-oneway`), true);
+          addTileImage(scene, px, py, pickTile(scene, onewayTileKey(theme), `kenney-${theme}-oneway`), true);
           break;
         case '~':
-          addStatic(hazards, px, py, 'tile-lava');
+          addHazard(hazards, px, py, 'tile-lava');
           break;
         case 'P':
           player = new Player(scene, px + TILE / 2, py + TILE / 2);
@@ -140,6 +147,11 @@ export function buildLevel(
           break;
       }
     }
+  }
+
+  for (const run of colliderRuns(rows)) {
+    const cell = rows[run.tileY]?.[run.tileX] ?? '#';
+    addColliderRun(run.kind === 'oneway' ? oneways : solids, run, physicsKey(scene, theme, cell, run.kind));
   }
 
   if (!player) {
@@ -213,8 +225,6 @@ export function buildLevel(
     bossFences.push(addBossFence(scene, arena.right + 12, heightPx));
   }
 
-  plantForeground(scene, rows, theme, world, course.miniVariant ?? 4);
-
   return {
     widthPx: cols * TILE,
     heightPx,
@@ -242,6 +252,22 @@ function addBossFence(scene: Phaser.Scene, centerX: number, heightPx: number): P
   body.setSize(24, heightPx);
   body.updateFromGameObject();
   return fence;
+}
+
+function physicsKey(scene: Phaser.Scene, theme: Theme, cell: string, kind: 'solid' | 'oneway'): string {
+  if (kind === 'oneway') {
+    return pickTile(scene, onewayTileKey(theme), `kenney-${theme}-oneway`);
+  }
+  switch (cell) {
+    case '@':
+      return arenaTileKey(theme);
+    case 'G':
+      return pickTile(scene, arenaGateTileKey(theme), kenneyArenaGateKey(theme));
+    case 'W':
+      return pickTile(scene, arenaWallTileKey(theme), kenneyArenaWallKey(theme));
+    default:
+      return pickTile(scene, solidTileKey(theme), `kenney-${theme}-solid`);
+  }
 }
 
 function pickTile(scene: Phaser.Scene, generated: string, kenney: string): string {

@@ -10,10 +10,12 @@ import {
   enemyThreatensTile,
   enemiesForWorld,
   parseLevelId,
+  specialForTheme,
 } from '../config';
 import { miniBossTextureKey } from '../systems/characters';
 import { getLevel } from './worlds';
 import { bossSafeLandingX, getArenaLayout, type ArenaKeep } from './arena';
+import { colliderBox, colliderRuns, enableOneWayCollision, liftOntoFloor, ONEWAY_HEIGHT } from './colliders';
 import { hurtboxFromOpaque, isBossHeadStomp } from '../entities/boss-combat';
 
 describe('biome campaign compilation', () => {
@@ -58,6 +60,23 @@ describe('biome campaign compilation', () => {
         }
       }
     }
+  });
+
+  it('gives each biome a distinct special', () => {
+    expect(getLevel('1-1').course.special).toBe('grow');
+    expect(getLevel('2-1').course.special).toBe('frost-path');
+    expect(getLevel('3-1').course.special).toBe('sand-surge');
+    expect(getLevel('4-1').course.special).toBe('bubble-pulse');
+    expect(getLevel('5-1').course.special).toBe('shadow-blink');
+    expect(getLevel('6-1').course.special).toBe('liana-swing');
+    expect(THEMES.map((theme) => specialForTheme(theme))).toEqual([
+      'grow',
+      'frost-path',
+      'sand-surge',
+      'bubble-pulse',
+      'shadow-blink',
+      'liana-swing',
+    ]);
   });
 
   it('introduces movement, ranged, and terrain enemies by stage', () => {
@@ -191,5 +210,39 @@ describe('mini-boss looks', () => {
     const keys = THEMES.map((theme) => miniBossTextureKey(theme, 1, 'idle'));
     expect(new Set(keys).size).toBe(THEMES.length);
     expect(miniBossTextureKey('grass', 1, 'idle')).not.toBe(miniBossTextureKey('rainforest', 1, 'idle'));
+  });
+});
+
+describe('floor colliders', () => {
+  it('merges consecutive solid and one-way tiles in a row', () => {
+    const runs = colliderRuns(['..=..', '###.#']);
+    expect(runs).toEqual([
+      { tileX: 2, tileY: 0, tilesWide: 1, kind: 'oneway' },
+      { tileX: 0, tileY: 1, tilesWide: 3, kind: 'solid' },
+      { tileX: 4, tileY: 1, tilesWide: 1, kind: 'solid' },
+    ]);
+  });
+
+  it('turns a long ground strip into one collider', () => {
+    const level = getLevel('1-1');
+    const ground = colliderRuns(level.rows).filter((run) => run.tileY === GROUND_Y && run.kind === 'solid');
+    expect(ground.some((run) => run.tilesWide >= 8)).toBe(true);
+    expect(ground.length).toBeLessThan(level.rows[GROUND_Y]?.length ?? 0);
+    const box = colliderBox({ tileX: 2, tileY: GROUND_Y, tilesWide: 5, kind: 'solid' });
+    expect(box.width).toBe(TILE * 5);
+    expect(box.height).toBe(TILE);
+    expect(colliderBox({ tileX: 0, tileY: 3, tilesWide: 2, kind: 'oneway' }).height).toBe(ONEWAY_HEIGHT);
+  });
+
+  it('lifts bodies that have sunk through the floor and ignores ones above it', () => {
+    expect(liftOntoFloor(580, 576)).toBe(4);
+    expect(liftOntoFloor(576, 576)).toBe(0);
+    expect(liftOntoFloor(500, 576)).toBe(0);
+  });
+
+  it('makes one-way platforms collide only from above', () => {
+    const body = { checkCollision: { up: false, down: true, left: true, right: true } };
+    enableOneWayCollision(body);
+    expect(body.checkCollision).toEqual({ up: true, down: false, left: false, right: false });
   });
 });
