@@ -4,12 +4,14 @@ import {
   GROUND_Y,
   MAP_ROWS,
   STOMP_BOUNCE_VELOCITY,
+  THEMES,
   TILE,
   enemyRole,
   enemyThreatensTile,
   enemiesForWorld,
   parseLevelId,
 } from '../config';
+import { miniBossTextureKey } from '../systems/characters';
 import { getLevel } from './worlds';
 import { bossSafeLandingX, getArenaLayout, type ArenaKeep } from './arena';
 import { hurtboxFromOpaque, isBossHeadStomp } from '../entities/boss-combat';
@@ -181,5 +183,13 @@ describe('boss head stomp', () => {
     expect(box.height).toBeGreaterThan(80);
     expect(box.offsetY).toBeLessThan(40);
     expect(box.offsetX).toBeGreaterThan(25);
+  });
+});
+
+describe('mini-boss looks', () => {
+  it('gives each biome its own texture family', () => {
+    const keys = THEMES.map((theme) => miniBossTextureKey(theme, 1, 'idle'));
+    expect(new Set(keys).size).toBe(THEMES.length);
+    expect(miniBossTextureKey('grass', 1, 'idle')).not.toBe(miniBossTextureKey('rainforest', 1, 'idle'));
   });
 });

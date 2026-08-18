@@ -9,6 +9,8 @@ interface OverlayData {
 const LINES = [
   'Original campaign, creature roles, boss phases, and encounters.',
   '',
+  'Original chiptune scores  ·  one looping theme per biome',
+  '',
   'Kenney.nl  ·  CC0 creature sprites, tiles, jingles, SFX',
   'New Platformer Pack  ·  Platformer Art Deluxe',
   'Background Elements  ·  Music Jingles  ·  Digital Audio',

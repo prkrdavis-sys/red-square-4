@@ -145,6 +145,7 @@ export class PlayScene extends Phaser.Scene {
     this.cameras.main.setBackgroundColor(themeSky(def.theme));
     this.built = buildLevel(this, def.rows, def.theme, def.world, def.course);
     this.parallax = new Parallax(this, def.theme);
+    audio.playTheme(this, def.theme);
     this.special = new WorldSpecial(this, this.built, def.theme, def.course.special);
     const savedCheckpoint = getCheckpoint(this.levelId);
     if (savedCheckpoint && checkpointSpawnIsSafe(def.course.enemies, savedCheckpoint)) {
@@ -808,6 +809,7 @@ export class PlayScene extends Phaser.Scene {
     this.pauseOverlay.setVisible(this.paused);
     this.pauseNav.setEnabled(this.paused);
     this.physics.world.isPaused = this.paused;
+    audio.setMusicDuck(this.paused ? 0.38 : 1);
     this.syncTouchHud();
   }
 
@@ -815,6 +817,7 @@ export class PlayScene extends Phaser.Scene {
     this.pauseOverlay.setVisible(false);
     this.pauseNav.setEnabled(false);
     this.physics.world.isPaused = true;
+    audio.setMusicDuck(0.42);
 
     const next = nextLevelId(this.levelId);
     const items: Array<{ label: string; action: () => void }> = [];
@@ -866,6 +869,7 @@ export class PlayScene extends Phaser.Scene {
 
   private showBanner(text: string, onDone: () => void): void {
     this.pauseNav.setEnabled(false);
+    audio.setMusicDuck(0.42);
     let finished = false;
     const finish = () => {
       if (finished) {

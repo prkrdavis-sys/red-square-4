@@ -1,4 +1,4 @@
-import type { BossKind, EnemyKind, MiniBossVariant, Theme } from '../config';
+import type { BossKind, EnemyKind } from '../config';
 
 export type CharacterPose = 'idle' | 'move' | 'attack' | 'hurt' | 'dead';
 
@@ -224,15 +224,6 @@ const BOSS_FRAMES: Record<BossKind, CharacterFrames> = {
   },
 };
 
-const MINI_COLOR: Record<Theme, string> = {
-  grass: 'green',
-  snow: 'beige',
-  desert: 'yellow',
-  ocean: 'pink',
-  castle: 'purple',
-  rainforest: 'green',
-};
-
 export function enemyTextureKey(kind: EnemyKind, pose: CharacterPose): string {
   return ENEMY_FRAMES[kind][pose];
 }
@@ -241,22 +232,4 @@ export function worldBossTextureKey(kind: BossKind, pose: CharacterPose): string
   return BOSS_FRAMES[kind][pose];
 }
 
-export function miniBossTextureKey(theme: Theme, variant: MiniBossVariant, pose: CharacterPose): string {
-  const color = MINI_COLOR[theme];
-  switch (pose) {
-    case 'idle':
-      return `kenney-character-${color}-${variant === 1 ? 'front' : variant === 2 ? 'idle' : 'duck'}`;
-    case 'move':
-      return `kenney-character-${color}-walk-${variant === 2 ? 'b' : 'a'}`;
-    case 'attack':
-      return `kenney-character-${color}-${variant === 3 ? 'jump' : 'climb-a'}`;
-    case 'hurt':
-      return `kenney-character-${color}-hit`;
-    case 'dead':
-      return `kenney-character-${color}-duck`;
-    default: {
-      const neverPose: never = pose;
-      return neverPose;
-    }
-  }
-}
+export { miniBossTextureKey } from './mini-bosses';

@@ -12,6 +12,7 @@ import {
 } from '../data/skins';
 import { createForegroundTextures } from './foreground';
 import { createLandscapeTextures } from './landscapes';
+import { createMiniBossTextures } from './mini-bosses';
 
 function gfx(scene: Phaser.Scene): Phaser.GameObjects.Graphics {
   return scene.make.graphics({ x: 0, y: 0 });
@@ -1318,6 +1319,7 @@ export function createGameTextures(scene: Phaser.Scene): void {
   drawBaddie(scene, 'baddie', 36, 0x2a2a2a, 0x5a5a5a, 0xff2020);
   drawBaddie(scene, 'baddie-alt', 36, 0x3a3a3a, 0x6e6e6e, 0xff3030);
   drawBaddie(scene, 'mini-boss', 56, 0x1f1f1f, 0x4a4a4a, 0xff1515);
+  createMiniBossTextures(scene);
   drawBaddie(scene, 'boss-hopper', 88, 0x2b1a1a, 0x5a3030, 0xff1010);
   drawBaddie(scene, 'boss-slider', 88, 0x1a2a3a, 0x4a6a88, 0xff2020);
   drawSpikedBoss(scene, 'boss-slam', 96, 0x5a3a10, 0xc4a05a);

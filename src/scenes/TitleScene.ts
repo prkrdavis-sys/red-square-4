@@ -18,6 +18,7 @@ export class TitleScene extends Phaser.Scene {
     applySettings(this);
     this.cameras.main.setBackgroundColor(0x5c94fc);
     this.parallax = new Parallax(this, 'grass');
+    audio.playTheme(this, 'grass');
 
     const heroX = GAME_WIDTH / 2;
     const shadow = this.add.ellipse(heroX, 216, 92, 22, 0x3a1010, 0.28);

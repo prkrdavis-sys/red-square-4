@@ -1,6 +1,8 @@
 import Phaser from 'phaser';
 
-import { applySettings, loadSettings } from '../data/settings';
+import { type Theme } from '../config';
+import { applySettings, loadSettings, onSettingsApplied } from '../data/settings';
+import { themeBuffer } from './music';
 
 type SfxName =
   | 'jump'
@@ -81,7 +83,7 @@ function prime(context: AudioContext): void {
 
 function peak(base: number): number {
   const settings = loadSettings();
-  if (settings.muted) {
+  if (!settings.sfx) {
     return 0;
   }
   return base * settings.volume;
@@ -207,7 +209,7 @@ function synth(name: SfxName): void {
 
 function emit(scene: Phaser.Scene, name: SfxName): void {
   const settings = loadSettings();
-  if (settings.muted) {
+  if (!settings.sfx) {
     return;
   }
   const cacheKey = `sfx-${name}`;
@@ -217,6 +219,90 @@ function emit(scene: Phaser.Scene, name: SfxName): void {
     return;
   }
   synth(name);
+}
+
+let musicSource: AudioBufferSourceNode | null = null;
+let musicGain: GainNode | null = null;
+let currentTheme: Theme | null = null;
+let pendingTheme: Theme = 'grass';
+let musicDuck = 1;
+
+function musicLevel(): number {
+  const settings = loadSettings();
+  if (!settings.music) {
+    return 0;
+  }
+  return 0.18 * settings.volume * musicDuck;
+}
+
+function applyMusicMix(): void {
+  if (!musicGain) {
+    return;
+  }
+  try {
+    musicGain.gain.setTargetAtTime(Math.max(0.0001, musicLevel()), musicGain.context.currentTime, 0.05);
+  } catch {
+    // Context may already be closed.
+  }
+}
+
+function stopMusicSource(): void {
+  try {
+    musicSource?.stop();
+  } catch {
+    // Already stopped.
+  }
+  musicSource?.disconnect();
+  musicGain?.disconnect();
+  musicSource = null;
+  musicGain = null;
+  currentTheme = null;
+}
+
+function startTheme(theme: Theme): void {
+  if (!loadSettings().music) {
+    stopMusicSource();
+    return;
+  }
+  const context = ctx();
+  if (!context) {
+    return;
+  }
+  if (currentTheme === theme && musicSource && musicGain) {
+    applyMusicMix();
+    return;
+  }
+  const buffer = themeBuffer(context, theme);
+  stopMusicSource();
+  musicGain = context.createGain();
+  musicGain.gain.setValueAtTime(Math.max(0.0001, musicLevel()), context.currentTime);
+  const source = context.createBufferSource();
+  source.buffer = buffer;
+  source.loop = true;
+  source.connect(musicGain);
+  musicGain.connect(context.destination);
+  source.start();
+  musicSource = source;
+  currentTheme = theme;
+  source.onended = () => {
+    if (musicSource === source) {
+      musicSource = null;
+      currentTheme = null;
+    }
+  };
+}
+
+function syncMusic(): void {
+  if (!loadSettings().music) {
+    stopMusicSource();
+    return;
+  }
+  const context = ctx();
+  if (!context || needsResume(context)) {
+    applyMusicMix();
+    return;
+  }
+  startTheme(pendingTheme);
 }
 
 export const audio = {
@@ -229,6 +315,9 @@ export const audio = {
       return;
     }
     unlockInstalled = true;
+    onSettingsApplied(() => {
+      syncMusic();
+    });
     const resume = () => {
       void this.unlock();
     };
@@ -253,21 +342,39 @@ export const audio = {
     }
     prime(context);
     if (!needsResume(context)) {
+      syncMusic();
       return Promise.resolve(context.state === 'running');
     }
     return context
       .resume()
       .then(() => {
         prime(context);
+        syncMusic();
         return context.state === 'running';
       })
       .catch(() => false);
   },
 
+  playTheme(scene: Phaser.Scene, theme: Theme): void {
+    pendingTheme = theme;
+    musicDuck = 1;
+    applySettings(scene);
+    void this.unlock(scene).then(() => {
+      if (pendingTheme === theme && loadSettings().music) {
+        startTheme(theme);
+      }
+    });
+  },
+
+  setMusicDuck(amount: number): void {
+    musicDuck = Math.min(1, Math.max(0, amount));
+    applyMusicMix();
+  },
+
   play(scene: Phaser.Scene, name: SfxName): void {
     applySettings(scene);
     const settings = loadSettings();
-    if (settings.muted) {
+    if (!settings.sfx) {
       return;
     }
     const context = sceneContext(scene);
@@ -276,7 +383,7 @@ export const audio = {
       return;
     }
     void this.unlock(scene).then(() => {
-      if (!loadSettings().muted) {
+      if (loadSettings().sfx) {
         emit(scene, name);
       }
     });

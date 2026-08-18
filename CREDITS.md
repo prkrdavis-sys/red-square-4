@@ -16,6 +16,10 @@ Credit Kenney.nl — not required, but appreciated.
 
 Run `npm run assets` to vendor these packs into `public/assets/`. The game also generates Kenney-style fallback tiles and synthesized SFX so it always runs.
 
+## Music
+
+Original 8-bit looping scores, public domain / CC0. Each world biome has its own soundtrack: meadow bounce, frost waltz, desert pulse, underwater swell, dread-keep ostinato, and canopy groove.
+
 ## Luis Zuno @ansimuz (public domain)
 
 - [Underwater Diving Pack](https://opengameart.org/content/underwater-diving-pack) — World 4 ocean tiles and parallax

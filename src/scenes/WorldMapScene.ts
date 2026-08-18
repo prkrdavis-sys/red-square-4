@@ -216,6 +216,7 @@ export class WorldMapScene extends Phaser.Scene {
       .setOrigin(0.5, 0);
 
     this.refreshHint();
+    this.playWorldMusic(here?.world ?? 1);
 
     const unlessPaused = (action: () => void) => () => {
       if (!this.scene.isPaused()) {
@@ -258,6 +259,7 @@ export class WorldMapScene extends Phaser.Scene {
     this.cursor = index;
     setLastPlayed(node.id);
     audio.play(this, 'map');
+    this.playWorldMusic(node.world);
     this.moving = true;
     this.tweens.add({
       targets: this.token,
@@ -269,6 +271,10 @@ export class WorldMapScene extends Phaser.Scene {
       },
     });
     this.refreshHint();
+  }
+
+  private playWorldMusic(world: number): void {
+    audio.playTheme(this, THEMES[world - 1] ?? 'grass');
   }
 
   private onNodeTap(index: number): void {

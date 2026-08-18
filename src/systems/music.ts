@@ -68,6 +68,18 @@ function tokens(src: string): string[] {
     .filter((token) => token.length > 0);
 }
 
+export function countSteps(src: string): number {
+  let cursor = 0;
+  for (const token of tokens(src)) {
+    const dur = token.split('/')[1];
+    const steps = dur ? Number(dur) : 2;
+    if (Number.isFinite(steps) && steps > 0) {
+      cursor += steps;
+    }
+  }
+  return cursor;
+}
+
 export function parseNotes(src: string, loopSteps: number): VoiceNote[] {
   const raw: VoiceNote[] = [];
   let cursor = 0;
@@ -344,7 +356,7 @@ function renderSong(context: AudioContext, song: Song): AudioBuffer {
   foldTail(data, loopSamples);
   limit(data, loopSamples);
   const buffer = context.createBuffer(1, loopSamples, sr);
-  buffer.copyToChannel(data.subarray(0, loopSamples), 0);
+  buffer.getChannelData(0).set(data.subarray(0, loopSamples));
   return buffer;
 }
 
@@ -634,11 +646,11 @@ const CASTLE: Song = {
       D2/2 A2/2 D3/2 A2/2 C2/2 G2/2 C3/2 G2/2
       D2/2 F2/2 Ab2/2 F2/2 D2/2 A2/2 D3/2 A2/2
       Bb1/2 F2/2 Bb2/2 F2/2 A1/2 E2/2 A2/2 E2/2
-      D2/2 A2/2 D3/2 A2/2 Ab2/4 G2/4 F2/8
+      D2/2 A2/2 D3/2 A2/2 Ab2/4 G2/4
       D2/2 A2/2 D3/2 A2/2 Bb1/2 F2/2 Bb2/2 F2/2
       A1/2 E2/2 A2/2 C#3/2 D2/2 A2/2 D3/2 A2/2
       F2/2 C3/2 F3/2 C3/2 G2/2 D3/2 G2/2 D2/2
-      D2/4 C#2/4 D2/8 A1/8
+      D2/4 C#2/4 D2/8
     `,
   },
   drums: drums(

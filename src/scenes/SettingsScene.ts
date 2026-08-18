@@ -11,6 +11,10 @@ function onOff(value: boolean): string {
   return value ? 'ON' : 'OFF';
 }
 
+function toggleLabel(name: string, value: boolean): string {
+  return `${name.padEnd(18)}${onOff(value)}`;
+}
+
 function volumeBar(volume: number): string {
   const filled = Math.round(volume * 10);
   return `${'#'.repeat(filled)}${'-'.repeat(10 - filled)}`;
@@ -18,8 +22,9 @@ function volumeBar(volume: number): string {
 
 export class SettingsScene extends Phaser.Scene {
   private returnKey = 'TitleScene';
+  private musicBtn!: MenuButton;
+  private sfxBtn!: MenuButton;
   private volumeBtn!: MenuButton;
-  private muteBtn!: MenuButton;
   private shakeBtn!: MenuButton;
   private fullBtn!: MenuButton;
 
@@ -31,23 +36,25 @@ export class SettingsScene extends Phaser.Scene {
     this.returnKey = data.returnKey ?? 'TitleScene';
     beginOverlay(this);
     dimScreen(this, 0.62, () => this.goBack());
-    const panel = addPanel(this, GAME_WIDTH / 2, GAME_HEIGHT / 2, 620, 520, 'SETTINGS');
+    const panel = addPanel(this, GAME_WIDTH / 2, GAME_HEIGHT / 2, 620, 590, 'SETTINGS');
     dismissOnOutside(this, panel, () => this.goBack());
 
-    this.volumeBtn = new MenuButton(this, GAME_WIDTH / 2, 250, '', () => this.nudgeVolume(1));
+    const cx = GAME_WIDTH / 2;
+    this.musicBtn = new MenuButton(this, cx, 228, '', () => this.toggle('music'));
+    this.sfxBtn = new MenuButton(this, cx, 290, '', () => this.toggle('sfx'));
+    this.volumeBtn = new MenuButton(this, cx, 352, '', () => this.nudgeVolume(1));
     this.volumeBtn.onAdjust = (dir) => this.nudgeVolume(dir);
-    this.muteBtn = new MenuButton(this, GAME_WIDTH / 2, 318, '', () => this.toggle('muted'));
-    this.shakeBtn = new MenuButton(this, GAME_WIDTH / 2, 386, '', () => this.toggle('screenshake'));
-    this.fullBtn = new MenuButton(this, GAME_WIDTH / 2, 454, '', () => this.toggleFullscreen());
-    const back = new MenuButton(this, GAME_WIDTH / 2, 522, 'BACK', () => this.goBack());
+    this.shakeBtn = new MenuButton(this, cx, 414, '', () => this.toggle('screenshake'));
+    this.fullBtn = new MenuButton(this, cx, 476, '', () => this.toggleFullscreen());
+    const back = new MenuButton(this, cx, 538, 'BACK', () => this.goBack());
 
     this.refresh();
     applySettings(this);
 
-    new MenuNav(this, [this.volumeBtn, this.muteBtn, this.shakeBtn, this.fullBtn, back], () => this.goBack());
+    new MenuNav(this, [this.musicBtn, this.sfxBtn, this.volumeBtn, this.shakeBtn, this.fullBtn, back], () => this.goBack());
 
     this.add
-      .text(GAME_WIDTH / 2, 188, 'Tap to change  ·  Arrows / Enter  ·  Esc back', textStyle('16px', '#d0c0b8'))
+      .text(cx, 172, 'Tap to change  ·  Arrows / Enter  ·  Esc back', textStyle('16px', '#d0c0b8'))
       .setOrigin(0.5)
       .setDepth(80);
 
@@ -59,20 +66,21 @@ export class SettingsScene extends Phaser.Scene {
 
   private refresh(): void {
     const settings = loadSettings();
-    this.volumeBtn.setLabel(`SFX  ${volumeBar(settings.volume)}  ${Math.round(settings.volume * 100)}%`);
-    this.muteBtn.setLabel(`MUTE                 ${onOff(settings.muted)}`);
-    this.shakeBtn.setLabel(`SCREEN SHAKE         ${onOff(settings.screenshake)}`);
-    this.fullBtn.setLabel(`FULLSCREEN           ${onOff(this.scale.isFullscreen)}`);
+    this.musicBtn.setLabel(toggleLabel('MUSIC', settings.music));
+    this.sfxBtn.setLabel(toggleLabel('SOUND EFFECTS', settings.sfx));
+    this.volumeBtn.setLabel(`VOLUME  ${volumeBar(settings.volume)}  ${Math.round(settings.volume * 100)}%`);
+    this.shakeBtn.setLabel(toggleLabel('SCREEN SHAKE', settings.screenshake));
+    this.fullBtn.setLabel(toggleLabel('FULLSCREEN', this.scale.isFullscreen));
   }
 
   private nudgeVolume(dir: -1 | 1): void {
     const volume = Math.min(1, Math.max(0, Math.round((loadSettings().volume + dir * 0.1) * 10) / 10));
-    writeSettings({ volume, muted: volume === 0 });
+    writeSettings({ volume });
     applySettings(this);
     this.refresh();
   }
 
-  private toggle(key: 'muted' | 'screenshake'): void {
+  private toggle(key: 'music' | 'sfx' | 'screenshake'): void {
     const settings = loadSettings();
     writeSettings({ [key]: !settings[key] });
     applySettings(this);
