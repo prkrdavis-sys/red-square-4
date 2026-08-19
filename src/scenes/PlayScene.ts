@@ -26,7 +26,7 @@ import { applySettings } from '../data/settings';
 import { skinForLevel, type SkinDef } from '../data/skins';
 import { Baddie } from '../entities/Baddie';
 import { Boss } from '../entities/Boss';
-import { isBossHeadStomp } from '../entities/boss-combat';
+import { isFallingStomp, stompBox } from '../entities/boss-combat';
 import { EnemyProjectile } from '../entities/EnemyProjectile';
 import { FlakFragment } from '../entities/FlakFragment';
 import { Player, type PlayerInput } from '../entities/Player';
@@ -602,9 +602,7 @@ export class PlayScene extends Phaser.Scene {
     if (!baddie.active || baddie.dying || player.frozen) {
       return;
     }
-    const pb = player.arcadeBody;
-    const bb = baddie.arcadeBody;
-    if (bb.touching.up && pb.touching.down && pb.velocity.y >= 0) {
+    if (isFallingStomp(stompBox(player.arcadeBody), stompBox(baddie.arcadeBody))) {
       const result = baddie.tryStomp();
       player.bounce();
       audio.play(this, result === 'defeated' ? 'stomp' : 'hurt');
@@ -624,7 +622,10 @@ export class PlayScene extends Phaser.Scene {
   }
 
   private canStompBoss(player: Player, boss: Boss): boolean {
-    return Boolean(boss.active) && !boss.dying && !player.frozen && isBossHeadStomp(player.arcadeBody, boss.arcadeBody);
+    if (!boss.active || boss.dying || player.frozen) {
+      return false;
+    }
+    return isFallingStomp(stompBox(player.arcadeBody), stompBox(boss.arcadeBody));
   }
 
   private onBossHeadStomp(player: Player, boss: Boss, worldBoss: boolean): void {
@@ -722,7 +723,7 @@ export class PlayScene extends Phaser.Scene {
       targets: pickup,
       y: pickup.y - 36,
       alpha: 0,
-      scale: 1.85,
+      scale: pickup.scaleX * 1.6,
       duration: 240,
       onComplete: () => pickup.destroy(),
     });

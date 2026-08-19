@@ -20,6 +20,24 @@ export interface StompBody {
   width: number;
   height: number;
   velocity: { y: number };
+  /** Body displacement this frame. Negative Y is upward. */
+  deltaY?: number;
+}
+
+/** How far past the enemy crown a previous-frame foot still counts as arriving from above. */
+const STOMP_FROM_ABOVE_SLACK = 24;
+/** Share of the player that must hang above the enemy top to look like a stomp. */
+const STOMP_OVERHANG = 0.35;
+
+interface StompMotionSource {
+  top: number;
+  bottom: number;
+  left: number;
+  right: number;
+  width: number;
+  height: number;
+  velocity: { y: number };
+  deltaY(): number;
 }
 
 /** Shrink a sprite's opaque pixels into a torso-and-head hurtbox. */
@@ -52,15 +70,28 @@ export function estimatedOpaqueBounds(frameW: number, frameH: number): SpriteOpa
   };
 }
 
-/** True only when the player is falling onto the top of the boss, not grazing a side. */
-export function isBossHeadStomp(player: StompBody, boss: StompBody): boolean {
-  if (player.velocity.y < 0) {
-    return false;
+export function stompBox(body: StompMotionSource): StompBody {
+  return {
+    top: body.top,
+    bottom: body.bottom,
+    left: body.left,
+    right: body.right,
+    width: body.width,
+    height: body.height,
+    velocity: body.velocity,
+    deltaY: body.deltaY(),
+  };
+}
+
+/**
+ * Favor the player when they arrive from above. Side contact — including mid-air
+ * clips against the torso — still hurts.
+ */
+export function isFallingStomp(player: StompBody, enemy: StompBody): boolean {
+  const playerPrevBottom = player.bottom - (player.deltaY ?? 0);
+  const enemyPrevTop = enemy.top - (enemy.deltaY ?? 0);
+  if (playerPrevBottom <= enemyPrevTop + STOMP_FROM_ABOVE_SLACK) {
+    return true;
   }
-  const overlapX = Math.min(player.right, boss.right) - Math.max(player.left, boss.left);
-  if (overlapX < player.width * 0.25) {
-    return false;
-  }
-  const headBand = boss.top + boss.height * 0.34;
-  return player.bottom <= headBand;
+  return player.top + player.height * STOMP_OVERHANG <= enemy.top;
 }

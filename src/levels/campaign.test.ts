@@ -16,7 +16,7 @@ import { miniBossTextureKey } from '../systems/characters';
 import { getLevel } from './worlds';
 import { bossSafeLandingX, getArenaLayout, type ArenaKeep } from './arena';
 import { colliderBox, colliderRuns, enableOneWayCollision, liftOntoFloor, ONEWAY_HEIGHT } from './colliders';
-import { hurtboxFromOpaque, isBossHeadStomp } from '../entities/boss-combat';
+import { hurtboxFromOpaque, isFallingStomp } from '../entities/boss-combat';
 
 describe('biome campaign compilation', () => {
   it('compiles every course with complete progression features', () => {
@@ -161,7 +161,7 @@ describe('stomp recovery tuning', () => {
   });
 });
 
-describe('boss head stomp', () => {
+describe('falling stomp', () => {
   const boss = {
     top: 200,
     bottom: 320,
@@ -171,26 +171,74 @@ describe('boss head stomp', () => {
     height: 120,
     velocity: { y: 0 },
   };
+  const hopper = {
+    top: 260,
+    bottom: 300,
+    left: 400,
+    right: 440,
+    width: 40,
+    height: 40,
+    velocity: { y: 0 },
+  };
 
   it('accepts a falling landing on the head', () => {
     expect(
-      isBossHeadStomp(
+      isFallingStomp(
         { top: 160, bottom: 220, left: 430, right: 464, width: 34, height: 36, velocity: { y: 200 } },
         boss,
       ),
     ).toBe(true);
   });
 
-  it('rejects side bumps and rising jumps', () => {
+  it('accepts a jump-apex landing that still looks like the player is above', () => {
     expect(
-      isBossHeadStomp(
+      isFallingStomp(
+        { top: 160, bottom: 220, left: 430, right: 464, width: 34, height: 36, velocity: { y: -40 } },
+        boss,
+      ),
+    ).toBe(true);
+  });
+
+  it('accepts a hopping enemy that rises into a player who was already above', () => {
+    expect(
+      isFallingStomp(
+        { top: 168, bottom: 204, left: 408, right: 442, width: 34, height: 36, velocity: { y: 80 }, deltaY: 12 },
+        { ...hopper, top: 186, bottom: 226, deltaY: -28 },
+      ),
+    ).toBe(true);
+    expect(
+      isFallingStomp(
+        { top: 150, bottom: 186, left: 430, right: 464, width: 34, height: 36, velocity: { y: 90 }, deltaY: 10 },
+        { ...boss, top: 158, bottom: 278, deltaY: -42 },
+      ),
+    ).toBe(true);
+  });
+
+  it('rejects side bumps, including mid-air clips against the torso', () => {
+    expect(
+      isFallingStomp(
         { top: 240, bottom: 276, left: 500, right: 534, width: 34, height: 36, velocity: { y: 120 } },
         boss,
       ),
     ).toBe(false);
     expect(
-      isBossHeadStomp(
-        { top: 160, bottom: 220, left: 430, right: 464, width: 34, height: 36, velocity: { y: -200 } },
+      isFallingStomp(
+        { top: 210, bottom: 246, left: 508, right: 542, width: 34, height: 36, velocity: { y: 220 } },
+        boss,
+      ),
+    ).toBe(false);
+    expect(
+      isFallingStomp(
+        { top: 262, bottom: 298, left: 430, right: 464, width: 34, height: 36, velocity: { y: 180 } },
+        hopper,
+      ),
+    ).toBe(false);
+  });
+
+  it('rejects jumping up into the underside', () => {
+    expect(
+      isFallingStomp(
+        { top: 280, bottom: 316, left: 430, right: 464, width: 34, height: 36, velocity: { y: -280 } },
         boss,
       ),
     ).toBe(false);

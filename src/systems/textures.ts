@@ -875,15 +875,49 @@ function drawCampaignPickups(scene: Phaser.Scene): void {
   drawMemoryRays(scene);
 
   const shield = gfx(scene);
-  shield.fillStyle(0x12233f, 1);
-  shield.fillTriangle(24, 2, 45, 10, 38, 38);
-  shield.fillTriangle(24, 2, 3, 10, 10, 38);
-  shield.fillStyle(0x55c8e8, 1);
-  shield.fillTriangle(24, 6, 40, 12, 34, 34);
-  shield.fillTriangle(24, 6, 8, 12, 14, 34);
-  shield.fillStyle(0xd7fbff, 0.9);
-  shield.fillEllipse(19, 14, 10, 6);
-  commit(shield, 'shield-pickup', 48, 42);
+  const sx = 32;
+  const outline = heaterShieldPoints(sx, 4, 54, 66);
+  const rim = heaterShieldPoints(sx, 8, 46, 58);
+  const face = heaterShieldPoints(sx, 12, 38, 50);
+  const panel = heaterShieldPoints(sx, 17, 28, 38);
+  shield.fillStyle(0x55c8e8, 0.28);
+  shield.fillEllipse(sx, 36, 56, 62);
+  shield.fillStyle(0x0b1a30, 1);
+  fillPoly(shield, outline);
+  shield.fillStyle(0x2f7fa8, 1);
+  fillPoly(shield, rim);
+  shield.fillStyle(0x6ee4ff, 1);
+  fillPoly(shield, face);
+  shield.fillStyle(0x2bb4d8, 1);
+  fillPoly(shield, panel);
+  shield.fillStyle(0xd7fbff, 0.92);
+  fillPoly(shield, [
+    { x: sx - 10, y: 16 },
+    { x: sx - 2, y: 15 },
+    { x: sx - 4, y: 34 },
+    { x: sx - 12, y: 32 },
+  ]);
+  shield.fillStyle(0x0b1a30, 1);
+  shield.fillRect(sx - 4, 22, 8, 28);
+  shield.fillRect(sx - 13, 32, 26, 8);
+  shield.fillStyle(0xf7fdff, 1);
+  shield.fillRect(sx - 2.4, 24, 4.8, 24);
+  shield.fillRect(sx - 11, 34, 22, 4.4);
+  const rivets = [
+    { x: sx - 11, y: 22 },
+    { x: sx + 11, y: 22 },
+    { x: sx - 9, y: 48 },
+    { x: sx + 9, y: 48 },
+  ];
+  for (const rivet of rivets) {
+    shield.fillStyle(0x0b1a30, 1);
+    shield.fillCircle(rivet.x, rivet.y, 2.4);
+    shield.fillStyle(0xf0c75a, 1);
+    shield.fillCircle(rivet.x, rivet.y, 1.5);
+  }
+  shield.fillStyle(0xfffef0, 0.95);
+  shield.fillEllipse(sx - 8, 20, 12, 7);
+  commit(shield, 'shield-pickup', 64, 74);
 
   const checkpoint = gfx(scene);
   checkpoint.fillStyle(0x4b2e1f, 1);
@@ -1075,6 +1109,30 @@ function drawHeroShard(scene: Phaser.Scene, skin: HeroPalette): void {
   g.fillStyle(skin.gloss, 1);
   g.fillRect(3, 3, 6, 3);
   commit(g, 'hero-shard', 16, 16);
+}
+
+function heaterShieldPoints(
+  cx: number,
+  top: number,
+  width: number,
+  height: number,
+): Array<{ x: number; y: number }> {
+  const half = width / 2;
+  return [
+    { x: cx - half * 0.62, y: top },
+    { x: cx + half * 0.62, y: top },
+    { x: cx + half * 0.96, y: top + height * 0.1 },
+    { x: cx + half, y: top + height * 0.22 },
+    { x: cx + half * 0.96, y: top + height * 0.4 },
+    { x: cx + half * 0.7, y: top + height * 0.62 },
+    { x: cx + half * 0.38, y: top + height * 0.82 },
+    { x: cx, y: top + height },
+    { x: cx - half * 0.38, y: top + height * 0.82 },
+    { x: cx - half * 0.7, y: top + height * 0.62 },
+    { x: cx - half * 0.96, y: top + height * 0.4 },
+    { x: cx - half, y: top + height * 0.22 },
+    { x: cx - half * 0.96, y: top + height * 0.1 },
+  ];
 }
 
 function fillPoly(g: Phaser.GameObjects.Graphics, points: Array<{ x: number; y: number }>): void {

@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 
 const RAY_SPIN_MS = 9000;
+const GEM_SCALE = 0.48;
 
 export class MemoryGem extends Phaser.Physics.Arcade.Sprite {
   private readonly rays: Phaser.GameObjects.Image;
@@ -17,12 +18,12 @@ export class MemoryGem extends Phaser.Physics.Arcade.Sprite {
     body.setOffset(11, 13);
 
     this.setDepth(15);
-    this.setScale(1.15);
+    this.setScale(GEM_SCALE);
 
     this.rays = scene.add.image(x, y, 'memory-rays');
     this.rays.setDepth(14);
     this.rays.setBlendMode(Phaser.BlendModes.ADD);
-    this.rays.setScale(1.15);
+    this.rays.setScale(GEM_SCALE);
 
     this.once('destroy', () => this.rays.destroy());
   }
