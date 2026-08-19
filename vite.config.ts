@@ -105,7 +105,7 @@ export default defineConfig({
     excludeVendorAssets(),
     VitePWA({
       registerType: 'autoUpdate',
-      injectRegister: 'auto',
+      injectRegister: false,
       includeAssets: ['favicon.svg', 'favicon.png', 'apple-touch-icon.png', 'icons/*.png'],
       manifest: {
         id: '/',
@@ -124,7 +124,7 @@ export default defineConfig({
         categories: ['games'],
         handle_links: 'preferred',
         launch_handler: {
-          client_mode: ['navigate-existing', 'auto'],
+          client_mode: ['auto'],
         },
         icons: [
           {
@@ -148,14 +148,24 @@ export default defineConfig({
         ],
       },
       workbox: {
-        globPatterns: ['**/*.{js,css,html,ico,png,svg,json,ogg,webmanifest}'],
-        globIgnores: ['**/vendor/**'],
-        navigateFallback: '/index.html',
-        navigateFallbackDenylist: [/^\/__save/],
+        cacheId: 'rs4-20260819',
+        importScripts: ['sw-force-reload.js'],
+        globPatterns: ['**/*.{js,css,ico,png,svg,json,ogg,webmanifest}'],
+        globIgnores: ['**/vendor/**', '**/sw-force-reload.js'],
         cleanupOutdatedCaches: true,
         skipWaiting: true,
         clientsClaim: true,
         maximumFileSizeToCacheInBytes: 8 * 1024 * 1024,
+        runtimeCaching: [
+          {
+            urlPattern: ({ request }) => request.mode === 'navigate',
+            handler: 'NetworkFirst',
+            options: {
+              cacheName: 'rs4-pages',
+              networkTimeoutSeconds: 3,
+            },
+          },
+        ],
       },
     }),
   ],

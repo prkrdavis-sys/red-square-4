@@ -1,4 +1,5 @@
 import Phaser from 'phaser';
+import { registerSW } from 'virtual:pwa-register';
 import './style.css';
 import { GAME_HEIGHT, GAME_WIDTH, TILE } from './config';
 import { BootScene } from './scenes/BootScene';
@@ -11,6 +12,9 @@ import { WorldMapScene } from './scenes/WorldMapScene';
 import { audio } from './systems/audio';
 import { bootTouchControls, watchLandscapePrompt } from './systems/touch-controls';
 
+if (import.meta.env.PROD) {
+  registerSW({ immediate: true });
+}
 audio.install();
 
 const config: Phaser.Types.Core.GameConfig = {
