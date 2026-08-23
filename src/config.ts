@@ -15,7 +15,9 @@ export type Theme = 'grass' | 'snow' | 'desert' | 'ocean' | 'castle' | 'rainfore
 
 export const THEMES: Theme[] = ['grass', 'snow', 'desert', 'ocean', 'castle', 'rainforest'];
 
-export type BossKind = 'hopper' | 'slider' | 'slam' | 'swimmer' | 'charger' | 'swinger';
+export type BossKind = 'piranha' | 'walrus' | 'scorpion' | 'fish' | 'gargoyle' | 'howler';
+
+export const BOSS_KINDS: BossKind[] = ['piranha', 'walrus', 'scorpion', 'fish', 'gargoyle', 'howler'];
 
 export type EnemyKind =
   | 'bramble-hopper'
@@ -257,19 +259,19 @@ export function themeName(theme: Theme): string {
 export function worldBossKind(world: number): BossKind {
   switch (world) {
     case 1:
-      return 'hopper';
+      return 'piranha';
     case 2:
-      return 'slider';
+      return 'walrus';
     case 3:
-      return 'slam';
+      return 'scorpion';
     case 4:
-      return 'swimmer';
+      return 'fish';
     case 5:
-      return 'charger';
+      return 'gargoyle';
     case 6:
-      return 'swinger';
+      return 'howler';
     default:
-      return 'hopper';
+      return 'piranha';
   }
 }
 

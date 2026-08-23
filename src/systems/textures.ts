@@ -13,6 +13,7 @@ import {
 import { createForegroundTextures } from './foreground';
 import { createLandscapeTextures } from './landscapes';
 import { createMiniBossTextures } from './mini-bosses';
+import { createWorldBossTextures, worldBossTextureKey } from './world-bosses';
 
 function gfx(scene: Phaser.Scene): Phaser.GameObjects.Graphics {
   return scene.make.graphics({ x: 0, y: 0 });
@@ -404,53 +405,6 @@ function drawBaddie(
   g.lineStyle(Math.max(2, size * 0.04), 0x220000, 1);
   g.lineBetween(r - eyeDx - eyeW, eyeY - eyeH, r - eyeDx + eyeW * 0.2, eyeY - eyeH * 0.35);
   g.lineBetween(r + eyeDx + eyeW, eyeY - eyeH, r + eyeDx - eyeW * 0.2, eyeY - eyeH * 0.35);
-  commit(g, key, size, size);
-}
-
-function drawSpikedBoss(scene: Phaser.Scene, key: string, size: number, body: number, shade: number): void {
-  const g = gfx(scene);
-  const r = size / 2;
-  g.fillStyle(0x1a0505, 1);
-  for (let i = 0; i < 8; i += 1) {
-    const a = (Math.PI * 2 * i) / 8;
-    g.fillTriangle(
-      r + Math.cos(a) * r,
-      r + Math.sin(a) * r,
-      r + Math.cos(a - 0.25) * r * 0.72,
-      r + Math.sin(a - 0.25) * r * 0.72,
-      r + Math.cos(a + 0.25) * r * 0.72,
-      r + Math.sin(a + 0.25) * r * 0.72,
-    );
-  }
-  g.fillStyle(body, 1);
-  g.fillCircle(r, r, r * 0.72);
-  g.fillStyle(shade, 1);
-  g.fillCircle(r - r * 0.16, r - r * 0.18, r * 0.28);
-  const eyeY = r - 4;
-  g.fillStyle(0xffffff, 1);
-  g.fillEllipse(r - 10, eyeY, 8, 12);
-  g.fillEllipse(r + 10, eyeY, 8, 12);
-  g.fillStyle(0xff1a1a, 1);
-  g.fillEllipse(r - 10, eyeY + 1, 4, 7);
-  g.fillEllipse(r + 10, eyeY + 1, 4, 7);
-  commit(g, key, size, size);
-}
-
-function drawFinBoss(scene: Phaser.Scene, key: string, size: number): void {
-  const g = gfx(scene);
-  const r = size / 2;
-  g.fillStyle(0x062033, 1);
-  g.fillTriangle(r, 4, r + 18, r, r - 18, r);
-  g.fillStyle(0x1c4d66, 1);
-  g.fillCircle(r, r + 6, r * 0.7);
-  g.fillStyle(0x2f6f88, 1);
-  g.fillCircle(r - 8, r, r * 0.28);
-  g.fillStyle(0xffffff, 1);
-  g.fillEllipse(r - 10, r, 8, 12);
-  g.fillEllipse(r + 10, r, 8, 12);
-  g.fillStyle(0xff2222, 1);
-  g.fillCircle(r - 10, r + 1, 3);
-  g.fillCircle(r + 10, r + 1, 3);
   commit(g, key, size, size);
 }
 
@@ -1378,12 +1332,7 @@ export function createGameTextures(scene: Phaser.Scene): void {
   drawBaddie(scene, 'baddie-alt', 36, 0x3a3a3a, 0x6e6e6e, 0xff3030);
   drawBaddie(scene, 'mini-boss', 56, 0x1f1f1f, 0x4a4a4a, 0xff1515);
   createMiniBossTextures(scene);
-  drawBaddie(scene, 'boss-hopper', 88, 0x2b1a1a, 0x5a3030, 0xff1010);
-  drawBaddie(scene, 'boss-slider', 88, 0x1a2a3a, 0x4a6a88, 0xff2020);
-  drawSpikedBoss(scene, 'boss-slam', 96, 0x5a3a10, 0xc4a05a);
-  drawFinBoss(scene, 'boss-swimmer', 96);
-  drawSpikedBoss(scene, 'boss-charger', 104, 0x2a1020, 0x6a2040);
-  drawSpikedBoss(scene, 'boss-swinger', 100, 0x143820, 0x3d8a32);
+  createWorldBossTextures(scene);
   drawLavaTile(scene);
   drawParticle(scene);
   drawCampaignPickups(scene);
@@ -1519,23 +1468,6 @@ export function kenneyWindowKey(): string {
 }
 
 export function bossTextureKey(kind: BossKind): string {
-  switch (kind) {
-    case 'hopper':
-      return 'boss-hopper';
-    case 'slider':
-      return 'boss-slider';
-    case 'slam':
-      return 'boss-slam';
-    case 'swimmer':
-      return 'boss-swimmer';
-    case 'charger':
-      return 'boss-charger';
-    case 'swinger':
-      return 'boss-swinger';
-    default: {
-      const neverKind: never = kind;
-      return neverKind;
-    }
-  }
+  return worldBossTextureKey(kind, 'idle');
 }
 

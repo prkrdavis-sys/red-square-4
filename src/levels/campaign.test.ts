@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   ALL_LEVEL_IDS,
+  BOSS_KINDS,
   GROUND_Y,
   MAP_ROWS,
   STOMP_BOUNCE_VELOCITY,
@@ -11,8 +12,9 @@ import {
   enemiesForWorld,
   parseLevelId,
   specialForTheme,
+  worldBossKind,
 } from '../config';
-import { miniBossTextureKey } from '../systems/characters';
+import { miniBossTextureKey, worldBossTextureKey } from '../systems/characters';
 import { getLevel } from './worlds';
 import { bossSafeLandingX, getArenaLayout, type ArenaKeep } from './arena';
 import { colliderBox, colliderRuns, enableOneWayCollision, liftOntoFloor, ONEWAY_HEIGHT } from './colliders';
@@ -258,6 +260,22 @@ describe('mini-boss looks', () => {
     const keys = THEMES.map((theme) => miniBossTextureKey(theme, 1, 'idle'));
     expect(new Set(keys).size).toBe(THEMES.length);
     expect(miniBossTextureKey('grass', 1, 'idle')).not.toBe(miniBossTextureKey('rainforest', 1, 'idle'));
+  });
+});
+
+describe('world bosses', () => {
+  it('ties each world to a unique themed creature', () => {
+    const kinds = [1, 2, 3, 4, 5, 6].map((world) => worldBossKind(world));
+    expect(kinds).toEqual(['piranha', 'walrus', 'scorpion', 'fish', 'gargoyle', 'howler']);
+    expect(new Set(kinds).size).toBe(BOSS_KINDS.length);
+    expect(BOSS_KINDS).toEqual(['piranha', 'walrus', 'scorpion', 'fish', 'gargoyle', 'howler']);
+  });
+
+  it('gives every world boss its own texture family', () => {
+    const keys = BOSS_KINDS.map((kind) => worldBossTextureKey(kind, 'idle'));
+    expect(new Set(keys).size).toBe(BOSS_KINDS.length);
+    expect(worldBossTextureKey('piranha', 'idle')).not.toBe(worldBossTextureKey('fish', 'idle'));
+    expect(worldBossTextureKey('walrus', 'attack')).not.toBe(worldBossTextureKey('scorpion', 'attack'));
   });
 });
 

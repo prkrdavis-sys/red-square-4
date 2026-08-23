@@ -1,4 +1,4 @@
-import type { BossKind, EnemyKind } from '../config';
+import type { EnemyKind } from '../config';
 
 export type CharacterPose = 'idle' | 'move' | 'attack' | 'hurt' | 'dead';
 
@@ -203,33 +203,9 @@ const ENEMY_FRAMES: Record<EnemyKind, CharacterFrames> = {
   },
 };
 
-const BOSS_FRAMES: Record<BossKind, CharacterFrames> = {
-  hopper: ENEMY_FRAMES['bramble-hopper'],
-  slider: ENEMY_FRAMES['skating-hare'],
-  slam: ENEMY_FRAMES['cactus-imp'],
-  swimmer: ENEMY_FRAMES['angler-eel'],
-  charger: {
-    idle: 'kenney-character-purple-front',
-    move: 'kenney-character-purple-walk-a',
-    attack: 'kenney-character-purple-jump',
-    hurt: 'kenney-character-purple-hit',
-    dead: 'kenney-character-purple-duck',
-  },
-  swinger: {
-    idle: 'kenney-character-green-front',
-    move: 'kenney-character-green-walk-a',
-    attack: 'kenney-character-green-jump',
-    hurt: 'kenney-character-green-hit',
-    dead: 'kenney-character-green-duck',
-  },
-};
-
 export function enemyTextureKey(kind: EnemyKind, pose: CharacterPose): string {
   return ENEMY_FRAMES[kind][pose];
 }
 
-export function worldBossTextureKey(kind: BossKind, pose: CharacterPose): string {
-  return BOSS_FRAMES[kind][pose];
-}
-
 export { miniBossTextureKey } from './mini-bosses';
+export { worldBossTextureKey } from './world-bosses';

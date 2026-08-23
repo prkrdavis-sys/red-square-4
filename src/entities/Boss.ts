@@ -77,12 +77,12 @@ function opaqueSpriteBounds(texture: Phaser.Textures.Texture, frame: Phaser.Text
 }
 
 const WORLD_BOSS_NAMES: Record<BossKind, string> = {
-  hopper: 'Crowned Briar Boar',
-  slider: 'Walrus Duke',
-  slam: 'Buried Sphinx',
-  swimmer: 'Abyssal Octopus',
-  charger: 'Many-Eyed Raven King',
-  swinger: 'Canopy Howler',
+  piranha: 'Snap-Maw',
+  walrus: 'Glacier Tusker',
+  scorpion: 'Dune Stinger',
+  fish: 'Abyss Fang',
+  gargoyle: 'Keep Gargoyle',
+  howler: 'Canopy Howler',
 };
 
 const MINI_FAMILIES: Record<Theme, string> = {
@@ -102,6 +102,7 @@ export class Boss extends Phaser.Physics.Arcade.Sprite {
   engaged = false;
   invulnUntil = 0;
   private hopUntil = 0;
+  private dashUntil = 0;
   private slamPhase: 'idle' | 'up' | 'down' = 'idle';
   private chargeDir = -1;
   private spawnY: number;
@@ -145,8 +146,9 @@ export class Boss extends Phaser.Physics.Arcade.Sprite {
     if (hp === 1) {
       this.setScale(1.3 + (miniVariant ?? 1) * 0.08);
     } else {
-      this.setScale(2.15);
+      this.applyWorldScale();
     }
+    this.settleMotion();
     this.fitHitbox();
   }
 
@@ -183,8 +185,8 @@ export class Boss extends Phaser.Physics.Arcade.Sprite {
     const body = this.arcadeBody;
     const now = this.scene.time.now;
     body.setVelocityX(0);
-    if (this.kind === 'swimmer') {
-      body.allowGravity = false;
+    this.settleMotion();
+    if (this.swims()) {
       body.setVelocityY((this.swimTargetY(now) - this.y) * 2.4);
     }
     this.present('idle');
@@ -265,12 +267,12 @@ export class Boss extends Phaser.Physics.Arcade.Sprite {
         this.startAttack(player, dir);
       }
     } else if (this.bossState === 'attack') {
-      this.present('move');
+      this.present('attack');
       this.continueAttack(player, dir);
       if (now >= this.stateUntil) {
         this.bossState = 'recovery';
         this.stateUntil = now + this.recoveryDuration();
-        body.setAccelerationX(0);
+        this.settleMotion();
         body.setDragX(420);
         this.present('hurt');
       }
@@ -293,29 +295,40 @@ export class Boss extends Phaser.Physics.Arcade.Sprite {
 
   private startAttack(player: Phaser.Physics.Arcade.Sprite, dir: number): void {
     const body = this.arcadeBody;
+    const now = this.scene.time.now;
     const speedBonus = this.phase * 35 + (this.miniVariant ?? 0) * 18;
+    this.settleMotion();
     switch (this.kind) {
-      case 'hopper':
-        body.setVelocity(dir * (145 + speedBonus), -430 - this.phase * 55);
+      case 'piranha':
+        body.setVelocity(dir * (110 + speedBonus), -460 - this.phase * 50);
+        this.dashUntil = now + 180;
         break;
-      case 'slider':
-        body.setVelocity(dir * (280 + speedBonus), this.phase === 3 ? -220 : 0);
+      case 'walrus':
+        body.setVelocity(dir * (300 + speedBonus), this.phase === 3 ? -180 : 0);
+        body.setDragX(20);
         break;
-      case 'slam':
+      case 'scorpion':
         this.slamPhase = 'up';
-        body.setVelocity(dir * 65, -500 - this.phase * 45);
+        body.setVelocity(dir * 50, -540 - this.phase * 50);
         break;
-      case 'swimmer':
+      case 'fish': {
         body.allowGravity = false;
-        body.setVelocity(dir * (170 + speedBonus), Phaser.Math.Clamp((player.y - this.y) * 2.5, -260, 260));
+        const dx = player.x - this.x;
+        const dy = player.y - this.y;
+        const dist = Math.max(48, Math.hypot(dx, dy));
+        const dash = 260 + speedBonus;
+        body.setVelocity((dx / dist) * dash, (dy / dist) * dash);
+        this.dashUntil = now + 240;
         break;
-      case 'charger':
+      }
+      case 'gargoyle':
         this.chargeDir = dir === 0 ? this.chargeDir * -1 : dir;
-        body.setVelocity(this.chargeDir * (320 + speedBonus), this.phase >= 2 ? -260 : 0);
+        body.setGravityY(-this.scene.physics.world.gravity.y * 0.7);
+        body.setVelocity(this.chargeDir * (340 + speedBonus), this.phase >= 2 ? -220 : -70);
         break;
-      case 'swinger':
+      case 'howler':
         this.chargeDir = dir === 0 ? this.chargeDir * -1 : dir;
-        body.setVelocity(this.chargeDir * (260 + speedBonus), -380 - this.phase * 40);
+        body.setVelocity(this.chargeDir * (240 + speedBonus), -420 - this.phase * 45);
         break;
       default: {
         const neverKind: never = this.kind;
@@ -326,46 +339,63 @@ export class Boss extends Phaser.Physics.Arcade.Sprite {
 
   private continueAttack(player: Phaser.Physics.Arcade.Sprite, dir: number): void {
     const body = this.arcadeBody;
+    const now = this.scene.time.now;
     switch (this.kind) {
-      case 'hopper':
-        if (body.blocked.down && this.phase >= 2 && this.scene.time.now > this.hopUntil) {
-          body.setVelocity(dir * (170 + this.phase * 25), -390);
-          this.hopUntil = this.scene.time.now + 360;
+      case 'piranha':
+        if (body.velocity.y > 90) {
+          body.setVelocityX(dir * (200 + this.phase * 28));
+        }
+        if (body.blocked.down && this.phase >= 2 && now > this.hopUntil) {
+          body.setVelocity(dir * (140 + this.phase * 22), -340);
+          this.hopUntil = now + 300;
         }
         break;
-      case 'slider':
-        body.setAccelerationX(dir * (360 + this.phase * 90));
+      case 'walrus':
+        body.setAccelerationX(dir * (420 + this.phase * 110));
         if (body.blocked.left || body.blocked.right) {
-          body.setVelocityX(-Math.sign(body.velocity.x || dir) * (240 + this.phase * 35));
+          body.setVelocityX(-Math.sign(body.velocity.x || dir) * (280 + this.phase * 40));
         }
         break;
-      case 'slam':
-        if (this.slamPhase === 'up' && body.velocity.y > 0) {
-          this.slamPhase = 'down';
-          body.setVelocityY(690 + this.phase * 80);
+      case 'scorpion':
+        if (this.slamPhase === 'up') {
+          body.setVelocityX(dir * (55 + this.phase * 14));
+          if (body.velocity.y > 0) {
+            this.slamPhase = 'down';
+            body.setVelocityY(760 + this.phase * 95);
+          }
         } else if (this.slamPhase === 'down' && body.blocked.down) {
           this.slamPhase = 'idle';
-          maybeShake(this.scene, 110, 0.006 + this.phase * 0.002);
+          maybeShake(this.scene, 130, 0.007 + this.phase * 0.002);
         }
         break;
-      case 'swimmer':
+      case 'fish': {
         body.allowGravity = false;
-        body.setVelocityY(Phaser.Math.Clamp((player.y - this.y) * (2 + this.phase * 0.5), -300, 300));
+        const wave = Math.sin(now / 70) * (24 + this.phase * 10);
+        if (now < this.dashUntil) {
+          body.setVelocityY(body.velocity.y + (player.y - this.y) * 0.04);
+          break;
+        }
+        body.setVelocity(
+          dir * (180 + this.phase * 35) + (player.x - this.x) * 0.12,
+          Phaser.Math.Clamp((player.y - this.y) * (2.3 + this.phase * 0.45) + wave, -340, 340),
+        );
         break;
-      case 'charger':
+      }
+      case 'gargoyle':
+        body.setGravityY(-this.scene.physics.world.gravity.y * 0.7);
         if (body.blocked.left || body.blocked.right) {
           this.chargeDir *= -1;
-          body.setVelocityX(this.chargeDir * (280 + this.phase * 45));
+          body.setVelocityX(this.chargeDir * (300 + this.phase * 50));
         }
         break;
-      case 'swinger':
+      case 'howler':
         if (body.blocked.left || body.blocked.right) {
           this.chargeDir *= -1;
-          body.setVelocityX(this.chargeDir * (240 + this.phase * 40));
+          body.setVelocity(this.chargeDir * (230 + this.phase * 38), -280);
         }
-        if (body.blocked.down && this.phase >= 2 && this.scene.time.now > this.hopUntil) {
-          body.setVelocity(dir * (150 + this.phase * 20), -360);
-          this.hopUntil = this.scene.time.now + 400;
+        if (body.blocked.down && this.phase >= 2 && now > this.hopUntil) {
+          body.setVelocity(dir * (160 + this.phase * 22), -400);
+          this.hopUntil = now + 380;
         }
         break;
       default: {
@@ -376,15 +406,78 @@ export class Boss extends Phaser.Physics.Arcade.Sprite {
   }
 
   private telegraphDuration(): number {
-    return Math.max(460, 900 - this.phase * 100 - (this.miniVariant ?? 0) * 45);
+    return Math.max(420, this.kindTelegraph() - this.phase * 90 - (this.miniVariant ?? 0) * 45);
   }
 
   private attackDuration(): number {
-    return 620 + this.phase * 120 + (this.miniVariant ?? 0) * 80;
+    return this.kindAttack() + this.phase * 110 + (this.miniVariant ?? 0) * 80;
   }
 
   private recoveryDuration(): number {
-    return Math.max(430, 760 - this.phase * 70);
+    return Math.max(400, this.kindRecovery() - this.phase * 70);
+  }
+
+  private kindTelegraph(): number {
+    switch (this.kind) {
+      case 'piranha':
+        return 700;
+      case 'walrus':
+        return 980;
+      case 'scorpion':
+        return 860;
+      case 'fish':
+        return 620;
+      case 'gargoyle':
+        return 880;
+      case 'howler':
+        return 820;
+      default: {
+        const neverKind: never = this.kind;
+        return neverKind;
+      }
+    }
+  }
+
+  private kindAttack(): number {
+    switch (this.kind) {
+      case 'piranha':
+        return 540;
+      case 'walrus':
+        return 780;
+      case 'scorpion':
+        return 640;
+      case 'fish':
+        return 860;
+      case 'gargoyle':
+        return 700;
+      case 'howler':
+        return 720;
+      default: {
+        const neverKind: never = this.kind;
+        return neverKind;
+      }
+    }
+  }
+
+  private kindRecovery(): number {
+    switch (this.kind) {
+      case 'piranha':
+        return 700;
+      case 'walrus':
+        return 820;
+      case 'scorpion':
+        return 760;
+      case 'fish':
+        return 640;
+      case 'gargoyle':
+        return 780;
+      case 'howler':
+        return 740;
+      default: {
+        const neverKind: never = this.kind;
+        return neverKind;
+      }
+    }
   }
 
   private present(pose: CharacterPose): void {
@@ -447,15 +540,15 @@ export class Boss extends Phaser.Physics.Arcade.Sprite {
     if (this.x < edges.minX) {
       this.setX(edges.minX);
       if (body.velocity.x < 0) {
-        body.setVelocityX(this.kind === 'charger' || this.kind === 'slider' || this.kind === 'swinger' ? -body.velocity.x * 0.65 : 0);
+        body.setVelocityX(this.ricochets() ? -body.velocity.x * 0.65 : 0);
       }
     } else if (this.x > edges.maxX) {
       this.setX(edges.maxX);
       if (body.velocity.x > 0) {
-        body.setVelocityX(this.kind === 'charger' || this.kind === 'slider' || this.kind === 'swinger' ? -body.velocity.x * 0.65 : 0);
+        body.setVelocityX(this.ricochets() ? -body.velocity.x * 0.65 : 0);
       }
     }
-    if (this.kind === 'swimmer') {
+    if (this.swims()) {
       if (this.y < edges.minY) {
         this.setY(edges.minY);
         if (body.velocity.y < 0) {
@@ -492,5 +585,64 @@ export class Boss extends Phaser.Physics.Arcade.Sprite {
       minY: this.arena.top + halfH,
       maxY: this.arena.bottom - halfH,
     };
+  }
+
+  private applyWorldScale(): void {
+    switch (this.kind) {
+      case 'piranha':
+        this.setScale(2.05, 2.28);
+        return;
+      case 'walrus':
+        this.setScale(2.35, 2.0);
+        return;
+      case 'scorpion':
+        this.setScale(2.3, 2.12);
+        return;
+      case 'fish':
+        this.setScale(2.4, 2.05);
+        return;
+      case 'gargoyle':
+        this.setScale(2.2, 2.2);
+        return;
+      case 'howler':
+        this.setScale(2.18, 2.22);
+        return;
+      default: {
+        const neverKind: never = this.kind;
+        return neverKind;
+      }
+    }
+  }
+
+  private swims(): boolean {
+    return this.kind === 'fish';
+  }
+
+  private ricochets(): boolean {
+    switch (this.kind) {
+      case 'walrus':
+      case 'gargoyle':
+      case 'howler':
+        return true;
+      case 'piranha':
+      case 'scorpion':
+      case 'fish':
+        return false;
+      default: {
+        const neverKind: never = this.kind;
+        return neverKind;
+      }
+    }
+  }
+
+  private settleMotion(): void {
+    const body = this.arcadeBody;
+    body.setAccelerationX(0);
+    body.setDragX(0);
+    body.setGravityY(0);
+    body.allowGravity = !this.swims();
+    if (this.swims()) {
+      body.setVelocityY(body.velocity.y * 0.4);
+    }
   }
 }
