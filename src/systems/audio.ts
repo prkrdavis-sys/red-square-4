@@ -7,6 +7,7 @@ import { themeBuffer } from './music';
 type SfxName =
   | 'jump'
   | 'stomp'
+  | 'block'
   | 'hurt'
   | 'poof'
   | 'victory'
@@ -148,6 +149,11 @@ function synth(name: SfxName): void {
     case 'stomp':
       beep(160, 0.09, 'triangle', 0.14, -80);
       noiseBurst(0.08, 0.1, 700);
+      break;
+    case 'block':
+      beep(640, 0.06, 'square', 0.06, -40);
+      beep(980, 0.05, 'triangle', 0.05, 20);
+      noiseBurst(0.04, 0.035, 1600);
       break;
     case 'hurt':
       beep(420, 0.22, 'sawtooth', 0.1, -280);

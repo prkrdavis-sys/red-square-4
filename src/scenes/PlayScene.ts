@@ -680,6 +680,7 @@ export class PlayScene extends Phaser.Scene {
     const result = boss.takeStomp();
     this.bounceFromBoss(player, boss);
     if (result === 'ignored') {
+      audio.play(this, 'block');
       return;
     }
     audio.play(this, 'stomp');

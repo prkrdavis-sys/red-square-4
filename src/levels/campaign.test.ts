@@ -20,7 +20,13 @@ import { getLevel } from './worlds';
 import { bossSafeLandingX, getArenaLayout, type ArenaKeep } from './arena';
 import { colliderBox, colliderRuns, enableOneWayCollision, liftOntoFloor, ONEWAY_HEIGHT } from './colliders';
 import { buildCourse, NO_JUMP_ZONE_RUNUP, NO_JUMP_ZONE_WIDTH, placeNoJumpZone } from './grid';
-import { hurtboxFromOpaque, isFallingStomp } from '../entities/boss-combat';
+import {
+  crownGuardLayout,
+  crownGuardVisible,
+  hurtboxFromOpaque,
+  isFallingStomp,
+  stompBlocked,
+} from '../entities/boss-combat';
 
 describe('biome campaign compilation', () => {
   it('compiles every course with complete progression features', () => {
@@ -308,6 +314,43 @@ describe('falling stomp', () => {
     expect(box.height).toBeGreaterThan(80);
     expect(box.offsetY).toBeLessThan(40);
     expect(box.offsetX).toBeGreaterThan(25);
+  });
+});
+
+describe('boss crown guard telegraph', () => {
+  it('blocks stomps except during an open recovery window', () => {
+    expect(stompBlocked({ dying: false, invulnerable: false, rhythm: 'recovery' })).toBe(false);
+    expect(stompBlocked({ dying: false, invulnerable: true, rhythm: 'recovery' })).toBe(true);
+    expect(stompBlocked({ dying: false, invulnerable: false, rhythm: 'telegraph' })).toBe(true);
+    expect(stompBlocked({ dying: false, invulnerable: false, rhythm: 'attack' })).toBe(true);
+    expect(stompBlocked({ dying: true, invulnerable: false, rhythm: 'recovery' })).toBe(true);
+  });
+
+  it('shows the crown guard when a jump would bounce, and hides it in the stomp window', () => {
+    expect(
+      crownGuardVisible({ dying: false, engaged: true, invulnerable: false, rhythm: 'telegraph' }),
+    ).toBe(true);
+    expect(
+      crownGuardVisible({ dying: false, engaged: true, invulnerable: false, rhythm: 'attack' }),
+    ).toBe(true);
+    expect(
+      crownGuardVisible({ dying: false, engaged: true, invulnerable: true, rhythm: 'recovery' }),
+    ).toBe(true);
+    expect(
+      crownGuardVisible({ dying: false, engaged: true, invulnerable: false, rhythm: 'recovery' }),
+    ).toBe(false);
+    expect(
+      crownGuardVisible({ dying: false, engaged: false, invulnerable: false, rhythm: 'telegraph' }),
+    ).toBe(false);
+  });
+
+  it('parks the crown guard on the head and scales it to the hurtbox', () => {
+    const pose = crownGuardLayout(400, 180, 96, 0);
+    expect(pose.x).toBe(400);
+    expect(pose.y).toBe(188);
+    expect(pose.scale).toBeGreaterThan(1);
+    expect(pose.alpha).toBeGreaterThan(0.7);
+    expect(pose.alpha).toBeLessThanOrEqual(1);
   });
 });
 

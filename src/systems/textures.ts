@@ -882,6 +882,7 @@ function drawCampaignPickups(scene: Phaser.Scene): void {
   shield.fillEllipse(sx - 8, 20, 12, 7);
   commit(shield, 'shield-pickup', 64, 74);
   drawHeldShield(scene);
+  drawBossCrownGuard(scene);
 
   const checkpoint = gfx(scene);
   checkpoint.fillStyle(0x4b2e1f, 1);
@@ -1155,6 +1156,32 @@ function drawHeldShield(scene: Phaser.Scene): void {
   g.fillStyle(0xfffef0, 0.8);
   g.fillEllipse(sx - 6, 12, 10, 6);
   commit(g, 'player-shield', 44, 54);
+}
+
+function drawBossCrownGuard(scene: Phaser.Scene): void {
+  const g = gfx(scene);
+  const cx = 40;
+  g.fillStyle(0xffe08a, 0.22);
+  g.fillEllipse(cx, 36, 76, 58);
+  g.fillStyle(0xe23b3b, 0.3);
+  g.fillEllipse(cx, 34, 64, 46);
+  g.fillStyle(0xffc85a, 0.22);
+  g.fillEllipse(cx, 28, 48, 30);
+  const outline = heaterShieldPoints(cx, 6, 48, 58);
+  const rim = heaterShieldPoints(cx, 10, 40, 50);
+  const face = heaterShieldPoints(cx, 14, 32, 42);
+  g.fillStyle(0x3a1808, 0.92);
+  fillPoly(g, outline);
+  g.fillStyle(0xd4a24a, 1);
+  fillPoly(g, rim);
+  g.fillStyle(0xff5a4a, 0.94);
+  fillPoly(g, face);
+  g.fillStyle(0xfff0c0, 0.95);
+  g.fillRect(cx - 2.5, 18, 5, 28);
+  g.fillRect(cx - 11, 28, 22, 5);
+  g.fillStyle(0xfffef0, 0.88);
+  g.fillEllipse(cx - 8, 16, 12, 7);
+  commit(g, 'boss-crown-guard', 80, 72);
 }
 
 function heaterShieldPoints(

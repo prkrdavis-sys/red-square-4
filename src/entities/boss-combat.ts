@@ -95,3 +95,39 @@ export function isFallingStomp(player: StompBody, enemy: StompBody): boolean {
   }
   return player.top + player.height * STOMP_OVERHANG <= enemy.top;
 }
+
+export type BossRhythm = 'waiting' | 'telegraph' | 'attack' | 'recovery';
+
+/** A stomp only lands in recovery, and never during i-frames. */
+export function stompBlocked(input: {
+  dying: boolean;
+  invulnerable: boolean;
+  rhythm: BossRhythm;
+}): boolean {
+  return input.dying || input.invulnerable || input.rhythm !== 'recovery';
+}
+
+/** Crown guard is the "jump will bounce" tell once the fight has started. */
+export function crownGuardVisible(input: {
+  dying: boolean;
+  engaged: boolean;
+  invulnerable: boolean;
+  rhythm: BossRhythm;
+}): boolean {
+  return input.engaged && !input.dying && stompBlocked(input);
+}
+
+export function crownGuardLayout(
+  x: number,
+  bodyTop: number,
+  bodyWidth: number,
+  now: number,
+): { x: number; y: number; scale: number; alpha: number } {
+  const pulse = 0.5 + 0.5 * Math.sin(now / 90);
+  return {
+    x,
+    y: bodyTop + 8,
+    scale: Math.max(0.88, bodyWidth / 68) * (0.94 + pulse * 0.1),
+    alpha: 0.74 + pulse * 0.26,
+  };
+}

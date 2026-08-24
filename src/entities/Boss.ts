@@ -6,12 +6,14 @@ import { liftOntoFloor } from '../levels/colliders';
 import { audio } from '../systems/audio';
 import { miniBossTextureKey, worldBossTextureKey, type CharacterPose } from '../systems/characters';
 import {
+  crownGuardLayout,
+  crownGuardVisible,
   estimatedOpaqueBounds,
   hurtboxFromOpaque,
+  stompBlocked,
+  type BossRhythm,
   type SpriteOpaqueBounds,
 } from './boss-combat';
-
-type BossState = 'waiting' | 'telegraph' | 'attack' | 'recovery';
 
 const opaqueBoundsCache = new Map<string, SpriteOpaqueBounds>();
 
@@ -109,10 +111,12 @@ export class Boss extends Phaser.Physics.Arcade.Sprite {
   private arena: ArenaKeep | undefined;
   private readonly theme: Theme;
   private readonly miniVariant: MiniBossVariant | undefined;
-  private bossState: BossState = 'waiting';
+  private bossState: BossRhythm = 'waiting';
   private stateUntil = 0;
   private phase = 1;
   private attackIndex = 0;
+  private readonly crownGuard: Phaser.GameObjects.Image;
+  private guardShown = false;
 
   constructor(
     scene: Phaser.Scene,
@@ -150,6 +154,20 @@ export class Boss extends Phaser.Physics.Arcade.Sprite {
     }
     this.settleMotion();
     this.fitHitbox();
+    this.crownGuard = scene.add.image(x, y, 'boss-crown-guard');
+    this.crownGuard.setDepth(18);
+    this.crownGuard.setOrigin(0.5, 0.78);
+    this.crownGuard.setVisible(false);
+    this.crownGuard.setAlpha(0);
+    this.once('destroy', () => {
+      this.scene.tweens.killTweensOf(this.crownGuard);
+      this.crownGuard.destroy();
+    });
+  }
+
+  protected preUpdate(time: number, delta: number): void {
+    super.preUpdate(time, delta);
+    this.syncCrownGuard();
   }
 
   get arcadeBody(): Phaser.Physics.Arcade.Body {
@@ -194,7 +212,13 @@ export class Boss extends Phaser.Physics.Arcade.Sprite {
   }
 
   takeStomp(): 'hit' | 'dead' | 'ignored' {
-    if (this.dying || this.isInvulnerable || this.bossState !== 'recovery') {
+    if (
+      stompBlocked({
+        dying: this.dying,
+        invulnerable: this.isInvulnerable,
+        rhythm: this.bossState,
+      })
+    ) {
       return 'ignored';
     }
     this.hp -= 1;
@@ -223,6 +247,7 @@ export class Boss extends Phaser.Physics.Arcade.Sprite {
 
   poofAway(): void {
     this.dying = true;
+    this.syncCrownGuard();
     this.present('dead');
     this.arcadeBody.enable = false;
     const scene = this.scene;
@@ -257,16 +282,18 @@ export class Boss extends Phaser.Physics.Arcade.Sprite {
 
     if (this.bossState === 'telegraph') {
       body.setVelocityX(body.velocity.x * 0.82);
+      this.setAlpha(1);
       this.present('attack');
-      const pulse = 0.8 + Math.sin(now / 55) * 0.18;
-      this.setAlpha(pulse);
+      const warn = 0.5 + 0.5 * Math.sin(now / 70);
+      this.setTint(Phaser.Display.Color.GetColor(255, Math.floor(82 + 96 * warn), 58));
       if (now >= this.stateUntil) {
-        this.setAlpha(1);
+        this.clearTint();
         this.bossState = 'attack';
         this.stateUntil = now + this.attackDuration();
         this.startAttack(player, dir);
       }
     } else if (this.bossState === 'attack') {
+      this.setAlpha(1);
       this.present('attack');
       this.continueAttack(player, dir);
       if (now >= this.stateUntil) {
@@ -274,6 +301,7 @@ export class Boss extends Phaser.Physics.Arcade.Sprite {
         this.stateUntil = now + this.recoveryDuration();
         this.settleMotion();
         body.setDragX(420);
+        this.clearTint();
         this.present('hurt');
       }
     } else if (this.bossState === 'recovery') {
@@ -477,6 +505,60 @@ export class Boss extends Phaser.Physics.Arcade.Sprite {
         const neverKind: never = this.kind;
         return neverKind;
       }
+    }
+  }
+
+  private syncCrownGuard(): void {
+    const show = crownGuardVisible({
+      dying: this.dying,
+      engaged: this.engaged,
+      invulnerable: this.isInvulnerable,
+      rhythm: this.bossState,
+    });
+    const body = this.arcadeBody;
+    const pose = crownGuardLayout(this.x, body.top, body.width, this.scene.time.now);
+    this.crownGuard.setPosition(pose.x, pose.y);
+    this.crownGuard.setFlipX(this.flipX);
+
+    if (show && !this.guardShown) {
+      this.guardShown = true;
+      this.scene.tweens.killTweensOf(this.crownGuard);
+      this.crownGuard.setVisible(true);
+      this.crownGuard.setScale(pose.scale * 0.35);
+      this.crownGuard.setAlpha(0);
+      this.scene.tweens.add({
+        targets: this.crownGuard,
+        scale: pose.scale,
+        alpha: pose.alpha,
+        duration: 160,
+        ease: 'Back.easeOut',
+      });
+      return;
+    }
+
+    if (!show && this.guardShown) {
+      this.guardShown = false;
+      this.scene.tweens.killTweensOf(this.crownGuard);
+      this.scene.tweens.add({
+        targets: this.crownGuard,
+        scale: pose.scale * 0.4,
+        alpha: 0,
+        duration: 110,
+        onComplete: () => {
+          if (!this.guardShown) {
+            this.crownGuard.setVisible(false);
+          }
+        },
+      });
+      return;
+    }
+
+    if (this.scene.tweens.getTweensOf(this.crownGuard).length > 0) {
+      return;
+    }
+    if (show) {
+      this.crownGuard.setScale(pose.scale);
+      this.crownGuard.setAlpha(pose.alpha);
     }
   }
 
