@@ -106,9 +106,9 @@ export class MenuButton extends Phaser.GameObjects.Container {
     this.setDepth(90);
   }
 
-  enablePointer(): void {
+  enablePointer(hitPad = 12): void {
     this.setInteractive({
-      hitArea: new Phaser.Geom.Rectangle(-12, -12, this.widthPx + 24, this.heightPx + 24),
+      hitArea: new Phaser.Geom.Rectangle(-hitPad, -hitPad, this.widthPx + hitPad * 2, this.heightPx + hitPad * 2),
       hitAreaCallback: Phaser.Geom.Rectangle.Contains,
       useHandCursor: true,
     });

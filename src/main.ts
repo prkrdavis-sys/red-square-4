@@ -10,6 +10,7 @@ import { SkinsScene } from './scenes/SkinsScene';
 import { TitleScene } from './scenes/TitleScene';
 import { WorldMapScene } from './scenes/WorldMapScene';
 import { audio } from './systems/audio';
+import { bootHudPause, layoutHudPause } from './systems/hud-pause';
 import { bootTouchControls, watchLandscapePrompt } from './systems/touch-controls';
 
 if (import.meta.env.PROD) {
@@ -41,8 +42,10 @@ const config: Phaser.Types.Core.GameConfig = {
 };
 
 bootTouchControls();
+bootHudPause();
 const game = new Phaser.Game(config);
 watchLandscapePrompt(game);
+game.scale.on('resize', layoutHudPause);
 if (import.meta.env.DEV) {
   Object.assign(window, { __rs4: game });
 }

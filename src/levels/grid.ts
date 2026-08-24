@@ -28,6 +28,10 @@ export const LEDGE = {
   high: JUMP_REACH_TILES * 3,
 } as const;
 
+/** Ocean down-current field size. Run-up tiles on each side stay jumpable. */
+export const NO_JUMP_ZONE_WIDTH = 8;
+export const NO_JUMP_ZONE_RUNUP = JUMP_REACH_TILES;
+
 export class Grid {
   cells: string[][];
 
@@ -169,9 +173,11 @@ export interface CoursePickup {
 export type { PuzzleKind };
 
 export interface PuzzleFeature {
+  /** Left tile of the feature. Walls are one tile; down-currents span `width`. */
   x: number;
   kind: PuzzleKind;
   height: number;
+  width: number;
 }
 
 export interface CompiledCourse {
@@ -251,6 +257,88 @@ function isSolidPuzzle(kind: PuzzleKind): boolean {
       return neverKind;
     }
   }
+}
+
+function isWalkColumn(rows: string[], x: number): boolean {
+  const ground = rows[GROUND_Y]?.[x];
+  const above = rows[GROUND_Y - 1]?.[x];
+  return (ground === '#' || ground === 'G' || ground === 'W') && above === '.';
+}
+
+/** Inclusive-start, exclusive-end spans of floor the player can walk without jumping. */
+export function walkableSpans(rows: string[]): Array<{ start: number; end: number }> {
+  const width = rows[0]?.length ?? 0;
+  const spans: Array<{ start: number; end: number }> = [];
+  let start = -1;
+  for (let x = 0; x < width; x += 1) {
+    if (isWalkColumn(rows, x)) {
+      if (start < 0) {
+        start = x;
+      }
+    } else if (start >= 0) {
+      spans.push({ start, end: x });
+      start = -1;
+    }
+  }
+  if (start >= 0) {
+    spans.push({ start, end: width });
+  }
+  return spans;
+}
+
+function zoneClear(blocked: ReadonlySet<number>, x: number, width: number): boolean {
+  for (let i = 0; i < width; i += 1) {
+    if (blocked.has(x + i)) {
+      return false;
+    }
+  }
+  return true;
+}
+
+function bestNoJumpPlacement(
+  desired: number,
+  blocked: ReadonlySet<number>,
+  width: number,
+  runup: number,
+  spans: Array<{ start: number; end: number }>,
+): { x: number; width: number } | undefined {
+  let best: { x: number; width: number; dist: number } | undefined;
+  for (const span of spans) {
+    const innerStart = span.start + runup;
+    const innerEnd = span.end - runup;
+    if (innerEnd - innerStart < width) {
+      continue;
+    }
+    for (let x = innerStart; x <= innerEnd - width; x += 1) {
+      if (!zoneClear(blocked, x, width)) {
+        continue;
+      }
+      const center = x + (width - 1) / 2;
+      const dist = Math.abs(center - desired);
+      if (!best || dist < best.dist) {
+        best = { x, width, dist };
+      }
+    }
+  }
+  return best ? { x: best.x, width: best.width } : undefined;
+}
+
+/** Place a no-jump field on solid ground near `desired`, leaving jump run-up on both sides. */
+export function placeNoJumpZone(
+  rows: string[],
+  desired: number,
+  blocked: ReadonlySet<number> = new Set(),
+  width = NO_JUMP_ZONE_WIDTH,
+  runup = NO_JUMP_ZONE_RUNUP,
+): { x: number; width: number } | undefined {
+  const spans = walkableSpans(rows);
+  for (let w = width; w >= 5; w -= 1) {
+    const placed = bestNoJumpPlacement(desired, blocked, w, runup, spans);
+    if (placed) {
+      return placed;
+    }
+  }
+  return bestNoJumpPlacement(desired, blocked, 4, 1, spans);
 }
 
 function safeFloorX(rows: string[], desired: number, blocked: ReadonlySet<number> = new Set()): number {
@@ -371,18 +459,24 @@ export function compileCourse(world: number, stage: number, spec: CourseSpec, th
   occupy(featureBlocked, shieldX, 1);
   const puzzleKind = puzzleForTheme(theme);
   const puzzleBlocked = new Set(blocked);
-  if (isSolidPuzzle(puzzleKind)) {
+  if (isSolidPuzzle(puzzleKind) || puzzleKind === 'down-current') {
     occupy(puzzleBlocked, checkpointX, 1);
   }
   const puzzleCount = stage === 4 ? 1 : stage;
   const puzzles = Array.from({ length: puzzleCount }, (_, index) => {
-    const x = safeFloorX(
-      rows,
-      Math.floor(spec.width * ((index + 1) / (puzzleCount + 1))),
-      puzzleBlocked,
-    );
+    const desired = Math.floor(spec.width * ((index + 1) / (puzzleCount + 1)));
+    if (puzzleKind === 'down-current') {
+      const placed = placeNoJumpZone(rows, desired, puzzleBlocked);
+      const x = placed?.x ?? safeFloorX(rows, desired, puzzleBlocked);
+      const width = placed?.width ?? 1;
+      for (let i = 0; i < width; i += 1) {
+        puzzleBlocked.add(x + i);
+      }
+      return { x, kind: puzzleKind, height: Math.min(4, 1 + stage), width };
+    }
+    const x = safeFloorX(rows, desired, puzzleBlocked);
     occupy(puzzleBlocked, x, 1);
-    return { x, kind: puzzleKind, height: Math.min(4, 1 + stage) };
+    return { x, kind: puzzleKind, height: Math.min(4, 1 + stage), width: 1 };
   });
   return {
     rows,

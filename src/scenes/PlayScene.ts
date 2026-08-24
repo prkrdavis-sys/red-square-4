@@ -10,6 +10,7 @@ import {
   type LevelId,
 } from '../config';
 import {
+  clearCheckpoint,
   collectMemory,
   collectibleMask,
   getCheckpoint,
@@ -34,9 +35,18 @@ import { buildLevel, type BuiltLevel } from '../levels/builder';
 import { bossSafeLandingX } from '../levels/arena';
 import { getLevel } from '../levels/worlds';
 import { audio } from '../systems/audio';
+import { spawnCheckpointFireworks } from '../systems/fireworks';
 import { forgetFlak, rememberFlak, restoreFlak, setFlakGroup } from '../systems/flak';
 import { Foreground } from '../systems/foreground';
 import { Parallax } from '../systems/parallax';
+import {
+  HUD_PAUSE,
+  hideHudPause,
+  hudPauseUsesDom,
+  onPointerModeChange,
+  setHudPauseHandler,
+  showHudPause,
+} from '../systems/hud-pause';
 import { getTouchState, hideTouchControls, showTouchControls } from '../systems/touch-controls';
 import { skinThumbKey } from '../systems/textures';
 import { showBossFightBanner } from '../ui/boss-fight';
@@ -114,6 +124,7 @@ export class PlayScene extends Phaser.Scene {
   private hudShield!: Phaser.GameObjects.Text;
   private pauseOverlay!: Phaser.GameObjects.Container;
   private pauseNav!: MenuNav;
+  private pauseBtn!: MenuButton;
   private wasJump = false;
   private wasDown = false;
   private wasSpecial = false;
@@ -184,12 +195,6 @@ export class PlayScene extends Phaser.Scene {
         return 'getData' in target && target.getData('solid') === true;
       },
     );
-    this.physics.add.overlap(player, puzzleTargets, (objectA, objectB) => {
-      const target = objectA === player ? objectB : objectA;
-      if ('getData' in target && target.getData('kind') === 'down-current') {
-        player.arcadeBody.setVelocityY(Math.max(player.arcadeBody.velocity.y, 180));
-      }
-    });
     this.physics.add.collider(baddies, solids);
     this.physics.add.collider(baddies, oneways);
     this.physics.add.collider(projectiles, solids, (objectA, objectB) => {
@@ -348,16 +353,27 @@ export class PlayScene extends Phaser.Scene {
     this.createHud(def.name);
     this.createPauseOverlay();
     this.bindKeys();
-    this.syncTouchHud();
+    setHudPauseHandler(() => {
+      if (this.completing || this.scene.isPaused()) {
+        return;
+      }
+      audio.play(this, 'select');
+      this.togglePause();
+    });
     const onScenePause = () => this.syncTouchHud();
     const onSceneResume = () => this.syncTouchHud();
+    const stopPointerMode = onPointerModeChange(() => this.syncTouchHud());
+    this.syncTouchHud();
     this.events.on(Phaser.Scenes.Events.PAUSE, onScenePause);
     this.events.on(Phaser.Scenes.Events.RESUME, onSceneResume);
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
       this.events.off(Phaser.Scenes.Events.PAUSE, onScenePause);
       this.events.off(Phaser.Scenes.Events.RESUME, onSceneResume);
+      stopPointerMode();
+      setHudPauseHandler(undefined);
       delete this.game.canvas.dataset.levelId;
       hideTouchControls();
+      hideHudPause();
       if (!this.retainFlak) {
         forgetFlak();
       }
@@ -376,7 +392,9 @@ export class PlayScene extends Phaser.Scene {
     const input = this.readInput();
     const { player, baddies, miniBoss, worldBoss } = this.built;
 
+    this.refreshNoJumpZone(player);
     player.tick(input, def.theme);
+    this.tryActivateCheckpoints(player);
     if (input.specialJust && this.special.activate(player, player.flipX ? -1 : 1)) {
       audio.play(this, 'special');
     }
@@ -416,8 +434,8 @@ export class PlayScene extends Phaser.Scene {
     });
     this.hudSpecial.setText(
       this.special.ready
-        ? `SHIFT  ${this.special.label}`
-        : `${this.special.label}  ${Math.ceil(this.special.cooldownRatio * 10)}`,
+        ? `Special - ${this.special.label}`
+        : `Special - ${this.special.label}  ${Math.ceil(this.special.cooldownRatio * 10)}`,
     );
     this.hudSpecial.setColor(this.special.ready ? '#fff0a8' : '#9aa5b1');
     this.hudCollectibles.setText(`MEMORIES  ${levelCollectibleCount(this.levelId)}/3`);
@@ -483,6 +501,33 @@ export class PlayScene extends Phaser.Scene {
       }
       this.togglePause();
     });
+  }
+
+  private refreshNoJumpZone(player: Player): void {
+    player.jumpLocked = false;
+    const grounded = player.arcadeBody.blocked.down || player.arcadeBody.touching.down;
+    for (const child of this.built.puzzleTargets.getChildren()) {
+      const target = child as Phaser.Physics.Arcade.Sprite;
+      if (!target.active || target.getData('kind') !== 'down-current') {
+        continue;
+      }
+      const flow = target.getData('flow') as Phaser.GameObjects.TileSprite | undefined;
+      if (flow?.active) {
+        flow.tilePositionY += 1.8;
+      }
+      const body = target.body as Phaser.Physics.Arcade.StaticBody | null;
+      if (!body?.enable) {
+        continue;
+      }
+      const pb = player.arcadeBody;
+      if (pb.right <= body.left || pb.left >= body.right || pb.bottom <= body.top || pb.top >= body.bottom) {
+        continue;
+      }
+      player.jumpLocked = true;
+      if (!grounded) {
+        pb.setVelocityY(Math.max(pb.velocity.y, 220));
+      }
+    }
   }
 
   private readInput(): PlayerInput {
@@ -690,6 +735,7 @@ export class PlayScene extends Phaser.Scene {
     this.built.player.die(() => {
       if (session.lives <= 0) {
         forgetFlak();
+        clearCheckpoint(this.levelId);
         this.showBanner('GAME OVER', () => {
           resetSessionLives();
           this.scene.start('WorldMapScene');
@@ -729,6 +775,21 @@ export class PlayScene extends Phaser.Scene {
     });
   }
 
+  private tryActivateCheckpoints(player: Player): void {
+    if (player.frozen) {
+      return;
+    }
+    for (const child of this.built.checkpoints.getChildren()) {
+      if (!('getData' in child)) {
+        continue;
+      }
+      const checkpoint = child as Phaser.Physics.Arcade.Sprite;
+      if (player.arcadeBody.right >= checkpoint.x) {
+        this.activateCheckpoint(checkpoint);
+      }
+    }
+  }
+
   private activateCheckpoint(checkpoint: Phaser.Physics.Arcade.Sprite): void {
     if (checkpoint.getData('active') === true) {
       return;
@@ -740,19 +801,20 @@ export class PlayScene extends Phaser.Scene {
       Number(checkpoint.getData('spawnX')),
       Number(checkpoint.getData('spawnY')),
     );
-    audio.play(this, 'map');
+    spawnCheckpointFireworks(this, checkpoint);
   }
 
   private createHud(name: string): void {
     const style: Phaser.Types.GameObjects.Text.TextStyle = {
-      fontFamily: 'Courier New, monospace',
+      fontFamily: 'Avenir Next, Trebuchet MS, Segoe UI, sans-serif',
+      fontStyle: 'bold',
       fontSize: '20px',
       color: '#ffffff',
       stroke: '#000000',
       strokeThickness: 5,
     };
-    this.add.text(24, 16, `${this.levelId}  ${name}`, style).setScrollFactor(0).setDepth(50);
-    this.hudLives = this.add.text(24, 44, 'Lives', style).setScrollFactor(0).setDepth(50);
+    this.add.text(24, 16, `${this.levelId}  ${name}`, style).setScrollFactor(0).setDepth(50).setResolution(2);
+    this.hudLives = this.add.text(24, 44, 'Lives', style).setScrollFactor(0).setDepth(50).setResolution(2);
     this.hudLifeIcons = [];
     for (let i = 0; i < START_LIVES; i += 1) {
       this.hudLifeIcons.push(
@@ -764,32 +826,40 @@ export class PlayScene extends Phaser.Scene {
       );
     }
     this.hudBoss = this.add
-      .text(GAME_WIDTH - 24, 16, '', { ...style, color: '#ffd0d0' })
+      .text(GAME_WIDTH - HUD_PAUSE.width - 28, 16, '', { ...style, color: '#ffd0d0' })
       .setOrigin(1, 0)
       .setScrollFactor(0)
       .setDepth(50)
+      .setResolution(2)
       .setVisible(false);
     this.hudSpecial = this.add
-      .text(24, 82, '', { ...style, color: '#fff0a8', fontSize: '17px' })
+      .text(24, 82, '', { ...style, color: '#fff0a8', fontSize: '18px' })
       .setScrollFactor(0)
-      .setDepth(50);
+      .setDepth(50)
+      .setResolution(2);
     this.hudCollectibles = this.add
       .text(GAME_WIDTH / 2, 16, '', { ...style, color: '#bff29a', fontSize: '17px' })
       .setOrigin(0.5, 0)
       .setScrollFactor(0)
-      .setDepth(50);
+      .setDepth(50)
+      .setResolution(2);
     this.hudShield = this.add
       .text(GAME_WIDTH / 2, 44, '', { ...style, color: '#9eefff', fontSize: '15px' })
       .setOrigin(0.5, 0)
       .setScrollFactor(0)
-      .setDepth(50);
-    const pauseHint = this.add
-      .text(GAME_WIDTH - 24, 52, 'II  PAUSE', textStyle('16px'))
-      .setOrigin(1, 0.5)
-      .setScrollFactor(0)
       .setDepth(50)
-      .setInteractive({ useHandCursor: true });
-    pauseHint.on('pointerup', () => this.togglePause());
+      .setResolution(2);
+    this.pauseBtn = new MenuButton(
+      this,
+      HUD_PAUSE.x,
+      HUD_PAUSE.y,
+      'PAUSE',
+      () => this.togglePause(),
+      HUD_PAUSE.width,
+      HUD_PAUSE.height,
+    );
+    this.pauseBtn.setDepth(50);
+    this.pauseBtn.enablePointer(28);
   }
 
   private createPauseOverlay(): void {
@@ -813,10 +883,23 @@ export class PlayScene extends Phaser.Scene {
   }
 
   private syncTouchHud(): void {
-    if (this.paused || this.completing || this.scene.isPaused()) {
+    const blocked = this.paused || this.completing || this.scene.isPaused();
+    if (blocked) {
       hideTouchControls();
+      hideHudPause();
+      this.pauseBtn.setVisible(false);
+      this.pauseBtn.disableInteractive();
+      return;
+    }
+    showTouchControls();
+    if (hudPauseUsesDom()) {
+      this.pauseBtn.setVisible(false);
+      this.pauseBtn.disableInteractive();
+      showHudPause();
     } else {
-      showTouchControls();
+      hideHudPause();
+      this.pauseBtn.setVisible(true);
+      this.pauseBtn.enablePointer(28);
     }
   }
 

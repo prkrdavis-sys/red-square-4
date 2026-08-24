@@ -17,12 +17,12 @@ const COOLDOWNS: Record<SpecialKind, number> = {
 };
 
 const LABELS: Record<SpecialKind, string> = {
-  grow: 'GROW',
-  'frost-path': 'FROST',
-  'sand-surge': 'SURGE',
-  'bubble-pulse': 'BUBBLE',
-  'shadow-blink': 'BLINK',
-  'liana-swing': 'SWING',
+  grow: 'Grow',
+  'frost-path': 'Frost',
+  'sand-surge': 'Surge',
+  'bubble-pulse': 'Bubble',
+  'shadow-blink': 'Blink',
+  'liana-swing': 'Swing',
 };
 
 export class WorldSpecial {
@@ -278,7 +278,7 @@ export class WorldSpecial {
   private affectPuzzleTargets(x: number, kind: PuzzleKind, radius: number): void {
     for (const child of this.built.puzzleTargets.getChildren()) {
       const target = child as Phaser.Physics.Arcade.Sprite;
-      if (!target.active || target.getData('kind') !== kind || Math.abs(target.x - x) > radius) {
+      if (!target.active || target.getData('kind') !== kind || puzzleReach(target, x) > radius) {
         continue;
       }
       switch (kind) {
@@ -298,11 +298,13 @@ export class WorldSpecial {
         case 'shadow-wall': {
           const body = target.body as Phaser.Physics.Arcade.StaticBody;
           body.enable = false;
-          target.setAlpha(0.12);
+          target.setAlpha(kind === 'down-current' ? 0 : 0.12);
+          setDownCurrentFx(target, false);
           this.scene.time.delayedCall(1200, () => {
             if (target.active) {
               body.enable = true;
-              target.setAlpha(kind === 'down-current' ? 0.42 : 0.9);
+              target.setAlpha(kind === 'down-current' ? 0 : 0.9);
+              setDownCurrentFx(target, true);
             }
           });
           break;
@@ -329,6 +331,26 @@ export class WorldSpecial {
         child.neutralize(direction);
       }
     }
+  }
+}
+
+function puzzleReach(target: Phaser.Physics.Arcade.Sprite, x: number): number {
+  const body = target.body as Phaser.Physics.Arcade.StaticBody | null;
+  if (!body) {
+    return Math.abs(target.x - x);
+  }
+  const nearest = Phaser.Math.Clamp(x, body.left, body.right);
+  return Math.abs(nearest - x);
+}
+
+function setDownCurrentFx(target: Phaser.Physics.Arcade.Sprite, enabled: boolean): void {
+  const flow = target.getData('flow') as Phaser.GameObjects.TileSprite | undefined;
+  const badge = target.getData('badge') as Phaser.GameObjects.Image | undefined;
+  const edges = target.getData('edges') as Phaser.GameObjects.Rectangle[] | undefined;
+  flow?.setAlpha(enabled ? 0.58 : 0.1);
+  badge?.setAlpha(enabled ? 1 : 0.22);
+  for (const edge of edges ?? []) {
+    edge.setAlpha(enabled ? 0.42 : 0.08);
   }
 }
 

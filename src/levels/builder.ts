@@ -15,7 +15,7 @@ import {
 } from '../systems/textures';
 import { arenaKeepBounds, decorateArena, getArenaLayout, type ArenaKeep } from './arena';
 import { colliderBox, colliderRuns, enableOneWayCollision, ONEWAY_HEIGHT, type ColliderRun } from './colliders';
-import type { CompiledCourse } from './grid';
+import type { CompiledCourse, PuzzleFeature } from './grid';
 import { getWorldBossKind } from './worlds';
 
 export interface BuiltLevel {
@@ -191,24 +191,10 @@ export function buildLevel(
   checkpoint.setData('spawnX', course.checkpoint.x * TILE + TILE / 2);
   checkpoint.setData('spawnY', (GROUND_Y - 1) * TILE + TILE / 2);
   checkpoint.setDepth(13);
+  stretchCheckpointPlane(checkpoint, MAP_ROWS * TILE);
 
   for (const puzzle of course.puzzles) {
-    const isWall = puzzle.kind === 'ice-wall' || puzzle.kind === 'sand-wall' || puzzle.kind === 'shadow-wall';
-    const width = puzzle.kind === 'down-current' ? TILE * 2.5 : isWall ? 30 : TILE;
-    const height = puzzle.kind === 'down-current' ? TILE * 3 : isWall ? puzzle.height * TILE : 28;
-    const target = puzzleTargets.create(
-      puzzle.x * TILE + TILE / 2,
-      GROUND_Y * TILE - height / 2,
-      `puzzle-${puzzle.kind}`,
-    ) as Phaser.Physics.Arcade.Sprite;
-    target.setDisplaySize(width, height);
-    target.setData('kind', puzzle.kind);
-    target.setData('solid', isWall);
-    target.setAlpha(puzzle.kind === 'down-current' ? 0.42 : 0.9);
-    target.setDepth(isWall ? 14 : 11);
-    const body = target.body as Phaser.Physics.Arcade.StaticBody;
-    body.setSize(width, height);
-    body.updateFromGameObject();
+    addPuzzleTarget(scene, puzzleTargets, puzzle);
   }
 
   const heightPx = MAP_ROWS * TILE;
@@ -243,6 +229,95 @@ export function buildLevel(
     arena,
     bossFences,
   };
+}
+
+function addPuzzleTarget(
+  scene: Phaser.Scene,
+  group: Phaser.Physics.Arcade.StaticGroup,
+  puzzle: PuzzleFeature,
+): void {
+  if (puzzle.kind === 'down-current') {
+    addDownCurrentZone(scene, group, puzzle);
+    return;
+  }
+  const isWall = puzzle.kind === 'ice-wall' || puzzle.kind === 'sand-wall' || puzzle.kind === 'shadow-wall';
+  const width = isWall ? 30 : TILE;
+  const height = isWall ? puzzle.height * TILE : 28;
+  const target = group.create(
+    puzzle.x * TILE + TILE / 2,
+    GROUND_Y * TILE - height / 2,
+    `puzzle-${puzzle.kind}`,
+  ) as Phaser.Physics.Arcade.Sprite;
+  target.setDisplaySize(width, height);
+  target.setData('kind', puzzle.kind);
+  target.setData('solid', isWall);
+  target.setAlpha(0.9);
+  target.setDepth(isWall ? 14 : 11);
+  const body = target.body as Phaser.Physics.Arcade.StaticBody;
+  body.setSize(width, height);
+  body.updateFromGameObject();
+}
+
+function addDownCurrentZone(
+  scene: Phaser.Scene,
+  group: Phaser.Physics.Arcade.StaticGroup,
+  puzzle: PuzzleFeature,
+): void {
+  const width = Math.max(1, puzzle.width) * TILE;
+  const height = GROUND_Y * TILE - TILE;
+  const x = puzzle.x * TILE + width / 2;
+  const y = GROUND_Y * TILE - height / 2;
+  const target = group.create(x, y, 'puzzle-down-current') as Phaser.Physics.Arcade.Sprite;
+  target.setDisplaySize(width, height);
+  target.setVisible(false);
+  target.setAlpha(0);
+  target.setData('kind', puzzle.kind);
+  target.setData('solid', false);
+  target.setDepth(11);
+  const body = target.body as Phaser.Physics.Arcade.StaticBody;
+  body.setSize(width, height);
+  body.updateFromGameObject();
+
+  const flow = scene.add.tileSprite(x, y, width, height, 'puzzle-down-current');
+  flow.setDepth(11);
+  flow.setAlpha(0.58);
+  const leftEdge = scene.add.rectangle(x - width / 2, y, 10, height, 0x7af0ff, 0.42);
+  leftEdge.setDepth(11);
+  const rightEdge = scene.add.rectangle(x + width / 2, y, 10, height, 0x7af0ff, 0.42);
+  rightEdge.setDepth(11);
+  const badge = scene.add.image(x, GROUND_Y * TILE - TILE * 2.4, 'puzzle-no-jump');
+  badge.setDepth(12);
+  badge.setScale(1.05);
+  scene.tweens.add({
+    targets: badge,
+    y: badge.y - 10,
+    duration: 980,
+    yoyo: true,
+    repeat: -1,
+    ease: 'Sine.easeInOut',
+  });
+  target.setData('flow', flow);
+  target.setData('badge', badge);
+  target.setData('edges', [leftEdge, rightEdge]);
+  target.once('destroy', () => {
+    flow.destroy();
+    badge.destroy();
+    leftEdge.destroy();
+    rightEdge.destroy();
+  });
+}
+
+/** Hitbox is a full-height plane at the flag X so flying over still counts. */
+function stretchCheckpointPlane(checkpoint: Phaser.Physics.Arcade.Sprite, worldHeightPx: number): void {
+  const body = checkpoint.body as Phaser.Physics.Arcade.Body | null;
+  if (!body) {
+    return;
+  }
+  const planeHeight = worldHeightPx + 400;
+  body.setAllowGravity(false);
+  body.setImmovable(true);
+  body.setSize(TILE, planeHeight, false);
+  body.setOffset(checkpoint.displayOriginX - TILE / 2, checkpoint.displayOriginY - checkpoint.y);
 }
 
 function addBossFence(scene: Phaser.Scene, centerX: number, heightPx: number): Phaser.GameObjects.Rectangle {

@@ -747,6 +747,15 @@ function drawParticle(scene: Phaser.Scene): void {
   commit(g, 'poof-particle', 16, 16);
 }
 
+function drawFireworkSpark(scene: Phaser.Scene): void {
+  const g = gfx(scene);
+  g.fillStyle(0xfff4c0, 1);
+  g.fillCircle(4, 4, 4);
+  g.fillStyle(0xffffff, 1);
+  g.fillCircle(3, 3, 1.6);
+  commit(g, 'firework-spark', 8, 8);
+}
+
 function drawMemoryRays(scene: Phaser.Scene): void {
   const g = gfx(scene);
   const cx = 64;
@@ -872,6 +881,7 @@ function drawCampaignPickups(scene: Phaser.Scene): void {
   shield.fillStyle(0xfffef0, 0.95);
   shield.fillEllipse(sx - 8, 20, 12, 7);
   commit(shield, 'shield-pickup', 64, 74);
+  drawHeldShield(scene);
 
   const checkpoint = gfx(scene);
   checkpoint.fillStyle(0x4b2e1f, 1);
@@ -974,7 +984,6 @@ function drawPuzzleTextures(scene: Phaser.Scene): void {
     { key: 'vine-bed', dark: 0x28512e, bright: 0x83d46a },
     { key: 'ice-wall', dark: 0x4f87a6, bright: 0xd8f7ff },
     { key: 'sand-wall', dark: 0x8f602b, bright: 0xe7bd61 },
-    { key: 'down-current', dark: 0x12546b, bright: 0x65d9e5 },
     { key: 'shadow-wall', dark: 0x3b2350, bright: 0xa96bd2 },
     { key: 'moss-curtain', dark: 0x1a3a1c, bright: 0x6ad08a },
   ];
@@ -990,6 +999,67 @@ function drawPuzzleTextures(scene: Phaser.Scene): void {
     g.strokeRoundedRect(7, 7, 50, 50, 7);
     commit(g, `puzzle-${definition.key}`, 64, 64);
   }
+  drawNoJumpZoneTextures(scene);
+}
+
+function drawNoJumpZoneTextures(scene: Phaser.Scene): void {
+  const flow = gfx(scene);
+  flow.fillStyle(0x063040, 1);
+  flow.fillRect(0, 0, 64, 64);
+  flow.fillStyle(0x0c5568, 0.95);
+  flow.fillRect(10, 0, 14, 64);
+  flow.fillRect(40, 0, 14, 64);
+  flow.fillStyle(0x147888, 0.4);
+  flow.fillRect(0, 0, 64, 64);
+  const chevron = (cx: number, cy: number, spread: number, drop: number, color: number, alpha: number): void => {
+    flow.fillStyle(color, alpha);
+    flow.fillTriangle(cx, cy + drop, cx - spread, cy, cx + spread, cy);
+  };
+  for (const y of [2, 34]) {
+    chevron(32, y, 22, 16, 0x9af6ff, 0.55);
+    chevron(12, y + 16, 12, 11, 0x4ed4e4, 0.62);
+    chevron(52, y + 16, 12, 11, 0x4ed4e4, 0.62);
+  }
+  flow.fillStyle(0xc4fbff, 0.4);
+  flow.fillCircle(20, 12, 2.4);
+  flow.fillCircle(48, 30, 2);
+  flow.fillCircle(30, 52, 2.6);
+  commit(flow, 'puzzle-down-current', 64, 64);
+
+  const badge = gfx(scene);
+  const c = 48;
+  badge.fillStyle(0x071018, 0.45);
+  badge.fillCircle(c + 3, c + 5, 43);
+  badge.fillStyle(0xf7fcff, 1);
+  badge.fillCircle(c, c, 41);
+  badge.lineStyle(11, 0xc41c1c, 1);
+  badge.strokeCircle(c, c, 35);
+
+  badge.fillStyle(0x6a0810, 1);
+  badge.fillRoundedRect(c - 14, c - 8, 28, 28, 5);
+  badge.fillStyle(0xe23b3b, 1);
+  badge.fillRoundedRect(c - 13, c - 10, 26, 26, 5);
+  badge.fillStyle(0xff6a5a, 1);
+  badge.fillRect(c - 13, c - 10, 26, 7);
+  badge.fillStyle(0xffffff, 1);
+  badge.fillCircle(c - 5, c - 1, 4.2);
+  badge.fillCircle(c + 6, c - 1, 4.2);
+  badge.fillStyle(0x140808, 1);
+  badge.fillCircle(c - 4.2, c - 0.4, 2);
+  badge.fillCircle(c + 6.8, c - 0.4, 2);
+
+  badge.lineStyle(3.2, 0x1a1a1a, 0.9);
+  badge.beginPath();
+  badge.arc(c, c + 16, 20, Math.PI * 1.12, Math.PI * 1.82, false);
+  badge.strokePath();
+  badge.fillStyle(0x1a1a1a, 0.9);
+  badge.fillTriangle(c + 14, c, c + 20, c + 8, c + 8, c + 6);
+
+  badge.lineStyle(9, 0xc41c1c, 1);
+  badge.lineBetween(c - 23, c + 20, c + 23, c - 18);
+  badge.lineStyle(3, 0xfff6f2, 0.92);
+  badge.lineBetween(c - 21, c + 18, c + 21, c - 16);
+  commit(badge, 'puzzle-no-jump', 96, 96);
 }
 
 function drawBlastCore(scene: Phaser.Scene): void {
@@ -1063,6 +1133,28 @@ function drawHeroShard(scene: Phaser.Scene, skin: HeroPalette): void {
   g.fillStyle(skin.gloss, 1);
   g.fillRect(3, 3, 6, 3);
   commit(g, 'hero-shard', 16, 16);
+}
+
+function drawHeldShield(scene: Phaser.Scene): void {
+  const g = gfx(scene);
+  const sx = 22;
+  const outline = heaterShieldPoints(sx, 2, 40, 50);
+  const rim = heaterShieldPoints(sx, 6, 32, 42);
+  const face = heaterShieldPoints(sx, 9, 26, 36);
+  g.fillStyle(0x6ee4ff, 0.2);
+  g.fillEllipse(sx, 26, 40, 46);
+  g.fillStyle(0x0b1a30, 0.55);
+  fillPoly(g, outline);
+  g.fillStyle(0x2f7fa8, 0.72);
+  fillPoly(g, rim);
+  g.fillStyle(0x8df2ff, 0.58);
+  fillPoly(g, face);
+  g.fillStyle(0xf7fdff, 0.92);
+  g.fillRect(sx - 2, 14, 4, 22);
+  g.fillRect(sx - 9, 23, 18, 4);
+  g.fillStyle(0xfffef0, 0.8);
+  g.fillEllipse(sx - 6, 12, 10, 6);
+  commit(g, 'player-shield', 44, 54);
 }
 
 function heaterShieldPoints(
@@ -1335,6 +1427,7 @@ export function createGameTextures(scene: Phaser.Scene): void {
   createWorldBossTextures(scene);
   drawLavaTile(scene);
   drawParticle(scene);
+  drawFireworkSpark(scene);
   drawCampaignPickups(scene);
   drawEnemyProjectiles(scene);
   drawPuzzleTextures(scene);

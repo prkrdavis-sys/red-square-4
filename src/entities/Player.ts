@@ -3,6 +3,7 @@ import { STOMP_BOUNCE_VELOCITY, type Theme, themePhysics } from '../config';
 import { maybeShake } from '../data/settings';
 import { audio } from '../systems/audio';
 import { DEATH_BLAST_MS, spawnDeathBlast } from '../systems/explosion';
+import { heldShieldPosition } from './held-shield';
 
 export interface PlayerInput {
   left: boolean;
@@ -31,6 +32,7 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
   invulnerableUntil = 0;
   shielded = false;
   frozen = false;
+  jumpLocked = false;
   private swinging = false;
   private jumpHeld = false;
   private wasGrounded = true;
@@ -39,6 +41,7 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
   private nextBlinkAt = 0;
   private squashTween?: Phaser.Tweens.Tween;
   private readonly view: Phaser.GameObjects.Image;
+  private readonly heldShield: Phaser.GameObjects.Image;
   private readonly shadow: Phaser.GameObjects.Ellipse;
   private readonly dust: Phaser.GameObjects.Particles.ParticleEmitter;
 
@@ -57,6 +60,9 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
 
     this.view = scene.add.image(x, y, 'player');
     this.view.setDepth(20);
+    this.heldShield = scene.add.image(x, y, 'player-shield');
+    this.heldShield.setDepth(21);
+    this.heldShield.setVisible(false);
     this.shadow = scene.add.ellipse(x, y + 22, 34, 12, 0x120408, 0.32);
     this.shadow.setDepth(19);
     this.dust = scene.add.particles(0, 0, 'poof-particle', {
@@ -70,6 +76,7 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
     this.dust.setDepth(19);
     this.once('destroy', () => {
       this.view.destroy();
+      this.heldShield.destroy();
       this.shadow.destroy();
       this.dust.destroy();
     });
@@ -114,6 +121,17 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
   giveShield(): void {
     this.shielded = true;
     this.view.setTint(0x8deaff);
+    this.scene.tweens.killTweensOf(this.heldShield);
+    this.heldShield.setVisible(true);
+    this.heldShield.setAlpha(1);
+    this.heldShield.setScale(0.62);
+    this.scene.tweens.add({
+      targets: this.heldShield,
+      scale: 1,
+      duration: 160,
+      ease: 'Back.easeOut',
+    });
+    this.syncHeldShield();
   }
 
   consumeShield(): boolean {
@@ -123,6 +141,22 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
     this.shielded = false;
     this.grantSafety(1200);
     this.view.clearTint();
+    this.scene.tweens.killTweensOf(this.heldShield);
+    this.scene.tweens.add({
+      targets: this.heldShield,
+      scale: 1.45,
+      alpha: 0,
+      duration: 180,
+      ease: 'Cubic.easeOut',
+      onComplete: () => {
+        if (!this.heldShield.active) {
+          return;
+        }
+        this.heldShield.setVisible(false);
+        this.heldShield.setScale(1);
+        this.heldShield.setAlpha(1);
+      },
+    });
     this.scene.tweens.add({
       targets: this.view,
       alpha: 0.35,
@@ -201,6 +235,7 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
     this.view.setScale(1.22, 0.68);
     this.view.setVisible(true);
     this.view.clearTint();
+    this.hideHeldShield();
     this.shadow.setVisible(false);
     this.dust.emitParticleAt(x, y + 18, 12);
     maybeShake(scene, 140, 0.01);
@@ -362,7 +397,7 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
       body.setDragX(40);
     }
 
-    const canJump = grounded || now < this.coyoteUntil;
+    const canJump = !this.jumpLocked && (grounded || now < this.coyoteUntil);
     if (canJump && now < this.jumpBufferUntil) {
       body.setVelocityY(physics.jump);
       this.jumpBufferUntil = 0;
@@ -384,7 +419,7 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
       body.setVelocityY(Math.max(body.velocity.y, 240));
     }
 
-    if (theme === 'ocean' && input.jump && !grounded && body.velocity.y > 40) {
+    if (theme === 'ocean' && !this.jumpLocked && input.jump && !grounded && body.velocity.y > 40) {
       body.setVelocityY(body.velocity.y * 0.82);
     }
 
@@ -464,5 +499,24 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
     this.view.setFlipX(this.flipX);
     this.view.setAlpha(this.alpha);
     this.view.setVisible(true);
+    this.syncHeldShield();
+  }
+
+  private syncHeldShield(): void {
+    const hold = heldShieldPosition(this.x, this.y, this.flipX);
+    this.heldShield.setPosition(hold.x, hold.y);
+    this.heldShield.setFlipX(this.flipX);
+    if (!this.shielded || !this.heldShield.visible || this.scene.tweens.isTweening(this.heldShield)) {
+      return;
+    }
+    const wave = 0.5 + 0.5 * Math.sin(this.scene.time.now / 150);
+    this.heldShield.setScale(0.94 + wave * 0.08);
+  }
+
+  private hideHeldShield(): void {
+    this.scene.tweens.killTweensOf(this.heldShield);
+    this.heldShield.setVisible(false);
+    this.heldShield.setScale(1);
+    this.heldShield.setAlpha(1);
   }
 }

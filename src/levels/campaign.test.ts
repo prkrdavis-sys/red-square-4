@@ -3,6 +3,7 @@ import {
   ALL_LEVEL_IDS,
   BOSS_KINDS,
   GROUND_Y,
+  JUMP_REACH_TILES,
   MAP_ROWS,
   STOMP_BOUNCE_VELOCITY,
   THEMES,
@@ -18,6 +19,7 @@ import { miniBossTextureKey, worldBossTextureKey } from '../systems/characters';
 import { getLevel } from './worlds';
 import { bossSafeLandingX, getArenaLayout, type ArenaKeep } from './arena';
 import { colliderBox, colliderRuns, enableOneWayCollision, liftOntoFloor, ONEWAY_HEIGHT } from './colliders';
+import { buildCourse, NO_JUMP_ZONE_RUNUP, NO_JUMP_ZONE_WIDTH, placeNoJumpZone } from './grid';
 import { hurtboxFromOpaque, isFallingStomp } from '../entities/boss-combat';
 
 describe('biome campaign compilation', () => {
@@ -145,6 +147,60 @@ describe('biome campaign compilation', () => {
       const { world } = parseLevelId(id);
       const allowed = new Set(enemiesForWorld(world));
       expect(getLevel(id).course.enemies.every((enemy) => allowed.has(enemy.kind))).toBe(true);
+    }
+  });
+});
+
+describe('no-jump down-current zones', () => {
+  function isWalkableFloor(rows: string[], x: number): boolean {
+    const ground = rows[GROUND_Y]?.[x];
+    const above = rows[GROUND_Y - 1]?.[x];
+    return (ground === '#' || ground === 'G' || ground === 'W') && above === '.';
+  }
+
+  it('places a wide walk-through field next to a pit instead of on the lip', () => {
+    const rows = buildCourse({
+      width: 60,
+      pits: [[20, 10]],
+      playerX: 3,
+    });
+    const placed = placeNoJumpZone(rows, 24, new Set([3, 4, 5, 6]));
+    expect(placed).toBeDefined();
+    expect(placed?.width).toBe(NO_JUMP_ZONE_WIDTH);
+    const start = placed?.x ?? 0;
+    const end = start + (placed?.width ?? 0);
+    for (let x = start; x < end; x += 1) {
+      expect(x < 20 || x >= 30, `zone sat in the pit @${x}`).toBe(true);
+      expect(isWalkableFloor(rows, x), `column ${x}`).toBe(true);
+    }
+    for (let x = start - NO_JUMP_ZONE_RUNUP; x < end + NO_JUMP_ZONE_RUNUP; x += 1) {
+      expect(isWalkableFloor(rows, x), `run-up ${x}`).toBe(true);
+    }
+  });
+
+  it('keeps ocean no-jump fields big, on solid ground, and jumpable at both edges', () => {
+    for (const id of ['4-1', '4-2', '4-3', '4-4'] as const) {
+      const level = getLevel(id);
+      const groundEnemies = new Set(
+        level.course.enemies.filter((enemy) => enemy.tilesUp === 0).map((enemy) => enemy.x),
+      );
+      expect(level.course.puzzles.length).toBeGreaterThan(0);
+      for (const [index, puzzle] of level.course.puzzles.entries()) {
+        expect(puzzle.kind, id).toBe('down-current');
+        expect(puzzle.width, id).toBeGreaterThanOrEqual(6);
+        const desired = Math.floor(level.course.rows[0]!.length * ((index + 1) / (level.course.puzzles.length + 1)));
+        const center = puzzle.x + (puzzle.width - 1) / 2;
+        expect(Math.abs(center - desired), `${id} stayed near its original region`).toBeLessThan(28);
+        for (let x = puzzle.x; x < puzzle.x + puzzle.width; x += 1) {
+          expect(isWalkableFloor(level.rows, x), `${id} zone @${x}`).toBe(true);
+          expect(groundEnemies.has(x), `${id} enemy in zone @${x}`).toBe(false);
+        }
+        for (let i = 1; i <= NO_JUMP_ZONE_RUNUP; i += 1) {
+          expect(isWalkableFloor(level.rows, puzzle.x - i), `${id} left run-up`).toBe(true);
+          expect(isWalkableFloor(level.rows, puzzle.x + puzzle.width - 1 + i), `${id} right run-up`).toBe(true);
+        }
+        expect(JUMP_REACH_TILES).toBe(NO_JUMP_ZONE_RUNUP);
+      }
     }
   });
 });

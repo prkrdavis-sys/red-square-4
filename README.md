@@ -29,7 +29,7 @@ Home-screen install needs HTTPS (or localhost). Deploy the `dist` folder, or run
 - **Drop through a platform:** Down or S
 - **Touch (phone / tablet):** rotate to landscape. On-screen Left, Right, and Jump appear during play
 - **World map:** Tap a course to select, tap it again or Play to start. Arrows / WASD and Enter still work. Main Menu returns to the start screen
-- **Pause:** P, Esc, or the Pause control — Resume, Settings, World Map, Main Menu
+- **Pause:** P, Esc, or the Pause button — Resume, Settings, World Map, Main Menu
 
 ## Campaign
 

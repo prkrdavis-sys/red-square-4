@@ -214,7 +214,7 @@ function persistRemote(raw: string): void {
       headers: { 'Content-Type': 'application/json' },
       body: raw,
       keepalive: true,
-    });
+    }).catch(() => undefined);
   } catch {
     return;
   }

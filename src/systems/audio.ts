@@ -18,7 +18,10 @@ type SfxName =
   | 'special'
   | 'collect'
   | 'phase'
-  | 'enemy-shot';
+  | 'enemy-shot'
+  | 'firework'
+  | 'firework-burst'
+  | 'celebrate';
 
 type SafariAudioState = AudioContextState | 'interrupted';
 
@@ -199,6 +202,23 @@ function synth(name: SfxName): void {
       window.setTimeout(() => beep(659.25, 0.12, 'square', 0.09), 110);
       window.setTimeout(() => beep(783.99, 0.12, 'square', 0.09), 220);
       window.setTimeout(() => beep(1046.5, 0.28, 'square', 0.11), 340);
+      break;
+    case 'firework':
+      noiseBurst(0.14, 0.04, 1100);
+      beep(380, 0.14, 'sine', 0.035, 420);
+      break;
+    case 'firework-burst':
+      noiseBurst(0.09, 0.055, 2600);
+      beep(980, 0.07, 'triangle', 0.04, -320);
+      window.setTimeout(() => {
+        noiseBurst(0.06, 0.03, 3200);
+        beep(1480, 0.05, 'sine', 0.025, -500);
+      }, 35);
+      break;
+    case 'celebrate':
+      beep(784, 0.055, 'square', 0.038);
+      window.setTimeout(() => beep(988, 0.055, 'square', 0.038), 55);
+      window.setTimeout(() => beep(1318.5, 0.09, 'triangle', 0.042), 110);
       break;
     default: {
       const neverName: never = name;

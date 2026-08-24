@@ -36,6 +36,82 @@ body {
   display: block;
 }
 
+#hud-pause {
+  display: none;
+  position: fixed;
+  z-index: 25;
+  box-sizing: border-box;
+  margin: 0;
+  min-width: 48px;
+  min-height: 48px;
+  padding: 0 12px;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  border: 3px solid #8a3038;
+  background: #2a1418;
+  color: #fff8f0;
+  font-family: 'Courier New', monospace;
+  font-size: clamp(14px, 2.6vh, 18px);
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  line-height: 1;
+  text-shadow: 0 2px 0 #12080a;
+  pointer-events: auto;
+  cursor: pointer;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  -webkit-touch-callout: none;
+  user-select: none;
+  transform-origin: center center;
+}
+
+body.hud-pause-on #hud-pause {
+  display: inline-flex;
+}
+
+.hud-pause-icon,
+.hud-pause-label {
+  pointer-events: none;
+}
+
+.hud-pause-icon {
+  display: flex;
+  align-items: stretch;
+  justify-content: center;
+  gap: 5px;
+  width: 14px;
+  height: 1.05em;
+}
+
+.hud-pause-icon span {
+  flex: 1;
+  background: currentColor;
+  box-shadow: 0 2px 0 #12080a;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .hud-pause-btn:hover {
+    background: #4a2228;
+    border-color: #ffd0a8;
+    color: #ffe9a8;
+  }
+}
+
+.hud-pause-btn:focus-visible {
+  background: #4a2228;
+  border-color: #ffd0a8;
+  color: #ffe9a8;
+  outline: none;
+  box-shadow: 0 0 0 2px #ffe9a8;
+}
+
+.hud-pause-btn:active,
+.hud-pause-btn.is-pressed {
+  background: #6a1820;
+  transform: scale(0.97);
+}
+
 @media (pointer: coarse) and (max-height: 500px), (hover: none) and (max-height: 500px) {
   :root {
     --touch-btn-size: clamp(100px, 28vmin, 132px);
