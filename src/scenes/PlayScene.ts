@@ -13,7 +13,7 @@ import {
 import {
   checkpointForLevelStart,
   clearCheckpoint,
-  collectMemory,
+  collectStar,
   collectibleMask,
   levelCollectibleCount,
   loadSave,
@@ -40,6 +40,9 @@ import { getLevel } from '../levels/worlds';
 import { audio } from '../systems/audio';
 import {
   checkpointPlaneX,
+  checkpointSpawnMatches,
+  isEarlierCheckpoint,
+  laterCheckpointIsActive,
   playerLeadX,
   reachedCheckpointPlane,
 } from '../systems/checkpoint-plane';
@@ -194,7 +197,7 @@ export class PlayScene extends Phaser.Scene {
     const savedCheckpoint = checkpointForLevelStart(this.levelId, this.fromDeath ? 'death' : 'fresh');
     if (savedCheckpoint && checkpointSpawnIsSafe(def.course.enemies, def.course.traps, savedCheckpoint)) {
       this.built.player.setPosition(savedCheckpoint.x, savedCheckpoint.y);
-      this.armSavedCheckpoints();
+      this.armSavedCheckpoint(savedCheckpoint);
     }
 
     this.physics.world.setBounds(0, 0, this.built.widthPx, this.built.heightPx + 400);
@@ -488,7 +491,7 @@ export class PlayScene extends Phaser.Scene {
         : `Special - ${this.special.label}  ${Math.ceil(this.special.cooldownRatio * 10)}`,
     );
     this.hudSpecial.setColor(this.special.ready ? '#fff0a8' : '#9aa5b1');
-    this.hudCollectibles.setText(`MEMORIES  ${levelCollectibleCount(this.levelId)}/3`);
+    this.hudCollectibles.setText(`STARS  ${levelCollectibleCount(this.levelId)}/3`);
     this.hudShield.setText(player.shielded ? 'SHIELD  READY' : 'SHIELD  —');
     const boss = worldBoss?.active ? worldBoss : miniBoss?.active ? miniBoss : undefined;
     if (boss && !boss.dying && boss.engaged) {
@@ -814,7 +817,7 @@ export class PlayScene extends Phaser.Scene {
       return;
     }
     const index = Number(pickup.getData('index'));
-    collectMemory(this.levelId, index);
+    collectStar(this.levelId, index);
     audio.play(this, 'collect');
     this.tweens.add({
       targets: pickup,
@@ -826,12 +829,27 @@ export class PlayScene extends Phaser.Scene {
     });
   }
 
-  private armSavedCheckpoints(): void {
-    for (const child of this.built.checkpoints.getChildren()) {
-      if (!('setData' in child)) {
+  private checkpointSprites(): Phaser.Physics.Arcade.Sprite[] {
+    return this.built.checkpoints.getChildren().filter((child): child is Phaser.Physics.Arcade.Sprite => {
+      return 'getData' in child && 'setData' in child;
+    });
+  }
+
+  private activeCheckpointXs(): number[] {
+    return this.checkpointSprites()
+      .filter((checkpoint) => checkpoint.getData('active') === true)
+      .map((checkpoint) => checkpointPlaneX(checkpoint));
+  }
+
+  private armSavedCheckpoint(saved: { x: number; y: number }): void {
+    for (const checkpoint of this.checkpointSprites()) {
+      const spawn = {
+        x: Number(checkpoint.getData('spawnX')),
+        y: Number(checkpoint.getData('spawnY')),
+      };
+      if (!checkpointSpawnMatches(spawn, saved)) {
         continue;
       }
-      const checkpoint = child as Phaser.Physics.Arcade.Sprite;
       checkpoint.setData('active', true);
       checkpointFlag(checkpoint)?.setTint(0x9be36e);
     }
@@ -839,14 +857,20 @@ export class PlayScene extends Phaser.Scene {
 
   private tryActivateCheckpoints(player: Player): void {
     const leadX = playerLeadX(player.x, player.arcadeBody.right);
-    for (const child of this.built.checkpoints.getChildren()) {
-      if (!('getData' in child)) {
-        continue;
-      }
-      const checkpoint = child as Phaser.Physics.Arcade.Sprite;
+    for (const checkpoint of this.checkpointSprites()) {
       if (reachedCheckpointPlane(leadX, checkpointPlaneX(checkpoint))) {
         this.activateCheckpoint(checkpoint);
       }
+    }
+  }
+
+  private deactivateEarlierCheckpoints(incomingX: number): void {
+    for (const checkpoint of this.checkpointSprites()) {
+      if (!isEarlierCheckpoint(checkpointPlaneX(checkpoint), incomingX)) {
+        continue;
+      }
+      checkpoint.setData('active', false);
+      checkpointFlag(checkpoint)?.clearTint();
     }
   }
 
@@ -854,6 +878,11 @@ export class PlayScene extends Phaser.Scene {
     if (checkpoint.getData('active') === true) {
       return;
     }
+    const incomingX = checkpointPlaneX(checkpoint);
+    if (laterCheckpointIsActive(incomingX, this.activeCheckpointXs())) {
+      return;
+    }
+    this.deactivateEarlierCheckpoints(incomingX);
     checkpoint.setData('active', true);
     const flag = checkpointFlag(checkpoint) ?? checkpoint;
     flag.setTint(0x9be36e);
@@ -899,7 +928,7 @@ export class PlayScene extends Phaser.Scene {
       .setDepth(50)
       .setResolution(2);
     this.hudCollectibles = this.add
-      .text(GAME_WIDTH / 2, 16, '', { ...style, color: '#bff29a', fontSize: '17px' })
+      .text(GAME_WIDTH / 2, 16, '', { ...style, color: '#fff4d0', fontSize: '17px' })
       .setOrigin(0.5, 0)
       .setScrollFactor(0)
       .setDepth(50)

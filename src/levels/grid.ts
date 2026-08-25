@@ -18,12 +18,13 @@ import {
   extraHillsForTraps,
   hazardFacing,
   hazardMount,
+  hazardThreatensTile,
   hillHeightAt,
   type TerrainHazardSpawn,
 } from '../entities/terrain-hazard';
 import { stampArena } from './arena';
 
-/** Convert tiles-above-ground to a row index. 2 is a full jump from the floor. */
+/** Convert tiles-above-ground to a row index. A held jump from the floor reaches 2.5 tiles. */
 export function rowAboveGround(tilesUp: number): number {
   return GROUND_Y - tilesUp;
 }
@@ -151,7 +152,7 @@ export interface CourseSpec {
   playerX?: number;
   pits?: [number, number][];
   lava?: [number, number][];
-  /** One-way ledges: [x, tilesAboveGround, width]. A full jump reaches 2 tiles. */
+  /** One-way ledges: [x, tilesAboveGround, width]. A held jump reaches 2.5 tiles. */
   plats?: [number, number, number][];
   /** Solid ledges: [x, tilesAboveGround, width]. */
   solids?: [number, number, number][];
@@ -194,12 +195,145 @@ export interface CompiledCourse {
   rows: string[];
   enemies: EnemySpawn[];
   traps: TerrainHazardSpawn[];
-  checkpoint: CoursePickup;
+  checkpoints: CoursePickup[];
   collectibles: [CoursePickup, CoursePickup, CoursePickup];
   shield: CoursePickup;
   special: SpecialKind;
   puzzles: PuzzleFeature[];
   miniVariant: MiniBossVariant | undefined;
+}
+
+/** Early stages keep one mid-course flag. Stages 3–4 split the run across two. */
+export function checkpointFractionsForStage(stage: number): readonly number[] {
+  return stage >= 3 ? [0.32, 0.62] : [0.5];
+}
+
+/** Stage 3–4 gauntlets add enemies as worlds get later. Specs are the floor. */
+export function lateStageEnemyQuota(world: number, stage: number): number {
+  if (stage === 3) {
+    return 12 + world;
+  }
+  if (stage === 4) {
+    return 7 + world;
+  }
+  return 0;
+}
+
+const EXTRA_ENEMY_SPACING = 6;
+const EXTRA_ENEMY_SPACING_FALLBACK = 4;
+
+function columnOpen(taken: ReadonlySet<number>, x: number, spacing: number): boolean {
+  for (let i = x - spacing + 1; i <= x + spacing - 1; i += 1) {
+    if (taken.has(i)) {
+      return false;
+    }
+  }
+  return true;
+}
+
+function nearestOpenSpawn(
+  candidates: ReadonlyArray<{ x: number; tilesUp: number }>,
+  desired: number,
+  taken: ReadonlySet<number>,
+  spacing: number,
+): { x: number; tilesUp: number } | undefined {
+  let best: { x: number; tilesUp: number; dist: number } | undefined;
+  for (const candidate of candidates) {
+    if (!columnOpen(taken, candidate.x, spacing)) {
+      continue;
+    }
+    const dist = Math.abs(candidate.x - desired);
+    if (!best || dist < best.dist) {
+      best = { x: candidate.x, tilesUp: candidate.tilesUp, dist };
+    }
+  }
+  return best ? { x: best.x, tilesUp: best.tilesUp } : undefined;
+}
+
+function groundSpawnCandidates(
+  rows: string[],
+  minX: number,
+  maxX: number,
+): Array<{ x: number; tilesUp: number }> {
+  const found: Array<{ x: number; tilesUp: number }> = [];
+  for (const span of walkableSpans(rows)) {
+    const start = Math.max(span.start, minX);
+    const end = Math.min(span.end, maxX + 1);
+    for (let x = start; x < end; x += 1) {
+      found.push({ x, tilesUp: 0 });
+    }
+  }
+  return found;
+}
+
+function ledgeSpawnCandidates(
+  rows: string[],
+  minX: number,
+  maxX: number,
+): Array<{ x: number; tilesUp: number }> {
+  const width = rows[0]?.length ?? 0;
+  const found: Array<{ x: number; tilesUp: number }> = [];
+  for (let y = 1; y < GROUND_Y; y += 1) {
+    const row = rows[y] ?? '';
+    const above = rows[y - 1] ?? '';
+    const tilesUp = GROUND_Y - y;
+    if (tilesUp < JUMP_REACH_TILES) {
+      continue;
+    }
+    for (let x = Math.max(0, minX); x <= Math.min(maxX, width - 1); x += 1) {
+      const cell = row[x];
+      if ((cell === '=' || cell === '#') && above[x] === '.') {
+        found.push({ x, tilesUp });
+      }
+    }
+  }
+  return found;
+}
+
+function topUpLateStageEnemies(
+  world: number,
+  stage: number,
+  spec: CourseSpec,
+  rows: string[],
+  rawSpawns: Array<{ x: number; tilesUp: number }>,
+  spawnX: number,
+): Array<{ x: number; tilesUp: number }> {
+  const needed = lateStageEnemyQuota(world, stage) - rawSpawns.length;
+  if (needed <= 0) {
+    return [];
+  }
+  const fightX = spec.boss ?? spec.mini ?? spec.width;
+  const minX = 10;
+  const maxX = Math.max(minX + 8, fightX - 12);
+  const taken = new Set<number>();
+  occupy(taken, spawnX, 4);
+  for (const spawn of rawSpawns) {
+    taken.add(spawn.x);
+  }
+  for (const trap of spec.traps ?? []) {
+    occupy(taken, trap, 2);
+  }
+  const ground = groundSpawnCandidates(rows, minX, maxX);
+  const air = ledgeSpawnCandidates(rows, minX, maxX);
+  const extras: Array<{ x: number; tilesUp: number }> = [];
+  for (const spacing of [EXTRA_ENEMY_SPACING, EXTRA_ENEMY_SPACING_FALLBACK]) {
+    while (extras.length < needed) {
+      const index = extras.length;
+      const desired = minX + ((index + 1) / (needed + 1)) * (maxX - minX);
+      const preferAir = index % 3 === 2;
+      const primary = preferAir ? air : ground;
+      const fallback = preferAir ? ground : air;
+      const picked =
+        nearestOpenSpawn(primary, desired, taken, spacing) ??
+        nearestOpenSpawn(fallback, desired, taken, spacing);
+      if (!picked) {
+        break;
+      }
+      extras.push(picked);
+      taken.add(picked.x);
+    }
+  }
+  return extras;
 }
 
 export function buildCourse(spec: CourseSpec, theme: Theme = 'grass'): string[] {
@@ -250,6 +384,24 @@ export function buildCourse(spec: CourseSpec, theme: Theme = 'grass'): string[] 
 function occupy(blocked: Set<number>, x: number, radius: number): void {
   for (let i = x - radius; i <= x + radius; i += 1) {
     blocked.add(i);
+  }
+}
+
+function occupyTrapThreats(
+  blocked: Set<number>,
+  trapXs: readonly number[],
+  theme: Theme,
+  width: number,
+): void {
+  const kind = hazardForTheme(theme);
+  const facing = hazardFacing(kind);
+  for (const trapX of trapXs) {
+    occupy(blocked, trapX, 1);
+    for (let x = 0; x < width; x += 1) {
+      if (hazardThreatensTile(kind, trapX, x, facing)) {
+        blocked.add(x);
+      }
+    }
   }
 }
 
@@ -376,6 +528,28 @@ function safeFloorX(rows: string[], desired: number, blocked: ReadonlySet<number
   return find(true) ?? find(false) ?? 3;
 }
 
+const CHECKPOINT_GAP_TILES = 20;
+
+function placeCourseCheckpoints(
+  rows: string[],
+  spec: CourseSpec,
+  stage: number,
+  blocked: Set<number>,
+): CoursePickup[] {
+  const fightX = spec.boss ?? spec.mini ?? spec.width;
+  const playableEnd = Math.max(24, Math.min(spec.width - 8, fightX - 10));
+  const placed: CoursePickup[] = [];
+  let minX = 8;
+  for (const fraction of checkpointFractionsForStage(stage)) {
+    const desired = Math.max(minX, Math.floor(playableEnd * fraction));
+    const x = safeFloorX(rows, desired, blocked);
+    occupy(blocked, x, 1);
+    placed.push({ x, tilesUp: 0 });
+    minX = x + CHECKPOINT_GAP_TILES;
+  }
+  return placed;
+}
+
 function assignEnemyKinds(world: number, stage: number, count: number): EnemyKind[] {
   const [movement, ranged] = enemiesForWorld(world);
   const available = stage === 1 ? [movement] : [movement, ranged];
@@ -448,23 +622,27 @@ export function compileCourse(world: number, stage: number, spec: CourseSpec, th
     ...groundEnemyX.map((x) => ({ x, tilesUp: 0 })),
     ...airEnemyPositions.map(([x, tilesUp]) => ({ x, tilesUp })),
   ];
-  const blocked = new Set<number>();
-  occupy(blocked, spec.playerX ?? 3, 3);
-  for (const x of groundEnemyX) {
-    occupy(blocked, x, 2);
-  }
-  for (const x of trapXs) {
-    occupy(blocked, x, 1);
-  }
   const spawnX = spec.playerX ?? 3;
-  const checkpointX = safeFloorX(rows, Math.floor(spec.width * 0.5), blocked);
-  const kinds = assignSafeEnemyKinds(world, stage, rawSpawns, [spawnX, checkpointX]);
+  rawSpawns.push(...topUpLateStageEnemies(world, stage, spec, rows, rawSpawns, spawnX));
+  const blocked = new Set<number>();
+  occupy(blocked, spawnX, 3);
+  for (const spawn of rawSpawns) {
+    if (spawn.tilesUp === 0) {
+      occupy(blocked, spawn.x, 2);
+    }
+  }
+  occupyTrapThreats(blocked, trapXs, theme, spec.width);
+  const checkpoints = placeCourseCheckpoints(rows, spec, stage, blocked);
+  const originXs = [spawnX, ...checkpoints.map((checkpoint) => checkpoint.x)];
+  const kinds = assignSafeEnemyKinds(world, stage, rawSpawns, originXs);
   const enemies = rawSpawns.map((spawn, index) => ({
     ...spawn,
     kind: kinds[index] ?? enemiesForWorld(world)[0],
   }));
   const featureBlocked = new Set(blocked);
-  occupy(featureBlocked, checkpointX, 1);
+  for (const checkpoint of checkpoints) {
+    occupy(featureBlocked, checkpoint.x, 1);
+  }
   const collectibleA = safeFloorX(rows, Math.floor(spec.width * 0.23), featureBlocked);
   occupy(featureBlocked, collectibleA, 1);
   const collectibleB = safeFloorX(rows, Math.floor(spec.width * 0.51), featureBlocked);
@@ -476,7 +654,9 @@ export function compileCourse(world: number, stage: number, spec: CourseSpec, th
   const puzzleKind = puzzleForTheme(theme);
   const puzzleBlocked = new Set(blocked);
   if (isSolidPuzzle(puzzleKind) || puzzleKind === 'down-current') {
-    occupy(puzzleBlocked, checkpointX, 1);
+    for (const checkpoint of checkpoints) {
+      occupy(puzzleBlocked, checkpoint.x, 1);
+    }
   }
   const puzzleCount = stage === 4 ? 1 : stage;
   const puzzles = Array.from({ length: puzzleCount }, (_, index) => {
@@ -506,7 +686,7 @@ export function compileCourse(world: number, stage: number, spec: CourseSpec, th
     rows,
     enemies,
     traps,
-    checkpoint: { x: checkpointX, tilesUp: 0 },
+    checkpoints,
     collectibles: [
       { x: collectibleA, tilesUp: 2 },
       { x: collectibleB, tilesUp: stage >= 2 ? 3 : 2 },

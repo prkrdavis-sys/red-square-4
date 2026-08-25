@@ -2,7 +2,7 @@ import Phaser from 'phaser';
 import { GROUND_Y, MAP_ROWS, TILE, type Theme } from '../config';
 import { Baddie } from '../entities/Baddie';
 import { Boss } from '../entities/Boss';
-import { MemoryGem } from '../entities/MemoryGem';
+import { Star } from '../entities/Star';
 import { Player } from '../entities/Player';
 import { TerrainHazard } from '../entities/TerrainHazard';
 import {
@@ -177,7 +177,7 @@ export function buildLevel(
   }
 
   course.collectibles.forEach((pickup, index) => {
-    const collectible = new MemoryGem(
+    const collectible = new Star(
       scene,
       pickup.x * TILE + TILE / 2,
       (GROUND_Y - pickup.tilesUp) * TILE - TILE / 2,
@@ -193,7 +193,9 @@ export function buildLevel(
   ) as Phaser.Physics.Arcade.Sprite;
   shield.setDepth(14);
 
-  addCheckpoint(scene, checkpoints, course, MAP_ROWS * TILE);
+  for (const [index, pickup] of course.checkpoints.entries()) {
+    addCheckpoint(scene, checkpoints, pickup, MAP_ROWS * TILE, index);
+  }
 
   for (const puzzle of course.puzzles) {
     addPuzzleTarget(scene, puzzleTargets, puzzle);
@@ -314,10 +316,11 @@ function addDownCurrentZone(
 function addCheckpoint(
   scene: Phaser.Scene,
   group: Phaser.Physics.Arcade.StaticGroup,
-  course: CompiledCourse,
+  pickup: { x: number; tilesUp: number },
   worldHeightPx: number,
+  index: number,
 ): void {
-  const planeX = course.checkpoint.x * TILE + TILE / 2;
+  const planeX = pickup.x * TILE + TILE / 2;
   const flag = scene.add.image(planeX, GROUND_Y * TILE - 30, 'checkpoint').setDepth(13);
   const planeHeight = worldHeightPx + 400;
   const plane = group.create(planeX, planeHeight / 2, 'checkpoint') as Phaser.Physics.Arcade.Sprite;
@@ -326,8 +329,9 @@ function addCheckpoint(
   const body = plane.body as Phaser.Physics.Arcade.StaticBody;
   body.setSize(TILE, planeHeight);
   body.updateFromGameObject();
+  plane.setData('index', index);
   plane.setData('spawnX', planeX);
-  plane.setData('spawnY', (GROUND_Y - 1) * TILE + TILE / 2);
+  plane.setData('spawnY', (GROUND_Y - pickup.tilesUp - 1) * TILE + TILE / 2);
   plane.setData('flag', flag);
 }
 

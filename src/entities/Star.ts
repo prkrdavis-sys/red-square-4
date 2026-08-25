@@ -1,29 +1,29 @@
 import Phaser from 'phaser';
 
 const RAY_SPIN_MS = 9000;
-const GEM_SCALE = 0.48;
+const STAR_SCALE = 0.5;
 
-export class MemoryGem extends Phaser.Physics.Arcade.Sprite {
+export class Star extends Phaser.Physics.Arcade.Sprite {
   private readonly rays: Phaser.GameObjects.Image;
 
   constructor(scene: Phaser.Scene, x: number, y: number) {
-    super(scene, x, y, 'memory-gem');
+    super(scene, x, y, 'star');
     scene.add.existing(this);
     scene.physics.add.existing(this);
 
     const body = this.body as Phaser.Physics.Arcade.Body;
     body.setAllowGravity(false);
     body.setImmovable(true);
-    body.setSize(50, 54);
-    body.setOffset(11, 13);
+    body.setSize(48, 48);
+    body.setOffset(12, 12);
 
     this.setDepth(15);
-    this.setScale(GEM_SCALE);
+    this.setScale(STAR_SCALE);
 
-    this.rays = scene.add.image(x, y, 'memory-rays');
+    this.rays = scene.add.image(x, y, 'star-rays');
     this.rays.setDepth(14);
     this.rays.setBlendMode(Phaser.BlendModes.ADD);
-    this.rays.setScale(GEM_SCALE);
+    this.rays.setScale(STAR_SCALE);
 
     this.once('destroy', () => this.rays.destroy());
   }
@@ -35,5 +35,6 @@ export class MemoryGem extends Phaser.Physics.Arcade.Sprite {
     this.rays.setAlpha(this.alpha * 0.9);
     this.rays.setScale(this.scaleX * pulse);
     this.rays.angle += delta * (360 / RAY_SPIN_MS);
+    this.angle = Math.sin(time / 420) * 7;
   }
 }

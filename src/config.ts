@@ -3,9 +3,19 @@ export const GAME_HEIGHT = 720;
 export const TILE = 64;
 export const MAP_ROWS = 12;
 export const GROUND_Y = 9;
-/** Full jump peak is just over 2 tiles, so ledges must step by this much. */
+/** Held-jump peak height. A 2-tile ledge is reachable from the floor. */
+export const JUMP_HEIGHT_TILES = 2.5;
+/** Integer ledge step used by course layout. */
 export const JUMP_REACH_TILES = 2;
-export const STOMP_BOUNCE_VELOCITY = -840;
+/** Peak after stomping an enemy. */
+export const STOMP_BOUNCE_HEIGHT_TILES = 4;
+
+/** Upward velocity that peaks at `heightTiles` under `gravity`. */
+export function launchVelocity(gravity: number, heightTiles: number): number {
+  return -Math.sqrt(2 * gravity * heightTiles * TILE);
+}
+
+export const STOMP_BOUNCE_VELOCITY = launchVelocity(1800, STOMP_BOUNCE_HEIGHT_TILES);
 export const RANGED_ATTACK_RANGE = 620;
 
 export const START_LIVES = 3;
@@ -160,6 +170,8 @@ export function enemiesForWorld(world: number): readonly [EnemyKind, EnemyKind] 
   }
 }
 
+export const ENEMY_KINDS: EnemyKind[] = [1, 2, 3, 4, 5, 6].flatMap((world) => [...enemiesForWorld(world)]);
+
 export function hazardForTheme(theme: Theme): TerrainHazardKind {
   switch (theme) {
     case 'grass':
@@ -238,18 +250,30 @@ export function themeSky(theme: Theme): number {
 
 export function themePhysics(theme: Theme): ThemePhysics {
   switch (theme) {
-    case 'grass':
-      return { accel: 1800, maxSpeed: 290, groundDrag: 1800, gravity: 1800, jump: -720 };
-    case 'snow':
-      return { accel: 700, maxSpeed: 320, groundDrag: 80, gravity: 1800, jump: -720 };
-    case 'desert':
-      return { accel: 1700, maxSpeed: 300, groundDrag: 1600, gravity: 1750, jump: -740 };
-    case 'ocean':
-      return { accel: 1200, maxSpeed: 240, groundDrag: 900, gravity: 980, jump: -560 };
-    case 'castle':
-      return { accel: 1800, maxSpeed: 300, groundDrag: 1800, gravity: 1950, jump: -740 };
-    case 'rainforest':
-      return { accel: 1700, maxSpeed: 300, groundDrag: 1400, gravity: 1700, jump: -730 };
+    case 'grass': {
+      const gravity = 1800;
+      return { accel: 1800, maxSpeed: 290, groundDrag: 1800, gravity, jump: launchVelocity(gravity, JUMP_HEIGHT_TILES) };
+    }
+    case 'snow': {
+      const gravity = 1800;
+      return { accel: 700, maxSpeed: 320, groundDrag: 80, gravity, jump: launchVelocity(gravity, JUMP_HEIGHT_TILES) };
+    }
+    case 'desert': {
+      const gravity = 1750;
+      return { accel: 1700, maxSpeed: 300, groundDrag: 1600, gravity, jump: launchVelocity(gravity, JUMP_HEIGHT_TILES) };
+    }
+    case 'ocean': {
+      const gravity = 980;
+      return { accel: 1200, maxSpeed: 240, groundDrag: 900, gravity, jump: launchVelocity(gravity, JUMP_HEIGHT_TILES) };
+    }
+    case 'castle': {
+      const gravity = 1950;
+      return { accel: 1800, maxSpeed: 300, groundDrag: 1800, gravity, jump: launchVelocity(gravity, JUMP_HEIGHT_TILES) };
+    }
+    case 'rainforest': {
+      const gravity = 1700;
+      return { accel: 1700, maxSpeed: 300, groundDrag: 1400, gravity, jump: launchVelocity(gravity, JUMP_HEIGHT_TILES) };
+    }
     default: {
       const neverTheme: never = theme;
       return neverTheme;

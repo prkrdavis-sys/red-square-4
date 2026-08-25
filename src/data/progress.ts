@@ -348,7 +348,7 @@ function unlockBossIfEligible(save: SaveData, world: number): void {
   }
 }
 
-export function collectMemory(id: LevelId, index: number): SaveData {
+export function collectStar(id: LevelId, index: number): SaveData {
   if (index < 0 || index > 2) {
     return loadSave();
   }

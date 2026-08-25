@@ -16,3 +16,19 @@ export function playerLeadX(x: number, bodyRight: number): number {
 export function reachedCheckpointPlane(leadX: number, planeX: number): boolean {
   return Number.isFinite(leadX) && Number.isFinite(planeX) && leadX >= planeX;
 }
+
+/** A farther active flag blocks re-arming an earlier one. */
+export function laterCheckpointIsActive(incomingX: number, activeXs: readonly number[]): boolean {
+  return activeXs.some((x) => Number.isFinite(x) && x > incomingX);
+}
+
+export function isEarlierCheckpoint(candidateX: number, incomingX: number): boolean {
+  return Number.isFinite(candidateX) && Number.isFinite(incomingX) && candidateX < incomingX;
+}
+
+export function checkpointSpawnMatches(
+  spawn: { x: number; y: number },
+  saved: { x: number; y: number },
+): boolean {
+  return Math.abs(spawn.x - saved.x) < 2 && Math.abs(spawn.y - saved.y) < 2;
+}

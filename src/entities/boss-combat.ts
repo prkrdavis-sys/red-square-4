@@ -117,17 +117,25 @@ export function crownGuardVisible(input: {
   return input.engaged && !input.dying && stompBlocked(input);
 }
 
+/** Texture size of `boss-crown-guard`; used to cover the hurtbox. */
+const CROWN_GUARD_TEXTURE = { width: 80, height: 72 };
+
 export function crownGuardLayout(
   x: number,
-  bodyTop: number,
+  bodyCenterY: number,
   bodyWidth: number,
+  bodyHeight: number,
   now: number,
 ): { x: number; y: number; scale: number; alpha: number } {
   const pulse = 0.5 + 0.5 * Math.sin(now / 90);
+  const fit = Math.min(
+    (bodyWidth * 1.22) / CROWN_GUARD_TEXTURE.width,
+    (bodyHeight * 1.08) / CROWN_GUARD_TEXTURE.height,
+  );
   return {
     x,
-    y: bodyTop + 8,
-    scale: Math.max(0.88, bodyWidth / 68) * (0.94 + pulse * 0.1),
-    alpha: 0.74 + pulse * 0.26,
+    y: bodyCenterY,
+    scale: Math.max(1.05, fit) * (0.96 + pulse * 0.08),
+    alpha: 0.5 + pulse * 0.12,
   };
 }

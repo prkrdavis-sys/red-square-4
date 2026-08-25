@@ -81,10 +81,10 @@ export class WorldMapScene extends Phaser.Scene {
         })
         .setOrigin(0.5);
       this.add
-        .text(x + band / 2, 198, `MEMORIES ${worldCollectibleCount(save, world)}/12`, {
+        .text(x + band / 2, 198, `STARS ${worldCollectibleCount(save, world)}/12`, {
           fontFamily: 'Courier New, monospace',
           fontSize: '11px',
-          color: '#d9f5a8',
+          color: '#fff4d0',
         })
         .setOrigin(0.5);
     }
@@ -115,6 +115,21 @@ export class WorldMapScene extends Phaser.Scene {
           color: unlocked ? '#222222' : '#888888',
         })
         .setOrigin(0.5);
+      const stars = levelCollectibleCount(node.id, save);
+      const starIcon = this.add.image(node.x - 12, node.y + 26, 'star').setScale(0.22);
+      if (!unlocked || stars === 0) {
+        starIcon.setTint(0x6a7380);
+        starIcon.setAlpha(unlocked ? 0.7 : 0.35);
+      }
+      this.add
+        .text(node.x + 2, node.y + 26, `${stars}/3`, {
+          fontFamily: 'Courier New, monospace',
+          fontSize: '11px',
+          color: unlocked ? '#fff4d0' : '#6a7380',
+          stroke: '#12080a',
+          strokeThickness: 3,
+        })
+        .setOrigin(0, 0.5);
       if (unlocked) {
         const hit = this.add.zone(node.x, node.y, 88, 88);
         hit.setInteractive({ useHandCursor: true });
@@ -296,9 +311,9 @@ export class WorldMapScene extends Phaser.Scene {
     const level = getLevel(node.id);
     const cleared = loadSave().cleared.includes(node.id);
     const boss = level.stage === 4 ? 'world boss' : 'mini-boss';
-    const memories = levelCollectibleCount(node.id);
+    const stars = levelCollectibleCount(node.id);
     const meta = cleared ? `${boss}   ·   cleared` : boss;
-    this.hint.setText(`${node.id}   ${level.name}\n${meta}   ·   memories ${memories}/3`);
+    this.hint.setText(`${node.id}   ${level.name}\n${meta}   ·   stars ${stars}/3`);
   }
 
   private playSelected(): void {

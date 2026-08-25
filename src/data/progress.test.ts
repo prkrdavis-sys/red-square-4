@@ -3,6 +3,7 @@ import {
   checkpointForLevelStart,
   clearCheckpoint,
   getCheckpoint,
+  markCleared,
   session,
   setCheckpoint,
   writeSave,
@@ -45,5 +46,13 @@ describe('checkpoints', () => {
     setCheckpoint('1-2', 640, 320);
     expect(checkpointForLevelStart('1-2', 'fresh')).toBeUndefined();
     expect(checkpointForLevelStart('1-2', 'death')).toEqual({ x: 640, y: 320 });
+  });
+
+  it('forgets a level checkpoint after a clear so the next run starts at the beginning', () => {
+    setCheckpoint('1-3', 640, 320);
+    markCleared('1-3');
+    expect(getCheckpoint('1-3')).toBeUndefined();
+    expect(checkpointForLevelStart('1-3', 'fresh')).toBeUndefined();
+    expect(checkpointForLevelStart('1-3', 'death')).toBeUndefined();
   });
 });

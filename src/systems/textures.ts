@@ -11,6 +11,7 @@ import {
   type HeroPalette,
   type SkinDef,
 } from '../data/skins';
+import { createEnemyTextures } from './enemies';
 import { createForegroundTextures } from './foreground';
 import { createLandscapeTextures } from './landscapes';
 import { createMiniBossTextures } from './mini-bosses';
@@ -882,7 +883,17 @@ function drawFireworkSpark(scene: Phaser.Scene): void {
   commit(g, 'firework-spark', 8, 8);
 }
 
-function drawMemoryRays(scene: Phaser.Scene): void {
+function starPoints(cx: number, cy: number, outer: number, inner: number): Array<{ x: number; y: number }> {
+  const points: Array<{ x: number; y: number }> = [];
+  for (let i = 0; i < 10; i += 1) {
+    const radius = i % 2 === 0 ? outer : inner;
+    const angle = -Math.PI / 2 + (i * Math.PI) / 5;
+    points.push({ x: cx + Math.cos(angle) * radius, y: cy + Math.sin(angle) * radius });
+  }
+  return points;
+}
+
+function drawStarRays(scene: Phaser.Scene): void {
   const g = gfx(scene);
   const cx = 64;
   const cy = 64;
@@ -905,63 +916,26 @@ function drawMemoryRays(scene: Phaser.Scene): void {
       cy + Math.sin(angle + spread) * outer,
     );
   }
-  commit(g, 'memory-rays', 128, 128);
+  commit(g, 'star-rays', 128, 128);
 }
 
 function drawCampaignPickups(scene: Phaser.Scene): void {
-  const memory = gfx(scene);
+  const star = gfx(scene);
   const cx = 36;
-  memory.fillStyle(0xfff4b0, 0.32);
-  memory.fillCircle(cx, 38, 34);
-  memory.fillStyle(0x4a2408, 1);
-  fillPoly(memory, [
-    { x: cx, y: 4 },
-    { x: 68, y: 30 },
-    { x: cx, y: 70 },
-    { x: 4, y: 30 },
-  ]);
-  memory.fillStyle(0xf0c75a, 1);
-  fillPoly(memory, [
-    { x: cx, y: 10 },
-    { x: 18, y: 30 },
-    { x: cx, y: 30 },
-  ]);
-  memory.fillStyle(0xd4a017, 1);
-  fillPoly(memory, [
-    { x: cx, y: 10 },
-    { x: 54, y: 30 },
-    { x: cx, y: 30 },
-  ]);
-  memory.fillStyle(0x8a5a10, 1);
-  fillPoly(memory, [
-    { x: cx, y: 30 },
-    { x: 18, y: 30 },
-    { x: cx, y: 64 },
-  ]);
-  memory.fillStyle(0xb07a14, 1);
-  fillPoly(memory, [
-    { x: cx, y: 30 },
-    { x: 54, y: 30 },
-    { x: cx, y: 64 },
-  ]);
-  memory.fillStyle(0xffe88a, 1);
-  fillPoly(memory, [
-    { x: 24, y: 30 },
-    { x: 48, y: 30 },
-    { x: cx, y: 20 },
-  ]);
-  memory.lineStyle(2, 0x5a2a08, 0.45);
-  memory.lineBetween(cx, 10, cx, 64);
-  memory.lineBetween(18, 30, 54, 30);
-  memory.lineBetween(cx, 10, 18, 30);
-  memory.lineBetween(cx, 10, 54, 30);
-  memory.lineBetween(18, 30, cx, 64);
-  memory.lineBetween(54, 30, cx, 64);
-  memory.fillStyle(0xfffef0, 0.95);
-  memory.fillEllipse(26, 22, 14, 8);
-  memory.fillCircle(44, 36, 3.4);
-  commit(memory, 'memory-gem', 72, 72);
-  drawMemoryRays(scene);
+  const cy = 38;
+  star.fillStyle(0xfff4b0, 0.32);
+  star.fillCircle(cx, cy, 34);
+  star.fillStyle(0x4a2408, 1);
+  fillPoly(star, starPoints(cx, cy, 32, 13));
+  star.fillStyle(0xf0c75a, 1);
+  fillPoly(star, starPoints(cx, cy, 28, 11.5));
+  star.fillStyle(0xffe88a, 1);
+  fillPoly(star, starPoints(cx, cy, 18, 7.6));
+  star.fillStyle(0xfffef0, 0.95);
+  star.fillEllipse(cx - 7, cy - 8, 12, 7);
+  star.fillCircle(cx + 8, cy + 2, 2.6);
+  commit(star, 'star', 72, 72);
+  drawStarRays(scene);
 
   const shield = gfx(scene);
   const sx = 32;
@@ -1526,26 +1500,22 @@ function drawHeldShield(scene: Phaser.Scene): void {
 function drawBossCrownGuard(scene: Phaser.Scene): void {
   const g = gfx(scene);
   const cx = 40;
-  g.fillStyle(0xffe08a, 0.22);
-  g.fillEllipse(cx, 36, 76, 58);
-  g.fillStyle(0xe23b3b, 0.3);
-  g.fillEllipse(cx, 34, 64, 46);
-  g.fillStyle(0xffc85a, 0.22);
-  g.fillEllipse(cx, 28, 48, 30);
-  const outline = heaterShieldPoints(cx, 6, 48, 58);
-  const rim = heaterShieldPoints(cx, 10, 40, 50);
-  const face = heaterShieldPoints(cx, 14, 32, 42);
-  g.fillStyle(0x3a1808, 0.92);
+  g.fillStyle(0xffe08a, 0.2);
+  g.fillEllipse(cx, 36, 76, 64);
+  const outline = heaterShieldPoints(cx, 4, 70, 64);
+  const rim = heaterShieldPoints(cx, 8, 60, 56);
+  const face = heaterShieldPoints(cx, 12, 50, 48);
+  g.fillStyle(0x3a1808, 0.55);
   fillPoly(g, outline);
-  g.fillStyle(0xd4a24a, 1);
+  g.fillStyle(0xf0c75a, 0.72);
   fillPoly(g, rim);
-  g.fillStyle(0xff5a4a, 0.94);
+  g.fillStyle(0xffe08a, 0.38);
   fillPoly(g, face);
-  g.fillStyle(0xfff0c0, 0.95);
-  g.fillRect(cx - 2.5, 18, 5, 28);
-  g.fillRect(cx - 11, 28, 22, 5);
-  g.fillStyle(0xfffef0, 0.88);
-  g.fillEllipse(cx - 8, 16, 12, 7);
+  g.fillStyle(0xfff8d0, 0.7);
+  g.fillRect(cx - 2.2, 18, 4.4, 30);
+  g.fillRect(cx - 12, 30, 24, 4.4);
+  g.fillStyle(0xfffef0, 0.5);
+  g.fillEllipse(cx - 10, 18, 16, 9);
   commit(g, 'boss-crown-guard', 80, 72);
 }
 
@@ -1815,6 +1785,7 @@ export function createGameTextures(scene: Phaser.Scene): void {
   drawBaddie(scene, 'baddie', 36, 0x2a2a2a, 0x5a5a5a, 0xff2020);
   drawBaddie(scene, 'baddie-alt', 36, 0x3a3a3a, 0x6e6e6e, 0xff3030);
   drawBaddie(scene, 'mini-boss', 56, 0x1f1f1f, 0x4a4a4a, 0xff1515);
+  createEnemyTextures(scene);
   createMiniBossTextures(scene);
   createWorldBossTextures(scene);
   drawLavaTile(scene);

@@ -3,9 +3,13 @@ import {
   ALL_LEVEL_IDS,
   BOSS_KINDS,
   GROUND_Y,
+  JUMP_HEIGHT_TILES,
   JUMP_REACH_TILES,
   MAP_ROWS,
+  STOMP_BOUNCE_HEIGHT_TILES,
   STOMP_BOUNCE_VELOCITY,
+  launchVelocity,
+  themePhysics,
   THEMES,
   TILE,
   enemyRole,
@@ -15,13 +19,20 @@ import {
   parseLevelId,
   specialForTheme,
   worldBossKind,
+  type LevelId,
 } from '../config';
 import { hazardThreatensTile } from '../entities/terrain-hazard';
 import { miniBossTextureKey, worldBossTextureKey } from '../systems/characters';
 import { getLevel } from './worlds';
 import { bossSafeLandingX, getArenaLayout, type ArenaKeep } from './arena';
 import { colliderBox, colliderRuns, enableOneWayCollision, liftOntoFloor, ONEWAY_HEIGHT } from './colliders';
-import { buildCourse, NO_JUMP_ZONE_RUNUP, NO_JUMP_ZONE_WIDTH, placeNoJumpZone } from './grid';
+import {
+  buildCourse,
+  lateStageEnemyQuota,
+  NO_JUMP_ZONE_RUNUP,
+  NO_JUMP_ZONE_WIDTH,
+  placeNoJumpZone,
+} from './grid';
 import {
   crownGuardLayout,
   crownGuardVisible,
@@ -29,6 +40,43 @@ import {
   isFallingStomp,
   stompBlocked,
 } from '../entities/boss-combat';
+
+describe('late-stage length and checkpoints', () => {
+  it('makes stage 3 and 4 longer than the early courses and gives them two flags', () => {
+    for (let world = 1; world <= 6; world += 1) {
+      const early = [`${world}-1`, `${world}-2`] as LevelId[];
+      const late = [`${world}-3`, `${world}-4`] as LevelId[];
+      const earlyWidth = Math.max(...early.map((id) => getLevel(id).rows[0]?.length ?? 0));
+      for (const id of late) {
+        const level = getLevel(id);
+        const width = level.rows[0]?.length ?? 0;
+        expect(width, id).toBeGreaterThan(earlyWidth);
+        expect(level.course.checkpoints, id).toHaveLength(2);
+        const [first, second] = level.course.checkpoints;
+        expect(second?.x ?? 0, id).toBeGreaterThan((first?.x ?? 0) + 16);
+      }
+      expect(getLevel(`${world}-1` as LevelId).course.checkpoints).toHaveLength(1);
+      expect(getLevel(`${world}-2` as LevelId).course.checkpoints).toHaveLength(1);
+    }
+  });
+
+  it('packs more enemies into x-3 and x-4 as worlds get later', () => {
+    const stageCounts = (stage: 3 | 4) =>
+      ([1, 2, 3, 4, 5, 6] as const).map((world) => getLevel(`${world}-${stage}`).course.enemies.length);
+    expect(stageCounts(3)).toEqual([1, 2, 3, 4, 5, 6].map((world) => lateStageEnemyQuota(world, 3)));
+    expect(stageCounts(4)).toEqual([1, 2, 3, 4, 5, 6].map((world) => lateStageEnemyQuota(world, 4)));
+    for (let world = 1; world <= 6; world += 1) {
+      expect(getLevel(`${world}-3` as LevelId).course.enemies.length).toBeGreaterThan(
+        getLevel(`${world}-2` as LevelId).course.enemies.length,
+      );
+    }
+    expect(lateStageEnemyQuota(1, 3)).toBe(13);
+    expect(lateStageEnemyQuota(6, 3)).toBe(18);
+    expect(lateStageEnemyQuota(1, 4)).toBe(8);
+    expect(lateStageEnemyQuota(6, 4)).toBe(13);
+    expect(lateStageEnemyQuota(3, 1)).toBe(0);
+  });
+});
 
 describe('biome campaign compilation', () => {
   it('compiles every course with complete progression features', () => {
@@ -41,7 +89,10 @@ describe('biome campaign compilation', () => {
       expect(level.rows.every((row) => row.length === width)).toBe(true);
       expect(level.course.collectibles).toHaveLength(3);
       expect(level.course.puzzles.length).toBe(level.stage === 4 ? 1 : level.stage);
-      expect(level.rows[GROUND_Y]?.[level.course.checkpoint.x]).toMatch(/[#@]/);
+      expect(level.course.checkpoints.length).toBe(level.stage >= 3 ? 2 : 1);
+      for (const checkpoint of level.course.checkpoints) {
+        expect(level.rows[GROUND_Y]?.[checkpoint.x]).toMatch(/[#@]/);
+      }
       expect(level.course.miniVariant).toBe(level.stage < 4 ? level.stage : undefined);
       expect(level.rows.join('')).toContain(level.stage < 4 ? 'm' : 'B');
       expect(level.rows.join('')).toContain('W');
@@ -116,13 +167,17 @@ describe('biome campaign compilation', () => {
       const groundEnemies = level.course.enemies.filter((enemy) => enemy.tilesUp === 0);
       expect(groundEnemies.some((enemy) => enemy.x === spawnX), id).toBe(false);
       expect(
-        groundEnemies.some((enemy) => Math.abs(enemy.x - level.course.checkpoint.x) <= 1),
+        groundEnemies.some((enemy) =>
+          level.course.checkpoints.some((checkpoint) => Math.abs(enemy.x - checkpoint.x) <= 1),
+        ),
         id,
       ).toBe(false);
       expect(level.course.traps.every((trap) => trap.x >= 8), id).toBe(true);
       expect(level.course.traps.some((trap) => trap.x === spawnX), id).toBe(false);
       expect(
-        level.course.traps.some((trap) => Math.abs(trap.x - level.course.checkpoint.x) <= 1),
+        level.course.traps.some((trap) =>
+          level.course.checkpoints.some((checkpoint) => Math.abs(trap.x - checkpoint.x) <= 1),
+        ),
         id,
       ).toBe(false);
       for (const puzzle of level.course.puzzles) {
@@ -136,21 +191,29 @@ describe('biome campaign compilation', () => {
         }
         expect(groundEnemies.some((enemy) => enemy.x === puzzle.x), id).toBe(false);
         expect(level.course.traps.some((trap) => trap.x === puzzle.x), id).toBe(false);
-        expect(puzzle.x, id).not.toBe(level.course.checkpoint.x);
+        expect(
+          level.course.checkpoints.some((checkpoint) => puzzle.x === checkpoint.x),
+          id,
+        ).toBe(false);
         expect(puzzle.x, id).not.toBe(spawnX);
       }
     }
     const keep = getLevel('5-3');
-    expect(keep.course.checkpoint.x).toBe(108);
-    expect(keep.course.enemies.some((enemy) => enemy.x === 108 && enemy.tilesUp === 0)).toBe(false);
-    expect(keep.course.puzzles.some((puzzle) => puzzle.x === 108)).toBe(false);
+    expect(keep.course.checkpoints).toHaveLength(2);
+    expect(keep.course.checkpoints[0]?.x).toBeLessThan(keep.course.checkpoints[1]?.x ?? 0);
+    for (const checkpoint of keep.course.checkpoints) {
+      expect(keep.course.enemies.some((enemy) => enemy.x === checkpoint.x && enemy.tilesUp === 0)).toBe(
+        false,
+      );
+      expect(keep.course.puzzles.some((puzzle) => puzzle.x === checkpoint.x)).toBe(false);
+    }
   });
 
   it('keeps spawn and checkpoint outside projectile attack range', () => {
     for (const id of ALL_LEVEL_IDS) {
       const level = getLevel(id);
       const spawnX = level.rows[GROUND_Y - 1]?.indexOf('P') ?? 3;
-      for (const origin of [spawnX, level.course.checkpoint.x]) {
+      for (const origin of [spawnX, ...level.course.checkpoints.map((checkpoint) => checkpoint.x)]) {
         for (const enemy of level.course.enemies) {
           expect(
             enemyThreatensTile(enemy.kind, enemy.x, origin),
@@ -231,10 +294,16 @@ describe('no-jump down-current zones', () => {
 });
 
 describe('stomp recovery tuning', () => {
-  it('reaches at least three tiles under baseline gravity', () => {
-    const baselineGravity = 1800;
-    const apexPixels = (STOMP_BOUNCE_VELOCITY ** 2) / (2 * baselineGravity);
-    expect(apexPixels).toBeGreaterThanOrEqual(TILE * 3);
+  it('jumps 2.5 tiles and bounces 4 tiles under every theme gravity', () => {
+    for (const theme of THEMES) {
+      const { gravity, jump } = themePhysics(theme);
+      const jumpApex = (jump ** 2) / (2 * gravity);
+      const bounce = launchVelocity(gravity, STOMP_BOUNCE_HEIGHT_TILES);
+      const bounceApex = (bounce ** 2) / (2 * gravity);
+      expect(jumpApex, theme).toBeCloseTo(TILE * JUMP_HEIGHT_TILES);
+      expect(bounceApex, theme).toBeCloseTo(TILE * STOMP_BOUNCE_HEIGHT_TILES);
+    }
+    expect(STOMP_BOUNCE_VELOCITY).toBe(launchVelocity(1800, STOMP_BOUNCE_HEIGHT_TILES));
   });
 
   it('sends boss stomps toward the opposite safe edge', () => {
@@ -363,13 +432,14 @@ describe('boss crown guard telegraph', () => {
     ).toBe(false);
   });
 
-  it('parks the crown guard on the head and scales it to the hurtbox', () => {
-    const pose = crownGuardLayout(400, 180, 96, 0);
+  it('overlays the crown guard on the body and keeps it translucent', () => {
+    const pose = crownGuardLayout(400, 220, 96, 80, 0);
     expect(pose.x).toBe(400);
-    expect(pose.y).toBe(188);
+    expect(pose.y).toBe(220);
     expect(pose.scale).toBeGreaterThan(1);
-    expect(pose.alpha).toBeGreaterThan(0.7);
-    expect(pose.alpha).toBeLessThanOrEqual(1);
+    expect(pose.scale).toBeLessThan(1.6);
+    expect(pose.alpha).toBeGreaterThan(0.45);
+    expect(pose.alpha).toBeLessThan(0.7);
   });
 });
 

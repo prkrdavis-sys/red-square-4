@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import { STOMP_BOUNCE_VELOCITY, type Theme, themePhysics } from '../config';
+import { launchVelocity, STOMP_BOUNCE_HEIGHT_TILES, type Theme, themePhysics } from '../config';
 import { maybeShake } from '../data/settings';
 import { audio } from '../systems/audio';
 import { DEATH_BLAST_MS, spawnDeathBlast } from '../systems/explosion';
@@ -180,15 +180,19 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
     });
   }
 
+  private bounceVelocity(): number {
+    return launchVelocity(this.scene.physics.world.gravity.y, STOMP_BOUNCE_HEIGHT_TILES);
+  }
+
   bounce(): void {
-    this.arcadeBody.setVelocityY(STOMP_BOUNCE_VELOCITY);
+    this.arcadeBody.setVelocityY(this.bounceVelocity());
     this.squash(0.88, 1.16, 90);
   }
 
   bossBounce(bossX: number, safeX: number): void {
     const away = Math.sign(safeX - bossX) || Math.sign(this.x - bossX) || 1;
     this.setX(Phaser.Math.Clamp(this.x + away * 18, 24, this.scene.physics.world.bounds.width - 24));
-    this.arcadeBody.setVelocity(away * 360, STOMP_BOUNCE_VELOCITY);
+    this.arcadeBody.setVelocity(away * 360, this.bounceVelocity());
     this.grantSafety(720);
     this.squash(0.82, 1.22, 110);
   }

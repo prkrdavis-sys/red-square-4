@@ -156,7 +156,7 @@ export class Boss extends Phaser.Physics.Arcade.Sprite {
     this.fitHitbox();
     this.crownGuard = scene.add.image(x, y, 'boss-crown-guard');
     this.crownGuard.setDepth(18);
-    this.crownGuard.setOrigin(0.5, 0.78);
+    this.crownGuard.setOrigin(0.5, 0.5);
     this.crownGuard.setVisible(false);
     this.crownGuard.setAlpha(0);
     this.once('destroy', () => {
@@ -516,7 +516,7 @@ export class Boss extends Phaser.Physics.Arcade.Sprite {
       rhythm: this.bossState,
     });
     const body = this.arcadeBody;
-    const pose = crownGuardLayout(this.x, body.top, body.width, this.scene.time.now);
+    const pose = crownGuardLayout(this.x, body.center.y, body.width, body.height, this.scene.time.now);
     this.crownGuard.setPosition(pose.x, pose.y);
     this.crownGuard.setFlipX(this.flipX);
 

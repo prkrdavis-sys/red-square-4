@@ -1,6 +1,13 @@
 import { describe, expect, it } from 'vitest';
 
-import { checkpointPlaneX, playerLeadX, reachedCheckpointPlane } from './checkpoint-plane';
+import {
+  checkpointPlaneX,
+  checkpointSpawnMatches,
+  isEarlierCheckpoint,
+  laterCheckpointIsActive,
+  playerLeadX,
+  reachedCheckpointPlane,
+} from './checkpoint-plane';
 
 describe('checkpoint plane', () => {
   it('uses the stored flag X so a moved sprite cannot shift the gate', () => {
@@ -19,5 +26,14 @@ describe('checkpoint plane', () => {
     expect(playerLeadX(100, 117)).toBe(117);
     expect(playerLeadX(200, 180)).toBe(200);
     expect(playerLeadX(80, Number.NaN)).toBe(80);
+  });
+
+  it('lets the second flag retire the first and blocks going backward', () => {
+    expect(isEarlierCheckpoint(3200, 6400)).toBe(true);
+    expect(isEarlierCheckpoint(6400, 3200)).toBe(false);
+    expect(laterCheckpointIsActive(3200, [6400])).toBe(true);
+    expect(laterCheckpointIsActive(6400, [3200])).toBe(false);
+    expect(checkpointSpawnMatches({ x: 6400, y: 544 }, { x: 6400, y: 544 })).toBe(true);
+    expect(checkpointSpawnMatches({ x: 3200, y: 544 }, { x: 6400, y: 544 })).toBe(false);
   });
 });
