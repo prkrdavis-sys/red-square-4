@@ -5,6 +5,7 @@ import {
   enemiesForWorld,
   enemyRole,
   enemyThreatensTile,
+  hazardForTheme,
   puzzleForTheme,
   specialForTheme,
   type EnemyKind,
@@ -13,6 +14,13 @@ import {
   type SpecialKind,
   type Theme,
 } from '../config';
+import {
+  extraHillsForTraps,
+  hazardFacing,
+  hazardMount,
+  hillHeightAt,
+  type TerrainHazardSpawn,
+} from '../entities/terrain-hazard';
 import { stampArena } from './arena';
 
 /** Convert tiles-above-ground to a row index. 2 is a full jump from the floor. */
@@ -155,6 +163,8 @@ export interface CourseSpec {
   enemies?: number[];
   /** [x, tilesAboveGround] — stands on a ledge of that height. */
   airEnemies?: [number, number][];
+  /** World-unique embedded traps. Kind comes from theme. */
+  traps?: number[];
   mini?: number;
   boss?: number;
 }
@@ -183,6 +193,7 @@ export interface PuzzleFeature {
 export interface CompiledCourse {
   rows: string[];
   enemies: EnemySpawn[];
+  traps: TerrainHazardSpawn[];
   checkpoint: CoursePickup;
   collectibles: [CoursePickup, CoursePickup, CoursePickup];
   shield: CoursePickup;
@@ -366,9 +377,8 @@ function safeFloorX(rows: string[], desired: number, blocked: ReadonlySet<number
 }
 
 function assignEnemyKinds(world: number, stage: number, count: number): EnemyKind[] {
-  const [movement, ranged, terrain] = enemiesForWorld(world);
-  const available =
-    stage === 1 ? [movement] : stage === 2 ? [movement, ranged] : [movement, ranged, terrain];
+  const [movement, ranged] = enemiesForWorld(world);
+  const available = stage === 1 ? [movement] : [movement, ranged];
   return Array.from({ length: count }, (_, index) => available[index % available.length] ?? movement);
 }
 
@@ -430,7 +440,10 @@ function assignSafeEnemyKinds(
 export function compileCourse(world: number, stage: number, spec: CourseSpec, theme: Theme): CompiledCourse {
   const groundEnemyX = spec.enemies ?? [];
   const airEnemyPositions = spec.airEnemies ?? [];
-  const rows = buildCourse({ ...spec, enemies: [], airEnemies: [] }, theme);
+  const trapXs = spec.traps ?? [];
+  const extraHills = extraHillsForTraps(theme, trapXs, spec.hills ?? []);
+  const hills = [...(spec.hills ?? []), ...extraHills];
+  const rows = buildCourse({ ...spec, hills, enemies: [], airEnemies: [] }, theme);
   const rawSpawns = [
     ...groundEnemyX.map((x) => ({ x, tilesUp: 0 })),
     ...airEnemyPositions.map(([x, tilesUp]) => ({ x, tilesUp })),
@@ -439,6 +452,9 @@ export function compileCourse(world: number, stage: number, spec: CourseSpec, th
   occupy(blocked, spec.playerX ?? 3, 3);
   for (const x of groundEnemyX) {
     occupy(blocked, x, 2);
+  }
+  for (const x of trapXs) {
+    occupy(blocked, x, 1);
   }
   const spawnX = spec.playerX ?? 3;
   const checkpointX = safeFloorX(rows, Math.floor(spec.width * 0.5), blocked);
@@ -478,9 +494,18 @@ export function compileCourse(world: number, stage: number, spec: CourseSpec, th
     occupy(puzzleBlocked, x, 1);
     return { x, kind: puzzleKind, height: Math.min(4, 1 + stage), width: 1 };
   });
+  const kind = hazardForTheme(theme);
+  const traps: TerrainHazardSpawn[] = trapXs.map((x) => ({
+    x,
+    kind,
+    mount: hazardMount(kind),
+    facing: hazardFacing(kind),
+    tilesHigh: hillHeightAt(hills, x),
+  }));
   return {
     rows,
     enemies,
+    traps,
     checkpoint: { x: checkpointX, tilesUp: 0 },
     collectibles: [
       { x: collectibleA, tilesUp: 2 },

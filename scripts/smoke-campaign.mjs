@@ -61,6 +61,15 @@ async function smokeViewport(browser, viewportName, contextOptions, levelIds) {
 
     try {
       await enterLevel(page, levelId);
+      if (levelId.endsWith('-1')) {
+        await page.waitForFunction(
+          () => document.querySelector('#app canvas')?.dataset.controlsHint === '1',
+        );
+        await page.keyboard.press('Enter');
+        await page.waitForFunction(
+          () => document.querySelector('#app canvas')?.dataset.controlsHint !== '1',
+        );
+      }
       await page.keyboard.down('Shift');
       await page.waitForTimeout(80);
       await page.keyboard.up('Shift');

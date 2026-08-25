@@ -1,23 +1,14 @@
 import Phaser from 'phaser';
-import {
-  RANGED_ATTACK_RANGE,
-  TERRAIN_ATTACK_RANGE,
-  enemyRole,
-  type EnemyKind,
-  type EnemyRole,
-} from '../config';
+import { RANGED_ATTACK_RANGE, enemyRole, type EnemyKind, type EnemyRole } from '../config';
 import { audio } from '../systems/audio';
 import { enemyTextureKey } from '../systems/characters';
+import { bubbleSpreadOffsets, projectileFlightSpeed, projectileStyleForKind } from '../systems/projectile-style';
 import { EnemyProjectile } from './EnemyProjectile';
 
 type EnemyPose = 'idle' | 'move' | 'attack' | 'hurt' | 'dead';
 
 const RANGED_WINDUP_MS = 860;
 const RANGED_COOLDOWN_MS = 2400;
-const RANGED_SHOT_SPEED = 165;
-const TERRAIN_WINDUP_MS = 760;
-const TERRAIN_COOLDOWN_MS = 2600;
-const TERRAIN_SHOT_SPEED = 145;
 const FIRST_ATTACK_DELAY_MS = 1400;
 
 export class Baddie extends Phaser.Physics.Arcade.Sprite {
@@ -33,7 +24,6 @@ export class Baddie extends Phaser.Physics.Arcade.Sprite {
   private windupUntil = 0;
   private threatsArmed = false;
   private charge?: Phaser.GameObjects.Sprite;
-  private readonly baseY: number;
   private readonly hitW: number;
   private readonly hitH: number;
 
@@ -44,7 +34,6 @@ export class Baddie extends Phaser.Physics.Arcade.Sprite {
     this.kind = kind;
     this.role = enemyRole(kind);
     this.speed = speed;
-    this.baseY = y;
     const body = this.body as Phaser.Physics.Arcade.Body;
     this.hitW = Math.max(24, this.width * 0.68);
     this.hitH = Math.max(24, this.height * 0.7);
@@ -73,11 +62,6 @@ export class Baddie extends Phaser.Physics.Arcade.Sprite {
   }
 
   tryStomp(): 'defeated' | 'armored' {
-    if (this.role === 'terrain' && this.scene.time.now >= this.vulnerableUntil) {
-      this.present('hurt');
-      this.scene.time.delayedCall(180, () => this.present('idle'));
-      return 'armored';
-    }
     this.squash();
     return 'defeated';
   }
@@ -100,9 +84,6 @@ export class Baddie extends Phaser.Physics.Arcade.Sprite {
         break;
       case 'ranged':
         this.tickRanged(player, solids, oneways, projectiles);
-        break;
-      case 'terrain':
-        this.tickTerrain(player, solids, oneways, projectiles);
         break;
       default: {
         const neverRole: never = this.role;
@@ -155,7 +136,7 @@ export class Baddie extends Phaser.Physics.Arcade.Sprite {
         return;
       }
       if (now >= this.windupUntil) {
-        this.releaseShot(player, projectiles, false);
+        this.releaseShot(player, projectiles);
         this.nextAttackAt = now + RANGED_COOLDOWN_MS;
       }
       return;
@@ -170,42 +151,6 @@ export class Baddie extends Phaser.Physics.Arcade.Sprite {
       this.beginWindup(now, facing, RANGED_WINDUP_MS);
     } else {
       this.present(distance < RANGED_ATTACK_RANGE ? 'idle' : 'move');
-    }
-  }
-
-  private tickTerrain(
-    player: Phaser.Physics.Arcade.Sprite,
-    solids: Phaser.Physics.Arcade.StaticGroup,
-    oneways: Phaser.Physics.Arcade.StaticGroup,
-    projectiles: Phaser.Physics.Arcade.Group,
-  ): void {
-    const now = this.scene.time.now;
-    const body = this.arcadeBody;
-    const distance = Math.abs(player.x - this.x);
-    const facing = player.x > this.x ? 1 : -1;
-    if (this.kind === 'angler-eel') {
-      body.allowGravity = false;
-      this.y = this.baseY + Math.sin(now / 260) * 38;
-    }
-    if (this.windingUp) {
-      body.setVelocityX(0);
-      this.setFlipX(facing > 0);
-      this.present('attack');
-      this.paintWindup(now, facing, TERRAIN_WINDUP_MS);
-      if (now >= this.windupUntil) {
-        this.releaseShot(player, projectiles, true);
-        if (body.blocked.down) {
-          body.setVelocityY(-260);
-        }
-        this.nextAttackAt = now + TERRAIN_COOLDOWN_MS;
-      }
-      return;
-    }
-    this.patrol(solids, oneways);
-    if (distance < TERRAIN_ATTACK_RANGE && now >= this.nextAttackAt) {
-      this.beginWindup(now, facing, TERRAIN_WINDUP_MS);
-    } else {
-      this.present('move');
     }
   }
 
@@ -230,11 +175,7 @@ export class Baddie extends Phaser.Physics.Arcade.Sprite {
     this.updateCharge(now, facing, t);
   }
 
-  private releaseShot(
-    player: Phaser.Physics.Arcade.Sprite,
-    projectiles: Phaser.Physics.Arcade.Group,
-    terrainShot: boolean,
-  ): void {
+  private releaseShot(player: Phaser.Physics.Arcade.Sprite, projectiles: Phaser.Physics.Arcade.Group): void {
     this.windingUp = false;
     this.setAngle(0);
     this.setScale(1);
@@ -243,7 +184,7 @@ export class Baddie extends Phaser.Physics.Arcade.Sprite {
     const muzzleY = this.charge?.y ?? this.muzzleY();
     this.clearCharge();
     this.restoreRestTint(this.scene.time.now);
-    this.fireAt(player, projectiles, terrainShot, muzzleX, muzzleY);
+    this.fireAt(player, projectiles, muzzleX, muzzleY);
     this.scene.tweens.add({
       targets: this,
       scaleX: 1.18,
@@ -317,26 +258,32 @@ export class Baddie extends Phaser.Physics.Arcade.Sprite {
   private fireAt(
     player: Phaser.Physics.Arcade.Sprite,
     projectiles: Phaser.Physics.Arcade.Group,
-    terrainShot: boolean,
     originX: number,
     originY: number,
   ): void {
+    const style = projectileStyleForKind(this.kind);
     const dx = player.x - this.x;
     const dy = player.y - this.y;
-    const magnitude = Math.max(1, Math.hypot(dx, dy));
-    const speed = terrainShot ? TERRAIN_SHOT_SPEED : RANGED_SHOT_SPEED;
-    const shot = new EnemyProjectile(
-      this.scene,
-      originX,
-      originY,
-      `projectile-${this.kind}`,
-      this.kind,
-      (dx / magnitude) * speed,
-      terrainShot ? -180 : (dy / magnitude) * speed,
-      terrainShot,
-    );
-    projectiles.add(shot);
-    shot.launch();
+    const heading = Math.atan2(dy, dx);
+    const speed = projectileFlightSpeed(style, false);
+    const offsets = style === 'bubble' ? bubbleSpreadOffsets() : [0];
+    for (const offset of offsets) {
+      const angle = heading + offset;
+      const shot = new EnemyProjectile(
+        this.scene,
+        originX,
+        originY,
+        `projectile-${this.kind}`,
+        this.kind,
+        Math.cos(angle) * speed,
+        Math.sin(angle) * speed,
+        false,
+        this,
+        player,
+      );
+      projectiles.add(shot);
+      shot.launch();
+    }
     audio.play(this.scene, 'enemy-shot');
     this.present('attack');
   }

@@ -3,8 +3,10 @@ import { GAME_WIDTH, TILE, type PuzzleKind, type SpecialKind, type Theme } from 
 import { Baddie } from '../entities/Baddie';
 import { EnemyProjectile } from '../entities/EnemyProjectile';
 import { Player } from '../entities/Player';
+import { TerrainHazard } from '../entities/TerrainHazard';
 import type { BuiltLevel } from '../levels/builder';
 import { enableOneWayCollision, ONEWAY_HEIGHT } from '../levels/colliders';
+import { specialLabel } from './special-copy';
 import { onewayTileKey } from './textures';
 
 const COOLDOWNS: Record<SpecialKind, number> = {
@@ -14,15 +16,6 @@ const COOLDOWNS: Record<SpecialKind, number> = {
   'bubble-pulse': 1000,
   'shadow-blink': 1050,
   'liana-swing': 1000,
-};
-
-const LABELS: Record<SpecialKind, string> = {
-  grow: 'Grow',
-  'frost-path': 'Frost',
-  'sand-surge': 'Surge',
-  'bubble-pulse': 'Bubble',
-  'shadow-blink': 'Blink',
-  'liana-swing': 'Swing',
 };
 
 export class WorldSpecial {
@@ -40,7 +33,7 @@ export class WorldSpecial {
   }
 
   get label(): string {
-    return LABELS[this.kind];
+    return specialLabel(this.kind);
   }
 
   get ready(): boolean {
@@ -57,7 +50,9 @@ export class WorldSpecial {
       return false;
     }
     this.readyAt = this.scene.time.now + COOLDOWNS[this.kind];
-    this.exposeNearbyEnemies(player.x, player.y, this.kind === 'bubble-pulse' ? 260 : 190);
+    const reach = this.kind === 'bubble-pulse' ? 260 : 190;
+    this.exposeNearbyEnemies(player.x, player.y, reach);
+    this.silenceNearbyHazards(player.x, player.y, reach);
 
     switch (this.kind) {
       case 'grow':
@@ -152,20 +147,36 @@ export class WorldSpecial {
   private bubblePulse(player: Player): void {
     this.affectPuzzleTargets(player.x, 'down-current', 260);
     player.arcadeBody.setVelocityY(-620);
-    const bubble = this.built.oneways.create(player.x - 34, player.y + 58, 'special-anchor-ocean') as Phaser.Physics.Arcade.Sprite;
-    bubble.setOrigin(0, 0);
-    bubble.setDisplaySize(68, ONEWAY_HEIGHT);
-    const body = bubble.body as Phaser.Physics.Arcade.StaticBody;
+    const lift = this.built.oneways.create(player.x - 34, player.y + 58, 'special-anchor-ocean') as Phaser.Physics.Arcade.Sprite;
+    lift.setOrigin(0, 0);
+    lift.setDisplaySize(68, ONEWAY_HEIGHT);
+    lift.setVisible(false);
+    const body = lift.body as Phaser.Physics.Arcade.StaticBody;
     body.setSize(68, ONEWAY_HEIGHT);
     body.updateFromGameObject();
     enableOneWayCollision(body);
+    const shell = this.scene.add.image(player.x, player.y + 6, 'special-bubble');
+    shell.setDepth(21);
+    shell.setDisplaySize(108, 116);
     this.scene.tweens.add({
-      targets: bubble,
-      y: bubble.y - 170,
+      targets: lift,
+      y: lift.y - 170,
+      duration: 1900,
+      onUpdate: () => {
+        body.updateFromGameObject();
+        if (player.active) {
+          shell.setPosition(player.x, player.y + 6);
+        }
+      },
+      onComplete: () => {
+        lift.destroy();
+        shell.destroy();
+      },
+    });
+    this.scene.tweens.add({
+      targets: shell,
       alpha: 0,
       duration: 1900,
-      onUpdate: () => body.updateFromGameObject(),
-      onComplete: () => bubble.destroy(),
     });
     this.neutralizeProjectiles(player.x, player.y, 260, player.flipX ? -1 : 1);
   }
@@ -321,6 +332,14 @@ export class WorldSpecial {
     for (const child of this.built.baddies.getChildren()) {
       if (child instanceof Baddie && Phaser.Math.Distance.Between(x, y, child.x, child.y) <= radius) {
         child.exposeBySpecial();
+      }
+    }
+  }
+
+  private silenceNearbyHazards(x: number, y: number, radius: number): void {
+    for (const child of this.built.traps.getChildren()) {
+      if (child instanceof TerrainHazard && Phaser.Math.Distance.Between(x, y, child.x, child.y) <= radius) {
+        child.silence();
       }
     }
   }

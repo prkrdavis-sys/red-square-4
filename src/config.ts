@@ -7,7 +7,6 @@ export const GROUND_Y = 9;
 export const JUMP_REACH_TILES = 2;
 export const STOMP_BOUNCE_VELOCITY = -840;
 export const RANGED_ATTACK_RANGE = 620;
-export const TERRAIN_ATTACK_RANGE = 420;
 
 export const START_LIVES = 3;
 
@@ -22,24 +21,35 @@ export const BOSS_KINDS: BossKind[] = ['piranha', 'walrus', 'scorpion', 'fish', 
 export type EnemyKind =
   | 'bramble-hopper'
   | 'acorn-slinger'
-  | 'mossback-beetle'
   | 'skating-hare'
   | 'snowball-finch'
-  | 'frost-mole'
   | 'dune-scarab'
   | 'cactus-imp'
-  | 'sandwyrm'
   | 'reef-crab'
   | 'bubble-archerfish'
-  | 'angler-eel'
   | 'clockwork-hound'
   | 'gargoyle-page'
-  | 'wall-mimic'
   | 'howler-ape'
-  | 'dart-mosquito'
-  | 'coil-serpent';
+  | 'dart-mosquito';
 
-export type EnemyRole = 'movement' | 'ranged' | 'terrain';
+export type EnemyRole = 'movement' | 'ranged';
+
+export type TerrainHazardKind =
+  | 'bramble-vent'
+  | 'glacier-bore'
+  | 'needle-mortar'
+  | 'sonar-well'
+  | 'keep-burner'
+  | 'pitcher-snare';
+
+export const TERRAIN_HAZARD_KINDS: TerrainHazardKind[] = [
+  'bramble-vent',
+  'glacier-bore',
+  'needle-mortar',
+  'sonar-well',
+  'keep-burner',
+  'pitcher-snare',
+];
 
 export type SpecialKind = 'grow' | 'frost-path' | 'sand-surge' | 'bubble-pulse' | 'shadow-blink' | 'liana-swing';
 
@@ -105,13 +115,6 @@ export function enemyRole(kind: EnemyKind): EnemyRole {
     case 'gargoyle-page':
     case 'dart-mosquito':
       return 'ranged';
-    case 'mossback-beetle':
-    case 'frost-mole':
-    case 'sandwyrm':
-    case 'angler-eel':
-    case 'wall-mimic':
-    case 'coil-serpent':
-      return 'terrain';
     default: {
       const neverKind: never = kind;
       return neverKind;
@@ -124,8 +127,6 @@ export function enemyAttackRange(kind: EnemyKind): number {
   switch (role) {
     case 'ranged':
       return RANGED_ATTACK_RANGE;
-    case 'terrain':
-      return TERRAIN_ATTACK_RANGE;
     case 'movement':
       return 0;
     default: {
@@ -140,22 +141,43 @@ export function enemyThreatensTile(kind: EnemyKind, enemyTileX: number, originTi
   return range > 0 && Math.abs(enemyTileX - originTileX) * TILE < range;
 }
 
-export function enemiesForWorld(world: number): readonly [EnemyKind, EnemyKind, EnemyKind] {
+export function enemiesForWorld(world: number): readonly [EnemyKind, EnemyKind] {
   switch (world) {
     case 1:
-      return ['bramble-hopper', 'acorn-slinger', 'mossback-beetle'];
+      return ['bramble-hopper', 'acorn-slinger'];
     case 2:
-      return ['skating-hare', 'snowball-finch', 'frost-mole'];
+      return ['skating-hare', 'snowball-finch'];
     case 3:
-      return ['dune-scarab', 'cactus-imp', 'sandwyrm'];
+      return ['dune-scarab', 'cactus-imp'];
     case 4:
-      return ['reef-crab', 'bubble-archerfish', 'angler-eel'];
+      return ['reef-crab', 'bubble-archerfish'];
     case 5:
-      return ['clockwork-hound', 'gargoyle-page', 'wall-mimic'];
+      return ['clockwork-hound', 'gargoyle-page'];
     case 6:
-      return ['howler-ape', 'dart-mosquito', 'coil-serpent'];
+      return ['howler-ape', 'dart-mosquito'];
     default:
-      return ['bramble-hopper', 'acorn-slinger', 'mossback-beetle'];
+      return ['bramble-hopper', 'acorn-slinger'];
+  }
+}
+
+export function hazardForTheme(theme: Theme): TerrainHazardKind {
+  switch (theme) {
+    case 'grass':
+      return 'bramble-vent';
+    case 'snow':
+      return 'glacier-bore';
+    case 'desert':
+      return 'needle-mortar';
+    case 'ocean':
+      return 'sonar-well';
+    case 'castle':
+      return 'keep-burner';
+    case 'rainforest':
+      return 'pitcher-snare';
+    default: {
+      const neverTheme: never = theme;
+      return neverTheme;
+    }
   }
 }
 

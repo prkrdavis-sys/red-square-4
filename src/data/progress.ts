@@ -383,6 +383,24 @@ export function getCheckpoint(id: LevelId): { x: number; y: number } | undefined
   return checkpoint ? { ...checkpoint } : undefined;
 }
 
+export type LevelStartReason = 'fresh' | 'death';
+
+export function checkpointForLevelStart(
+  id: LevelId,
+  reason: LevelStartReason,
+): { x: number; y: number } | undefined {
+  switch (reason) {
+    case 'fresh':
+      return undefined;
+    case 'death':
+      return getCheckpoint(id);
+    default: {
+      const neverReason: never = reason;
+      return neverReason;
+    }
+  }
+}
+
 export function clearCheckpoint(id: LevelId): SaveData {
   const save = loadSave();
   delete save.checkpoints[id];

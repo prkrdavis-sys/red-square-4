@@ -4,6 +4,7 @@ import { Baddie } from '../entities/Baddie';
 import { Boss } from '../entities/Boss';
 import { MemoryGem } from '../entities/MemoryGem';
 import { Player } from '../entities/Player';
+import { TerrainHazard } from '../entities/TerrainHazard';
 import {
   arenaGateTileKey,
   arenaTileKey,
@@ -26,10 +27,12 @@ export interface BuiltLevel {
   oneways: Phaser.Physics.Arcade.StaticGroup;
   hazards: Phaser.Physics.Arcade.StaticGroup;
   baddies: Phaser.Physics.Arcade.Group;
+  traps: Phaser.Physics.Arcade.StaticGroup;
+  trapBeams: Phaser.Physics.Arcade.StaticGroup;
   projectiles: Phaser.Physics.Arcade.Group;
   collectibles: Phaser.Physics.Arcade.Group;
   shields: Phaser.Physics.Arcade.Group;
-  checkpoints: Phaser.Physics.Arcade.Group;
+  checkpoints: Phaser.Physics.Arcade.StaticGroup;
   puzzleTargets: Phaser.Physics.Arcade.StaticGroup;
   miniBoss: Boss | undefined;
   worldBoss: Boss | undefined;
@@ -80,10 +83,12 @@ export function buildLevel(
   const oneways = scene.physics.add.staticGroup();
   const hazards = scene.physics.add.staticGroup();
   const baddies = scene.physics.add.group({ runChildUpdate: false, allowGravity: true });
+  const traps = scene.physics.add.staticGroup();
+  const trapBeams = scene.physics.add.staticGroup();
   const projectiles = scene.physics.add.group({ runChildUpdate: false, allowGravity: false });
   const collectibles = scene.physics.add.group({ runChildUpdate: false, allowGravity: false, immovable: true });
   const shields = scene.physics.add.group({ runChildUpdate: false, allowGravity: false, immovable: true });
-  const checkpoints = scene.physics.add.group({ runChildUpdate: false, allowGravity: false, immovable: true });
+  const checkpoints = scene.physics.add.staticGroup();
   const puzzleTargets = scene.physics.add.staticGroup();
 
   let player: Player | undefined;
@@ -166,6 +171,11 @@ export function buildLevel(
     baddies.add(baddie);
   }
 
+  for (const spawn of course.traps) {
+    const trap = new TerrainHazard(scene, spawn, world, trapBeams);
+    traps.add(trap);
+  }
+
   course.collectibles.forEach((pickup, index) => {
     const collectible = new MemoryGem(
       scene,
@@ -183,15 +193,7 @@ export function buildLevel(
   ) as Phaser.Physics.Arcade.Sprite;
   shield.setDepth(14);
 
-  const checkpoint = checkpoints.create(
-    course.checkpoint.x * TILE + TILE / 2,
-    GROUND_Y * TILE - 30,
-    'checkpoint',
-  ) as Phaser.Physics.Arcade.Sprite;
-  checkpoint.setData('spawnX', course.checkpoint.x * TILE + TILE / 2);
-  checkpoint.setData('spawnY', (GROUND_Y - 1) * TILE + TILE / 2);
-  checkpoint.setDepth(13);
-  stretchCheckpointPlane(checkpoint, MAP_ROWS * TILE);
+  addCheckpoint(scene, checkpoints, course, MAP_ROWS * TILE);
 
   for (const puzzle of course.puzzles) {
     addPuzzleTarget(scene, puzzleTargets, puzzle);
@@ -219,6 +221,8 @@ export function buildLevel(
     oneways,
     hazards,
     baddies,
+    traps,
+    trapBeams,
     projectiles,
     collectibles,
     shields,
@@ -307,17 +311,24 @@ function addDownCurrentZone(
   });
 }
 
-/** Hitbox is a full-height plane at the flag X so flying over still counts. */
-function stretchCheckpointPlane(checkpoint: Phaser.Physics.Arcade.Sprite, worldHeightPx: number): void {
-  const body = checkpoint.body as Phaser.Physics.Arcade.Body | null;
-  if (!body) {
-    return;
-  }
+function addCheckpoint(
+  scene: Phaser.Scene,
+  group: Phaser.Physics.Arcade.StaticGroup,
+  course: CompiledCourse,
+  worldHeightPx: number,
+): void {
+  const planeX = course.checkpoint.x * TILE + TILE / 2;
+  const flag = scene.add.image(planeX, GROUND_Y * TILE - 30, 'checkpoint').setDepth(13);
   const planeHeight = worldHeightPx + 400;
-  body.setAllowGravity(false);
-  body.setImmovable(true);
-  body.setSize(TILE, planeHeight, false);
-  body.setOffset(checkpoint.displayOriginX - TILE / 2, checkpoint.displayOriginY - checkpoint.y);
+  const plane = group.create(planeX, planeHeight / 2, 'checkpoint') as Phaser.Physics.Arcade.Sprite;
+  plane.setVisible(false);
+  plane.setDisplaySize(TILE, planeHeight);
+  const body = plane.body as Phaser.Physics.Arcade.StaticBody;
+  body.setSize(TILE, planeHeight);
+  body.updateFromGameObject();
+  plane.setData('spawnX', planeX);
+  plane.setData('spawnY', (GROUND_Y - 1) * TILE + TILE / 2);
+  plane.setData('flag', flag);
 }
 
 function addBossFence(scene: Phaser.Scene, centerX: number, heightPx: number): Phaser.GameObjects.Rectangle {

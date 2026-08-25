@@ -130,6 +130,7 @@ const COURSES: Record<LevelId, CompiledCourse> = {
       [60, mid],
       [142, high],
     ],
+    traps: [44, 96, 168],
     mini: 200,
   }),
   '1-4': course(1, 4, {
@@ -147,6 +148,7 @@ const COURSES: Record<LevelId, CompiledCourse> = {
     ],
     hills: [[56, 6, hop]],
     enemies: [10, 34, 70],
+    traps: [28, 50],
     boss: 96,
   }),
   '2-1': course(2, 1, {
@@ -230,6 +232,7 @@ const COURSES: Record<LevelId, CompiledCourse> = {
       [108, high],
       [120, mid],
     ],
+    traps: [46, 88, 156],
     mini: 198,
   }),
   '2-4': course(2, 4, {
@@ -246,6 +249,7 @@ const COURSES: Record<LevelId, CompiledCourse> = {
       [78, mid, 5],
     ],
     enemies: [12, 36, 72],
+    traps: [32, 68],
     boss: 96,
   }),
   '3-1': course(3, 1, {
@@ -356,6 +360,7 @@ const COURSES: Record<LevelId, CompiledCourse> = {
       [122, high],
       [164, mid],
     ],
+    traps: [50, 88, 152],
     mini: 202,
   }),
   '3-4': course(3, 4, {
@@ -375,6 +380,7 @@ const COURSES: Record<LevelId, CompiledCourse> = {
       [84, mid, 4],
     ],
     enemies: [10, 34, 74],
+    traps: [28, 54],
     boss: 102,
   }),
   '4-1': course(4, 1, {
@@ -482,6 +488,7 @@ const COURSES: Record<LevelId, CompiledCourse> = {
       [118, high],
       [148, mid],
     ],
+    traps: [50, 84, 172],
     mini: 202,
   }),
   '4-4': course(4, 4, {
@@ -501,6 +508,7 @@ const COURSES: Record<LevelId, CompiledCourse> = {
       [82, mid, 5],
     ],
     enemies: [12, 38, 66],
+    traps: [32, 70],
     boss: 104,
   }),
   '5-1': course(5, 1, {
@@ -621,6 +629,7 @@ const COURSES: Record<LevelId, CompiledCourse> = {
       [58, high],
       [136, high],
     ],
+    traps: [46, 90, 168],
     mini: 204,
   }),
   '5-4': course(5, 4, {
@@ -647,6 +656,7 @@ const COURSES: Record<LevelId, CompiledCourse> = {
       [64, mid, 3],
     ],
     enemies: [10, 34, 68],
+    traps: [38, 70],
     boss: 108,
   }),
   '6-1': course(6, 1, {
@@ -745,6 +755,7 @@ const COURSES: Record<LevelId, CompiledCourse> = {
       [62, high],
       [148, high],
     ],
+    traps: [46, 100, 176],
     mini: 202,
   }),
   '6-4': course(6, 4, {
@@ -765,6 +776,7 @@ const COURSES: Record<LevelId, CompiledCourse> = {
     ],
     hills: [[58, 6, hop]],
     enemies: [10, 36, 66],
+    traps: [28, 54],
     boss: 100,
   }),
 };

@@ -89,13 +89,6 @@ const ENEMY_FRAMES: Record<EnemyKind, CharacterFrames> = {
     hurt: 'kenney-bee-rest',
     dead: 'kenney-bee-b',
   },
-  'mossback-beetle': {
-    idle: 'kenney-ladybug-rest',
-    move: 'kenney-ladybug-walk-a',
-    attack: 'kenney-ladybug-fly',
-    hurt: 'kenney-ladybug-walk-b',
-    dead: 'kenney-ladybug-rest',
-  },
   'skating-hare': {
     idle: 'kenney-mouse-rest',
     move: 'kenney-mouse-walk-a',
@@ -109,13 +102,6 @@ const ENEMY_FRAMES: Record<EnemyKind, CharacterFrames> = {
     attack: 'kenney-fly-b',
     hurt: 'kenney-fly-rest',
     dead: 'kenney-fly-b',
-  },
-  'frost-mole': {
-    idle: 'kenney-slime-block-rest',
-    move: 'kenney-slime-block-walk-a',
-    attack: 'kenney-slime-block-jump',
-    hurt: 'kenney-slime-block-walk-b',
-    dead: 'kenney-slime-block-flat',
   },
   'dune-scarab': {
     idle: 'kenney-worm-ring-rest',
@@ -131,13 +117,6 @@ const ENEMY_FRAMES: Record<EnemyKind, CharacterFrames> = {
     hurt: 'kenney-slime-spike-rest',
     dead: 'kenney-slime-spike-flat',
   },
-  sandwyrm: {
-    idle: 'kenney-worm-normal-rest',
-    move: 'kenney-worm-normal-a',
-    attack: 'kenney-worm-normal-b',
-    hurt: 'kenney-worm-normal-rest',
-    dead: 'kenney-worm-normal-b',
-  },
   'reef-crab': {
     idle: 'kenney-snail-rest',
     move: 'kenney-snail-walk-a',
@@ -151,13 +130,6 @@ const ENEMY_FRAMES: Record<EnemyKind, CharacterFrames> = {
     attack: 'kenney-fish-blue-b',
     hurt: 'kenney-fish-blue-rest',
     dead: 'kenney-fish-blue-b',
-  },
-  'angler-eel': {
-    idle: 'kenney-fish-purple-rest',
-    move: 'kenney-fish-purple-up',
-    attack: 'kenney-fish-purple-down',
-    hurt: 'kenney-fish-purple-rest',
-    dead: 'kenney-fish-purple-down',
   },
   'clockwork-hound': {
     idle: 'kenney-slime-fire-rest',
@@ -173,13 +145,6 @@ const ENEMY_FRAMES: Record<EnemyKind, CharacterFrames> = {
     hurt: 'kenney-barnacle-rest',
     dead: 'kenney-barnacle-attack-b',
   },
-  'wall-mimic': {
-    idle: 'kenney-block-idle',
-    move: 'kenney-block-rest',
-    attack: 'kenney-block-fall',
-    hurt: 'kenney-block-rest',
-    dead: 'kenney-block-fall',
-  },
   'howler-ape': {
     idle: 'kenney-mouse-rest',
     move: 'kenney-mouse-walk-a',
@@ -193,13 +158,6 @@ const ENEMY_FRAMES: Record<EnemyKind, CharacterFrames> = {
     attack: 'kenney-fly-b',
     hurt: 'kenney-fly-rest',
     dead: 'kenney-fly-b',
-  },
-  'coil-serpent': {
-    idle: 'kenney-worm-normal-rest',
-    move: 'kenney-worm-normal-a',
-    attack: 'kenney-worm-normal-b',
-    hurt: 'kenney-worm-normal-rest',
-    dead: 'kenney-worm-normal-b',
   },
 };
 

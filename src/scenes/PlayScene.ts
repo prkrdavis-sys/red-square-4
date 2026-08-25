@@ -5,15 +5,16 @@ import {
   START_LIVES,
   TILE,
   enemyThreatensTile,
+  parseLevelId,
   themeSky,
   type EnemyKind,
   type LevelId,
 } from '../config';
 import {
+  checkpointForLevelStart,
   clearCheckpoint,
   collectMemory,
   collectibleMask,
-  getCheckpoint,
   levelCollectibleCount,
   loadSave,
   markCleared,
@@ -29,12 +30,19 @@ import { Baddie } from '../entities/Baddie';
 import { Boss } from '../entities/Boss';
 import { isFallingStomp, stompBox } from '../entities/boss-combat';
 import { EnemyProjectile } from '../entities/EnemyProjectile';
+import { TerrainHazard } from '../entities/TerrainHazard';
+import { hazardThreatensTile, type TerrainHazardSpawn } from '../entities/terrain-hazard';
 import { FlakFragment } from '../entities/FlakFragment';
 import { Player, type PlayerInput } from '../entities/Player';
 import { buildLevel, type BuiltLevel } from '../levels/builder';
 import { bossSafeLandingX } from '../levels/arena';
 import { getLevel } from '../levels/worlds';
 import { audio } from '../systems/audio';
+import {
+  checkpointPlaneX,
+  playerLeadX,
+  reachedCheckpointPlane,
+} from '../systems/checkpoint-plane';
 import { spawnCheckpointFireworks } from '../systems/fireworks';
 import { forgetFlak, rememberFlak, restoreFlak, setFlakGroup } from '../systems/flak';
 import { Foreground } from '../systems/foreground';
@@ -50,11 +58,14 @@ import {
 import { getTouchState, hideTouchControls, showTouchControls } from '../systems/touch-controls';
 import { skinThumbKey } from '../systems/textures';
 import { showBossFightBanner } from '../ui/boss-fight';
+import { showControlsHint } from '../ui/controls-hint';
 import { addPanel, dismissOnOutside, launchOverlay, MenuButton, MenuNav, textStyle } from '../ui/menu';
 import { WorldSpecial } from '../systems/world-special';
 
 interface PlayData {
   levelId?: LevelId;
+  skipControlsHint?: boolean;
+  fromDeath?: boolean;
 }
 
 function playerFromCollider(
@@ -89,17 +100,30 @@ function flakFromCollider(
   return undefined;
 }
 
+function checkpointFlag(checkpoint: Phaser.Physics.Arcade.Sprite): Phaser.GameObjects.Image | undefined {
+  const flag = checkpoint.getData('flag');
+  return flag instanceof Phaser.GameObjects.Image ? flag : undefined;
+}
+
 function checkpointSpawnIsSafe(
   enemies: Array<{ x: number; tilesUp: number; kind: EnemyKind }>,
+  traps: TerrainHazardSpawn[],
   saved: { x: number; y: number },
 ): boolean {
   const tileX = Math.round((saved.x - TILE / 2) / TILE);
-  return enemies.every((enemy) => {
+  const enemiesSafe = enemies.every((enemy) => {
     if (enemy.tilesUp === 0 && Math.abs(enemy.x - tileX) <= 1) {
       return false;
     }
     return !enemyThreatensTile(enemy.kind, enemy.x, tileX);
   });
+  const trapsSafe = traps.every((trap) => {
+    if (Math.abs(trap.x - tileX) <= 1) {
+      return false;
+    }
+    return !hazardThreatensTile(trap.kind, trap.x, tileX, trap.facing);
+  });
+  return enemiesSafe && trapsSafe;
 }
 
 export class PlayScene extends Phaser.Scene {
@@ -115,6 +139,9 @@ export class PlayScene extends Phaser.Scene {
   private keySpace!: Phaser.Input.Keyboard.Key;
   private keyShift!: Phaser.Input.Keyboard.Key;
   private paused = false;
+  private controlsHintOpen = false;
+  private skipControlsHint = false;
+  private fromDeath = false;
   private completing = false;
   private hudLives!: Phaser.GameObjects.Text;
   private hudLifeIcons: Phaser.GameObjects.Image[] = [];
@@ -141,6 +168,9 @@ export class PlayScene extends Phaser.Scene {
   init(data: PlayData): void {
     this.levelId = data.levelId ?? '1-1';
     this.paused = false;
+    this.controlsHintOpen = false;
+    this.skipControlsHint = data.skipControlsHint === true;
+    this.fromDeath = data.fromDeath === true;
     this.completing = false;
     this.wasJump = false;
     this.wasDown = false;
@@ -161,9 +191,10 @@ export class PlayScene extends Phaser.Scene {
     this.foreground = new Foreground(this, def.theme, this.built.widthPx, def.world, def.stage);
     audio.playTheme(this, def.theme);
     this.special = new WorldSpecial(this, this.built, def.theme, def.course.special);
-    const savedCheckpoint = getCheckpoint(this.levelId);
-    if (savedCheckpoint && checkpointSpawnIsSafe(def.course.enemies, savedCheckpoint)) {
+    const savedCheckpoint = checkpointForLevelStart(this.levelId, this.fromDeath ? 'death' : 'fresh');
+    if (savedCheckpoint && checkpointSpawnIsSafe(def.course.enemies, def.course.traps, savedCheckpoint)) {
       this.built.player.setPosition(savedCheckpoint.x, savedCheckpoint.y);
+      this.armSavedCheckpoints();
     }
 
     this.physics.world.setBounds(0, 0, this.built.widthPx, this.built.heightPx + 400);
@@ -175,6 +206,8 @@ export class PlayScene extends Phaser.Scene {
       oneways,
       hazards,
       baddies,
+      traps,
+      trapBeams,
       projectiles,
       collectibles,
       shields,
@@ -237,6 +270,8 @@ export class PlayScene extends Phaser.Scene {
     }
 
     this.physics.add.overlap(player, hazards, () => this.killPlayer('hazard'));
+    this.physics.add.overlap(player, traps, () => this.killPlayer('hazard'));
+    this.physics.add.overlap(player, trapBeams, () => this.killPlayer('hazard'));
     this.physics.add.overlap(player, projectiles, (objectA, objectB) => {
       const projectile = objectA instanceof EnemyProjectile ? objectA : objectB instanceof EnemyProjectile ? objectB : undefined;
       if (!projectile || projectile.neutralized) {
@@ -354,7 +389,7 @@ export class PlayScene extends Phaser.Scene {
     this.createPauseOverlay();
     this.bindKeys();
     setHudPauseHandler(() => {
-      if (this.completing || this.scene.isPaused()) {
+      if (this.completing || this.scene.isPaused() || this.controlsHintOpen) {
         return;
       }
       audio.play(this, 'select');
@@ -364,6 +399,9 @@ export class PlayScene extends Phaser.Scene {
     const onSceneResume = () => this.syncTouchHud();
     const stopPointerMode = onPointerModeChange(() => this.syncTouchHud());
     this.syncTouchHud();
+    if (!this.skipControlsHint && parseLevelId(this.levelId).stage === 1) {
+      this.openControlsHint();
+    }
     this.events.on(Phaser.Scenes.Events.PAUSE, onScenePause);
     this.events.on(Phaser.Scenes.Events.RESUME, onSceneResume);
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
@@ -372,6 +410,7 @@ export class PlayScene extends Phaser.Scene {
       stopPointerMode();
       setHudPauseHandler(undefined);
       delete this.game.canvas.dataset.levelId;
+      delete this.game.canvas.dataset.controlsHint;
       hideTouchControls();
       hideHudPause();
       if (!this.retainFlak) {
@@ -381,10 +420,11 @@ export class PlayScene extends Phaser.Scene {
   }
 
   update(): void {
-    if (!this.paused) {
+    if (!this.paused && !this.controlsHintOpen) {
       this.cullFlak();
+      this.tryActivateCheckpoints(this.built.player);
     }
-    if (this.paused || this.completing) {
+    if (this.paused || this.completing || this.controlsHintOpen) {
       return;
     }
 
@@ -394,10 +434,10 @@ export class PlayScene extends Phaser.Scene {
 
     this.refreshNoJumpZone(player);
     player.tick(input, def.theme);
-    this.tryActivateCheckpoints(player);
     if (input.specialJust && this.special.activate(player, player.flipX ? -1 : 1)) {
       audio.play(this, 'special');
     }
+    this.tryActivateCheckpoints(player);
 
     if (!this.threatsLive && (input.left || input.right)) {
       this.threatsLive = true;
@@ -406,14 +446,24 @@ export class PlayScene extends Phaser.Scene {
           child.armThreats();
         }
       }
+      for (const child of this.built.traps.getChildren()) {
+        if (child instanceof TerrainHazard) {
+          child.arm();
+        }
+      }
     }
     if (this.threatsLive) {
       for (const child of baddies.getChildren()) {
         (child as Baddie).tick(player, this.built.solids, this.built.oneways, this.built.projectiles);
       }
+      for (const child of this.built.traps.getChildren()) {
+        if (child instanceof TerrainHazard) {
+          child.tick(player, this.built.projectiles);
+        }
+      }
       for (const child of this.built.projectiles.getChildren()) {
         if (child instanceof EnemyProjectile) {
-          child.tick();
+          child.tick(player);
         }
       }
     }
@@ -490,13 +540,13 @@ export class PlayScene extends Phaser.Scene {
     this.keySpace = kb.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE);
     this.keyShift = kb.addKey(Phaser.Input.Keyboard.KeyCodes.SHIFT);
     kb.on('keydown-P', () => {
-      if (this.scene.isPaused() || this.completing) {
+      if (this.scene.isPaused() || this.completing || this.controlsHintOpen) {
         return;
       }
       this.togglePause();
     });
     kb.on('keydown-ESC', () => {
-      if (this.scene.isPaused() || this.completing || this.paused) {
+      if (this.scene.isPaused() || this.completing || this.paused || this.controlsHintOpen) {
         return;
       }
       this.togglePause();
@@ -745,7 +795,7 @@ export class PlayScene extends Phaser.Scene {
       }
       rememberFlak(this.levelId, this.flak, this.built.heightPx + 160);
       this.retainFlak = true;
-      this.scene.restart({ levelId: this.levelId });
+      this.scene.restart({ levelId: this.levelId, skipControlsHint: true, fromDeath: true });
     });
   }
 
@@ -776,16 +826,25 @@ export class PlayScene extends Phaser.Scene {
     });
   }
 
-  private tryActivateCheckpoints(player: Player): void {
-    if (player.frozen) {
-      return;
+  private armSavedCheckpoints(): void {
+    for (const child of this.built.checkpoints.getChildren()) {
+      if (!('setData' in child)) {
+        continue;
+      }
+      const checkpoint = child as Phaser.Physics.Arcade.Sprite;
+      checkpoint.setData('active', true);
+      checkpointFlag(checkpoint)?.setTint(0x9be36e);
     }
+  }
+
+  private tryActivateCheckpoints(player: Player): void {
+    const leadX = playerLeadX(player.x, player.arcadeBody.right);
     for (const child of this.built.checkpoints.getChildren()) {
       if (!('getData' in child)) {
         continue;
       }
       const checkpoint = child as Phaser.Physics.Arcade.Sprite;
-      if (player.arcadeBody.right >= checkpoint.x) {
+      if (reachedCheckpointPlane(leadX, checkpointPlaneX(checkpoint))) {
         this.activateCheckpoint(checkpoint);
       }
     }
@@ -796,13 +855,14 @@ export class PlayScene extends Phaser.Scene {
       return;
     }
     checkpoint.setData('active', true);
-    checkpoint.setTint(0x9be36e);
+    const flag = checkpointFlag(checkpoint) ?? checkpoint;
+    flag.setTint(0x9be36e);
     setCheckpoint(
       this.levelId,
       Number(checkpoint.getData('spawnX')),
       Number(checkpoint.getData('spawnY')),
     );
-    spawnCheckpointFireworks(this, checkpoint);
+    spawnCheckpointFireworks(this, flag);
   }
 
   private createHud(name: string): void {
@@ -884,7 +944,7 @@ export class PlayScene extends Phaser.Scene {
   }
 
   private syncTouchHud(): void {
-    const blocked = this.paused || this.completing || this.scene.isPaused();
+    const blocked = this.paused || this.completing || this.controlsHintOpen || this.scene.isPaused();
     if (blocked) {
       hideTouchControls();
       hideHudPause();
@@ -904,8 +964,29 @@ export class PlayScene extends Phaser.Scene {
     }
   }
 
+  private openControlsHint(): void {
+    this.controlsHintOpen = true;
+    this.physics.world.isPaused = true;
+    audio.setMusicDuck(0.38);
+    this.game.canvas.dataset.controlsHint = '1';
+    this.syncTouchHud();
+    showControlsHint(this, this.special.kind, () => {
+      if (!this.controlsHintOpen) {
+        return;
+      }
+      this.controlsHintOpen = false;
+      delete this.game.canvas.dataset.controlsHint;
+      this.wasJump = true;
+      this.wasDown = true;
+      this.wasSpecial = true;
+      this.physics.world.isPaused = false;
+      audio.setMusicDuck(1);
+      this.syncTouchHud();
+    });
+  }
+
   private togglePause(): void {
-    if (this.completing || this.scene.isPaused()) {
+    if (this.completing || this.scene.isPaused() || this.controlsHintOpen) {
       return;
     }
     this.paused = !this.paused;

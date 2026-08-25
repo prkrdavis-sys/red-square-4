@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
-import { THEMES, TILE, type BossKind, type EnemyKind, type Theme } from '../config';
+import { TERRAIN_HAZARD_KINDS, THEMES, TILE, enemiesForWorld, type BossKind, type TerrainHazardKind, type Theme } from '../config';
 import { loadSave } from '../data/progress';
+import { projectileStyleForKind, type ProjectileStyle } from './projectile-style';
 import {
   CLASSIC_PALETTE,
   DEFAULT_SKIN_ID,
@@ -724,6 +725,131 @@ function drawOnewayTile(scene: Phaser.Scene, theme: Theme): void {
   commit(g, `tile-${theme}-oneway`, TILE, 22);
 }
 
+function drawTerrainHazards(scene: Phaser.Scene): void {
+  for (const kind of TERRAIN_HAZARD_KINDS) {
+    const g = gfx(scene);
+    paintHazardSocket(g, kind);
+    commit(g, `hazard-${kind}`, TILE, 80);
+  }
+  drawIceBeam(scene);
+  drawSonarBeam(scene);
+  drawFlameBeam(scene);
+}
+
+function paintHazardSocket(g: Phaser.GameObjects.Graphics, kind: TerrainHazardKind): void {
+  switch (kind) {
+    case 'bramble-vent':
+      g.fillStyle(0x2d4a1c, 1);
+      g.fillRoundedRect(10, 28, 44, 48, 10);
+      g.fillStyle(0x4d7a2e, 1);
+      g.fillRoundedRect(14, 32, 36, 40, 8);
+      g.fillStyle(0x1a2e10, 1);
+      g.fillEllipse(32, 44, 22, 16);
+      g.fillStyle(0x7bc24a, 1);
+      g.fillTriangle(18, 36, 12, 18, 26, 30);
+      g.fillTriangle(46, 36, 52, 16, 38, 30);
+      g.fillTriangle(32, 30, 28, 12, 38, 28);
+      g.fillStyle(0x3e5c22, 1);
+      g.fillRect(16, 62, 32, 12);
+      return;
+    case 'glacier-bore':
+      g.fillStyle(0x6a93a8, 1);
+      g.fillRoundedRect(8, 22, 48, 50, 8);
+      g.fillStyle(0xc7efff, 1);
+      g.fillRoundedRect(12, 26, 40, 42, 6);
+      g.fillStyle(0x8ec8de, 1);
+      g.fillRect(18, 36, 28, 22);
+      g.fillStyle(0xffffff, 0.85);
+      g.fillTriangle(20, 36, 32, 16, 44, 36);
+      g.fillStyle(0x4f87a6, 1);
+      g.fillEllipse(32, 48, 16, 10);
+      return;
+    case 'needle-mortar':
+      g.fillStyle(0x8f602b, 1);
+      g.fillRoundedRect(12, 30, 40, 46, 8);
+      g.fillStyle(0xc4894a, 1);
+      g.fillRoundedRect(16, 34, 32, 38, 6);
+      g.fillStyle(0x3a5c22, 1);
+      g.fillRect(26, 14, 12, 28);
+      g.fillStyle(0x6ad08a, 1);
+      g.fillTriangle(26, 18, 20, 8, 28, 16);
+      g.fillTriangle(38, 18, 44, 6, 36, 16);
+      g.fillStyle(0x5a3816, 1);
+      g.fillEllipse(32, 48, 14, 10);
+      return;
+    case 'sonar-well':
+      g.fillStyle(0x145a78, 1);
+      g.fillCircle(32, 48, 26);
+      g.fillStyle(0x2aa0b4, 1);
+      g.fillCircle(32, 48, 20);
+      g.fillStyle(0x0c3a44, 1);
+      g.fillCircle(32, 48, 12);
+      g.fillStyle(0x7eeaf2, 0.7);
+      g.fillCircle(24, 40, 5);
+      g.lineStyle(3, 0x55d8df, 0.8);
+      g.strokeCircle(32, 48, 22);
+      return;
+    case 'keep-burner':
+      g.fillStyle(0x2a1a22, 1);
+      g.fillRoundedRect(8, 20, 48, 52, 6);
+      g.fillStyle(0x5a3a48, 1);
+      g.fillRoundedRect(12, 24, 40, 44, 4);
+      g.fillStyle(0x1a1014, 1);
+      g.fillEllipse(32, 46, 20, 14);
+      g.fillStyle(0xff6a3a, 1);
+      g.fillTriangle(22, 46, 32, 30, 42, 46);
+      g.fillStyle(0xffcc33, 0.85);
+      g.fillCircle(32, 44, 5);
+      return;
+    case 'pitcher-snare':
+      g.fillStyle(0x1a3a1c, 1);
+      g.fillEllipse(32, 62, 26, 12);
+      g.fillStyle(0x2d6b3a, 1);
+      g.fillRoundedRect(24, 36, 16, 28, 8);
+      g.fillStyle(0x4d8a3e, 1);
+      g.fillCircle(32, 30, 18);
+      g.fillStyle(0x3b2350, 1);
+      g.fillEllipse(32, 28, 16, 12);
+      g.fillStyle(0x6ad08a, 1);
+      g.fillTriangle(18, 34, 10, 22, 24, 30);
+      g.fillTriangle(46, 34, 54, 20, 40, 30);
+      return;
+    default: {
+      const neverKind: never = kind;
+      return neverKind;
+    }
+  }
+}
+
+function drawIceBeam(scene: Phaser.Scene): void {
+  const g = gfx(scene);
+  g.fillStyle(0x9de8ff, 0.95);
+  g.fillRoundedRect(0, 2, 64, 8, 3);
+  g.fillStyle(0xffffff, 0.7);
+  g.fillRoundedRect(4, 4, 56, 4, 2);
+  commit(g, 'beam-ice', 64, 12);
+}
+
+function drawSonarBeam(scene: Phaser.Scene): void {
+  const g = gfx(scene);
+  g.fillStyle(0x55d8df, 0.55);
+  g.fillRoundedRect(4, 0, 12, 64, 6);
+  g.fillStyle(0xd8fbff, 0.45);
+  g.fillRoundedRect(7, 4, 6, 56, 3);
+  commit(g, 'beam-sonar', 20, 64);
+}
+
+function drawFlameBeam(scene: Phaser.Scene): void {
+  const g = gfx(scene);
+  g.fillStyle(0xc42618, 1);
+  g.fillRoundedRect(0, 2, 64, 16, 6);
+  g.fillStyle(0xff7a20, 1);
+  g.fillRoundedRect(4, 5, 56, 10, 4);
+  g.fillStyle(0xfff2a0, 0.9);
+  g.fillRoundedRect(12, 8, 36, 4, 2);
+  commit(g, 'beam-flame', 64, 20);
+}
+
 function drawLavaTile(scene: Phaser.Scene): void {
   const g = gfx(scene);
   g.fillStyle(0x4a0a0a, 1);
@@ -896,6 +1022,28 @@ function drawCampaignPickups(scene: Phaser.Scene): void {
   commit(checkpoint, 'checkpoint', 42, 62);
 }
 
+function drawSpecialBubble(scene: Phaser.Scene): void {
+  const g = gfx(scene);
+  const cx = 64;
+  const cy = 64;
+  const r = 60;
+  g.fillStyle(0x7ae7f2, 0.2);
+  g.fillCircle(cx, cy, r);
+  g.fillStyle(0x2bb8d0, 0.14);
+  g.fillCircle(cx + 2, cy + 6, r - 10);
+  g.lineStyle(5, 0xe7fdff, 0.88);
+  g.strokeCircle(cx, cy, r - 1.5);
+  g.lineStyle(2.4, 0x5ad4e8, 0.5);
+  g.strokeCircle(cx, cy, r - 7);
+  g.fillStyle(0xffffff, 0.78);
+  g.fillEllipse(cx - 18, cy - 22, 24, 15);
+  g.fillStyle(0xffffff, 0.42);
+  g.fillEllipse(cx - 28, cy - 6, 11, 7);
+  g.fillStyle(0xffffff, 0.34);
+  g.fillCircle(cx + 24, cy + 20, 5.5);
+  commit(g, 'special-bubble', 128, 128);
+}
+
 function drawSpecialAnchor(scene: Phaser.Scene, theme: Theme): void {
   const colors: Record<Theme, [number, number]> = {
     grass: [0x2d6e35, 0x9be36e],
@@ -916,67 +1064,284 @@ function drawSpecialAnchor(scene: Phaser.Scene, theme: Theme): void {
   commit(g, `special-anchor-${theme}`, 48, 40);
 }
 
-function projectileColor(kind: EnemyKind): number {
-  switch (kind) {
-    case 'bramble-hopper':
-    case 'acorn-slinger':
-    case 'mossback-beetle':
-      return 0x77b84d;
-    case 'skating-hare':
-    case 'snowball-finch':
-    case 'frost-mole':
-      return 0xc7efff;
-    case 'dune-scarab':
-    case 'cactus-imp':
-    case 'sandwyrm':
-      return 0xe0ad45;
-    case 'reef-crab':
-    case 'bubble-archerfish':
-    case 'angler-eel':
-      return 0x55d8df;
-    case 'clockwork-hound':
-    case 'gargoyle-page':
-    case 'wall-mimic':
-      return 0xbd63e6;
-    case 'howler-ape':
-    case 'dart-mosquito':
-    case 'coil-serpent':
-      return 0x6ad08a;
+function paintProjectile(g: Phaser.GameObjects.Graphics, style: ProjectileStyle): { w: number; h: number } {
+  switch (style) {
+    case 'thorn':
+      return paintThornProjectile(g);
+    case 'icicle':
+      return paintIcicleProjectile(g);
+    case 'cactus':
+      return paintCactusProjectile(g);
+    case 'bubble':
+      return paintBubbleProjectile(g);
+    case 'fireball':
+      return paintFireballProjectile(g);
+    case 'boomerang':
+      return paintBoomerangProjectile(g);
     default: {
-      const neverKind: never = kind;
-      return neverKind;
+      const neverStyle: never = style;
+      return neverStyle;
     }
   }
 }
 
+function paintThornProjectile(g: Phaser.GameObjects.Graphics): { w: number; h: number } {
+  fillPoly(g.fillStyle(0x1c2414, 1), [
+    { x: 2, y: 8 },
+    { x: 12, y: 4 },
+    { x: 28, y: 5 },
+    { x: 40, y: 8 },
+    { x: 44, y: 10 },
+    { x: 40, y: 12 },
+    { x: 26, y: 16 },
+    { x: 11, y: 16 },
+    { x: 2, y: 12 },
+  ]);
+  fillPoly(g.fillStyle(0x4a6b28, 1), [
+    { x: 5, y: 9 },
+    { x: 13, y: 6 },
+    { x: 28, y: 7 },
+    { x: 39, y: 9 },
+    { x: 41, y: 10 },
+    { x: 37, y: 12 },
+    { x: 25, y: 14 },
+    { x: 12, y: 14 },
+    { x: 5, y: 11 },
+  ]);
+  fillPoly(g.fillStyle(0x86b84f, 1), [
+    { x: 8, y: 9 },
+    { x: 16, y: 7 },
+    { x: 30, y: 8 },
+    { x: 38, y: 10 },
+    { x: 28, y: 12 },
+    { x: 14, y: 12 },
+  ]);
+  g.fillStyle(0xe8f6c4, 0.9);
+  g.fillEllipse(18, 8.5, 12, 3);
+  fillPoly(g.fillStyle(0x2d4418, 1), [
+    { x: 11, y: 13 },
+    { x: 18, y: 14 },
+    { x: 13, y: 20 },
+  ]);
+  fillPoly(g.fillStyle(0x6a9a3a, 1), [
+    { x: 12, y: 13.5 },
+    { x: 16, y: 14.2 },
+    { x: 13, y: 18 },
+  ]);
+  g.fillStyle(0x1c2414, 1);
+  g.fillCircle(9, 10, 1.2);
+  return { w: 46, h: 22 };
+}
+
+function paintIcicleProjectile(g: Phaser.GameObjects.Graphics): { w: number; h: number } {
+  fillPoly(g.fillStyle(0x1a3a52, 1), [
+    { x: 1, y: 8 },
+    { x: 10, y: 2 },
+    { x: 28, y: 3 },
+    { x: 44, y: 8 },
+    { x: 46, y: 9 },
+    { x: 30, y: 16 },
+    { x: 12, y: 16 },
+    { x: 2, y: 12 },
+  ]);
+  fillPoly(g.fillStyle(0x6ec4e0, 1), [
+    { x: 4, y: 9 },
+    { x: 12, y: 4 },
+    { x: 28, y: 5 },
+    { x: 42, y: 9 },
+    { x: 29, y: 14 },
+    { x: 12, y: 14 },
+    { x: 5, y: 11 },
+  ]);
+  fillPoly(g.fillStyle(0xd8f6ff, 1), [
+    { x: 8, y: 8 },
+    { x: 16, y: 5 },
+    { x: 30, y: 6 },
+    { x: 38, y: 9 },
+    { x: 24, y: 11 },
+    { x: 10, y: 10 },
+  ]);
+  fillPoly(g.fillStyle(0x3d7fa0, 0.85), [
+    { x: 14, y: 11 },
+    { x: 28, y: 10 },
+    { x: 32, y: 13 },
+    { x: 16, y: 14 },
+  ]);
+  g.fillStyle(0xffffff, 0.95);
+  g.fillCircle(11, 7, 1.6);
+  g.fillEllipse(22, 7, 8, 2.4);
+  return { w: 48, h: 18 };
+}
+
+function paintCactusProjectile(g: Phaser.GameObjects.Graphics): { w: number; h: number } {
+  const cx = 21;
+  const cy = 21;
+  const spikes = 10;
+  for (let i = 0; i < spikes; i += 1) {
+    const angle = (i / spikes) * Math.PI * 2 - Math.PI / 2;
+    const inner = 11;
+    const outer = 19;
+    const tipX = cx + Math.cos(angle) * outer;
+    const tipY = cy + Math.sin(angle) * outer;
+    const left = angle - 0.16;
+    const right = angle + 0.16;
+    g.fillStyle(0x2a2410, 1);
+    g.fillTriangle(
+      tipX,
+      tipY,
+      cx + Math.cos(left) * inner,
+      cy + Math.sin(left) * inner,
+      cx + Math.cos(right) * inner,
+      cy + Math.sin(right) * inner,
+    );
+    g.fillStyle(0xf0d48a, 1);
+    g.fillTriangle(
+      cx + Math.cos(angle) * (outer - 2),
+      cy + Math.sin(angle) * (outer - 2),
+      cx + Math.cos(left) * (inner + 1),
+      cy + Math.sin(left) * (inner + 1),
+      cx + Math.cos(right) * (inner + 1),
+      cy + Math.sin(right) * (inner + 1),
+    );
+  }
+  g.fillStyle(0x1f2e12, 1);
+  g.fillCircle(cx, cy, 12);
+  g.fillStyle(0x4f8a2e, 1);
+  g.fillCircle(cx, cy, 10);
+  g.fillStyle(0x7cbc4a, 1);
+  g.fillCircle(cx - 1, cy - 1, 7.5);
+  g.fillStyle(0xd8f3a8, 0.85);
+  g.fillEllipse(cx - 3, cy - 4, 6, 4);
+  g.fillStyle(0x8a2a4a, 1);
+  g.fillCircle(cx + 3, cy + 2, 2.4);
+  g.fillStyle(0xf4a0c0, 1);
+  g.fillCircle(cx + 3, cy + 2, 1.5);
+  g.fillStyle(0xfff4c8, 1);
+  g.fillCircle(cx + 3, cy + 2, 0.6);
+  return { w: 42, h: 42 };
+}
+
+function paintBubbleProjectile(g: Phaser.GameObjects.Graphics): { w: number; h: number } {
+  const cx = 19;
+  const cy = 19;
+  g.fillStyle(0x0c3a44, 0.35);
+  g.fillCircle(cx, cy, 18);
+  g.fillStyle(0x2aa0b4, 0.42);
+  g.fillCircle(cx, cy, 16);
+  g.fillStyle(0x7eeaf2, 0.5);
+  g.fillCircle(cx, cy, 13);
+  g.fillStyle(0xd8fbff, 0.28);
+  g.fillCircle(cx + 1, cy + 2, 8);
+  g.lineStyle(2, 0xb8f7ff, 0.7);
+  g.strokeCircle(cx, cy, 15);
+  g.fillStyle(0xffffff, 0.85);
+  g.fillEllipse(cx - 5, cy - 6, 7, 4.5);
+  g.fillCircle(cx + 6, cy - 2, 1.6);
+  g.lineStyle(1.4, 0xffffff, 0.45);
+  g.beginPath();
+  g.arc(cx + 2, cy + 4, 6, 0.15 * Math.PI, 0.85 * Math.PI, false);
+  g.strokePath();
+  return { w: 38, h: 38 };
+}
+
+function paintFireballProjectile(g: Phaser.GameObjects.Graphics): { w: number; h: number } {
+  const cx = 20;
+  const cy = 20;
+  g.fillStyle(0x4a0a08, 0.9);
+  g.fillCircle(cx, cy, 18);
+  g.fillStyle(0xc42618, 1);
+  g.fillCircle(cx, cy, 15);
+  g.fillStyle(0xf05a1a, 1);
+  g.fillCircle(cx - 1, cy - 1, 12);
+  g.fillStyle(0xffb024, 1);
+  g.fillCircle(cx - 2, cy - 2, 8);
+  g.fillStyle(0xfff2a0, 1);
+  g.fillCircle(cx - 3, cy - 3, 4.2);
+  g.fillStyle(0xffffff, 0.9);
+  g.fillCircle(cx - 4, cy - 4, 1.8);
+  g.fillStyle(0xff7a20, 1);
+  g.fillCircle(cx + 11, cy + 4, 2.4);
+  g.fillCircle(cx + 8, cy + 11, 1.8);
+  g.fillStyle(0xffe080, 0.85);
+  g.fillCircle(cx + 11, cy + 4, 1.1);
+  return { w: 40, h: 40 };
+}
+
+function paintBoomerangProjectile(g: Phaser.GameObjects.Graphics): { w: number; h: number } {
+  fillPoly(g.fillStyle(0x1c140c, 1), [
+    { x: 3, y: 8 },
+    { x: 16, y: 2 },
+    { x: 30, y: 6 },
+    { x: 36, y: 16 },
+    { x: 44, y: 20 },
+    { x: 42, y: 28 },
+    { x: 32, y: 26 },
+    { x: 24, y: 18 },
+    { x: 16, y: 14 },
+    { x: 6, y: 16 },
+  ]);
+  fillPoly(g.fillStyle(0x8a5a28, 1), [
+    { x: 6, y: 9 },
+    { x: 16, y: 5 },
+    { x: 28, y: 8 },
+    { x: 34, y: 16 },
+    { x: 40, y: 21 },
+    { x: 39, y: 25 },
+    { x: 32, y: 23 },
+    { x: 24, y: 16 },
+    { x: 16, y: 13 },
+    { x: 8, y: 14 },
+  ]);
+  fillPoly(g.fillStyle(0xc4894a, 1), [
+    { x: 8, y: 9 },
+    { x: 16, y: 6 },
+    { x: 26, y: 9 },
+    { x: 30, y: 14 },
+    { x: 22, y: 14 },
+    { x: 14, y: 11 },
+  ]);
+  g.lineStyle(1.2, 0x5a3816, 0.8);
+  g.beginPath();
+  g.moveTo(10, 10);
+  g.lineTo(24, 10);
+  g.moveTo(22, 12);
+  g.lineTo(34, 20);
+  g.strokePath();
+  g.lineStyle(1.6, 0x2d6b3a, 1);
+  g.beginPath();
+  g.moveTo(12, 11);
+  g.lineTo(18, 9);
+  g.lineTo(24, 11);
+  g.lineTo(30, 16);
+  g.strokePath();
+  g.fillStyle(0x6ad08a, 1);
+  g.fillCircle(18, 9, 1.3);
+  g.fillCircle(26, 12, 1.1);
+  fillPoly(g.fillStyle(0xe8d9b8, 1), [
+    { x: 3, y: 8 },
+    { x: 9, y: 6 },
+    { x: 8, y: 14 },
+    { x: 4, y: 14 },
+  ]);
+  fillPoly(g.fillStyle(0xe8d9b8, 1), [
+    { x: 40, y: 20 },
+    { x: 45, y: 20 },
+    { x: 44, y: 28 },
+    { x: 38, y: 26 },
+  ]);
+  g.fillStyle(0xfff6e0, 0.85);
+  g.fillCircle(6, 9, 1.2);
+  g.fillCircle(42, 22, 1.2);
+  return { w: 46, h: 32 };
+}
+
 function drawEnemyProjectiles(scene: Phaser.Scene): void {
-  const kinds: EnemyKind[] = [
-    'bramble-hopper',
-    'acorn-slinger',
-    'mossback-beetle',
-    'skating-hare',
-    'snowball-finch',
-    'frost-mole',
-    'dune-scarab',
-    'cactus-imp',
-    'sandwyrm',
-    'reef-crab',
-    'bubble-archerfish',
-    'angler-eel',
-    'clockwork-hound',
-    'gargoyle-page',
-    'wall-mimic',
-  ];
-  for (const kind of kinds) {
-    const g = gfx(scene);
-    const color = projectileColor(kind);
-    g.fillStyle(0x17202a, 1);
-    g.fillTriangle(16, 1, 31, 18, 2, 25);
-    g.fillStyle(color, 1);
-    g.fillTriangle(16, 4, 27, 17, 5, 22);
-    g.fillStyle(0xffffff, 0.75);
-    g.fillEllipse(13, 10, 8, 5);
-    commit(g, `projectile-${kind}`, 32, 28);
+  for (let world = 1; world <= 6; world += 1) {
+    for (const kind of enemiesForWorld(world)) {
+      const g = gfx(scene);
+      const size = paintProjectile(g, projectileStyleForKind(kind));
+      commit(g, `projectile-${kind}`, size.w, size.h);
+    }
   }
 }
 
@@ -1453,6 +1818,7 @@ export function createGameTextures(scene: Phaser.Scene): void {
   createMiniBossTextures(scene);
   createWorldBossTextures(scene);
   drawLavaTile(scene);
+  drawTerrainHazards(scene);
   drawParticle(scene);
   drawFireworkSpark(scene);
   drawCampaignPickups(scene);
@@ -1464,6 +1830,7 @@ export function createGameTextures(scene: Phaser.Scene): void {
   drawBlastSpark(scene);
   drawFlakPieces(scene);
   drawCartoonStar(scene);
+  drawSpecialBubble(scene);
   createLandscapeTextures(scene);
   createForegroundTextures(scene);
   drawNode(scene);

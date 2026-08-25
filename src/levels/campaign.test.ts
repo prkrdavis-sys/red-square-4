@@ -11,10 +11,12 @@ import {
   enemyRole,
   enemyThreatensTile,
   enemiesForWorld,
+  hazardForTheme,
   parseLevelId,
   specialForTheme,
   worldBossKind,
 } from '../config';
+import { hazardThreatensTile } from '../entities/terrain-hazard';
 import { miniBossTextureKey, worldBossTextureKey } from '../systems/characters';
 import { getLevel } from './worlds';
 import { bossSafeLandingX, getArenaLayout, type ArenaKeep } from './arena';
@@ -89,16 +91,20 @@ describe('biome campaign compilation', () => {
     ]);
   });
 
-  it('introduces movement, ranged, and terrain enemies by stage', () => {
+  it('introduces movement and ranged enemies by stage, then biome traps', () => {
     for (const id of ALL_LEVEL_IDS) {
       const level = getLevel(id);
       const roles = new Set(level.course.enemies.map((enemy) => enemyRole(enemy.kind)));
       if (level.stage === 1) {
         expect([...roles]).toEqual(['movement']);
+        expect(level.course.traps).toEqual([]);
       } else if (level.stage === 2) {
         expect(roles).toEqual(new Set(['movement', 'ranged']));
+        expect(level.course.traps).toEqual([]);
       } else {
-        expect(roles).toEqual(new Set(['movement', 'ranged', 'terrain']));
+        expect(roles).toEqual(new Set(['movement', 'ranged']));
+        expect(level.course.traps.length).toBeGreaterThan(0);
+        expect(level.course.traps.every((trap) => trap.kind === hazardForTheme(level.theme))).toBe(true);
       }
     }
   });
@@ -113,6 +119,12 @@ describe('biome campaign compilation', () => {
         groundEnemies.some((enemy) => Math.abs(enemy.x - level.course.checkpoint.x) <= 1),
         id,
       ).toBe(false);
+      expect(level.course.traps.every((trap) => trap.x >= 8), id).toBe(true);
+      expect(level.course.traps.some((trap) => trap.x === spawnX), id).toBe(false);
+      expect(
+        level.course.traps.some((trap) => Math.abs(trap.x - level.course.checkpoint.x) <= 1),
+        id,
+      ).toBe(false);
       for (const puzzle of level.course.puzzles) {
         if (
           puzzle.kind !== 'ice-wall' &&
@@ -123,6 +135,7 @@ describe('biome campaign compilation', () => {
           continue;
         }
         expect(groundEnemies.some((enemy) => enemy.x === puzzle.x), id).toBe(false);
+        expect(level.course.traps.some((trap) => trap.x === puzzle.x), id).toBe(false);
         expect(puzzle.x, id).not.toBe(level.course.checkpoint.x);
         expect(puzzle.x, id).not.toBe(spawnX);
       }
@@ -142,6 +155,12 @@ describe('biome campaign compilation', () => {
           expect(
             enemyThreatensTile(enemy.kind, enemy.x, origin),
             `${id} ${enemy.kind}@${enemy.x} vs ${origin}`,
+          ).toBe(false);
+        }
+        for (const trap of level.course.traps) {
+          expect(
+            hazardThreatensTile(trap.kind, trap.x, origin, trap.facing),
+            `${id} ${trap.kind}@${trap.x} vs ${origin}`,
           ).toBe(false);
         }
       }
