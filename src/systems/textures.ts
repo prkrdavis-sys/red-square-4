@@ -1237,6 +1237,44 @@ function drawCampaignPickups(scene: Phaser.Scene): void {
   commit(checkpoint, 'checkpoint', 42, 62);
 }
 
+function drawFlyingCarpets(scene: Phaser.Scene): void {
+  drawFlyingCarpetFrame(scene, 'flying-carpet-a', 0);
+  drawFlyingCarpetFrame(scene, 'flying-carpet-b', 1);
+}
+
+function drawFlyingCarpetFrame(scene: Phaser.Scene, key: string, frame: 0 | 1): void {
+  const g = gfx(scene);
+  const sweep = frame === 0 ? 0 : 3;
+  g.fillStyle(0x3a180c, 0.28);
+  g.fillEllipse(38, 18, 58, 7);
+  g.fillStyle(0x5a1414, 1);
+  g.fillEllipse(38, 12, 58, 14);
+  g.fillStyle(0xc42e2e, 1);
+  g.fillEllipse(38, 11, 52, 11);
+  g.fillStyle(0x8a1c1c, 1);
+  g.fillEllipse(38, 11, 44, 7);
+  g.lineStyle(1.6, 0xe8c36a, 1);
+  g.strokeEllipse(38, 11, 52, 11);
+  g.lineStyle(1, 0xf2cf72, 0.85);
+  g.strokeEllipse(38, 11, 40, 7);
+  g.fillStyle(0xf2cf72, 1);
+  for (const x of [24, 38, 52]) {
+    g.fillTriangle(x, 7.5, x + 4.5, 11, x - 4.5, 11);
+    g.fillTriangle(x, 14.5, x + 4.5, 11, x - 4.5, 11);
+  }
+  g.fillStyle(0xfff0b0, 0.7);
+  g.fillEllipse(28, 8, 10, 3);
+  g.lineStyle(1.3, 0xe8c36a, 1);
+  for (const y of [8, 11.5, 15]) {
+    g.lineBetween(10, y, 3 + sweep, y + 3);
+    g.lineBetween(66, y, 73 - sweep, y + 3);
+    g.fillStyle(0xf0d48a, 1);
+    g.fillCircle(3 + sweep, y + 3, 1.4);
+    g.fillCircle(73 - sweep, y + 3, 1.4);
+  }
+  commit(g, key, 76, 26);
+}
+
 function drawSpecialBubble(scene: Phaser.Scene): void {
   const g = gfx(scene);
   const cx = 64;
@@ -2043,6 +2081,7 @@ export function createGameTextures(scene: Phaser.Scene): void {
   drawFlakPieces(scene);
   drawCartoonStar(scene);
   drawSpecialBubble(scene);
+  drawFlyingCarpets(scene);
   createLandscapeTextures(scene);
   createForegroundTextures(scene);
   drawNode(scene);

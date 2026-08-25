@@ -71,6 +71,14 @@ export function layoutHudPause(): void {
     return;
   }
   const box = pauseButtonScreenRect(canvas.getBoundingClientRect());
+  const view = window.visualViewport;
+  if (view) {
+    const pad = 8;
+    const maxLeft = view.offsetLeft + view.width - box.width - pad;
+    const maxTop = view.offsetTop + view.height - box.height - pad;
+    box.left = Math.min(Math.max(box.left, view.offsetLeft + pad), maxLeft);
+    box.top = Math.min(Math.max(box.top, view.offsetTop + pad), maxTop);
+  }
   button.style.left = `${box.left}px`;
   button.style.top = `${box.top}px`;
   button.style.width = `${box.width}px`;

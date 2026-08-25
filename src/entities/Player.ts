@@ -1,6 +1,17 @@
 import Phaser from 'phaser';
 import { launchVelocity, STOMP_BOUNCE_HEIGHT_TILES, type Theme, themePhysics } from '../config';
 import { maybeShake } from '../data/settings';
+import {
+  airJumpMode,
+  applySwimStroke,
+  canCarpetGlide,
+  canSwimStroke,
+  carpetGlideVelocity,
+  carpetTrailPosition,
+  flyingCarpetPosition,
+  swimStrokeVelocity,
+  SWIM_STROKE_COOLDOWN_MS,
+} from '../systems/air-jump';
 import { audio } from '../systems/audio';
 import { DEATH_BLAST_MS, spawnDeathBlast } from '../systems/explosion';
 import { heldShieldPosition } from './held-shield';
@@ -36,14 +47,17 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
   private swinging = false;
   private jumpHeld = false;
   private wasGrounded = true;
+  private swimReadyAt = 0;
   private visualLockUntil = 0;
   private blinkUntil = 0;
   private nextBlinkAt = 0;
   private squashTween?: Phaser.Tweens.Tween;
   private readonly view: Phaser.GameObjects.Image;
   private readonly heldShield: Phaser.GameObjects.Image;
+  private readonly carpet: Phaser.GameObjects.Image;
   private readonly shadow: Phaser.GameObjects.Ellipse;
   private readonly dust: Phaser.GameObjects.Particles.ParticleEmitter;
+  private readonly carpetDust: Phaser.GameObjects.Particles.ParticleEmitter;
 
   constructor(scene: Phaser.Scene, x: number, y: number) {
     super(scene, x, y, 'player');
@@ -63,6 +77,10 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
     this.heldShield = scene.add.image(x, y, 'player-shield');
     this.heldShield.setDepth(21);
     this.heldShield.setVisible(false);
+    this.carpet = scene.add.image(x, y + 24, 'flying-carpet-a');
+    this.carpet.setDepth(18);
+    this.carpet.setVisible(false);
+    this.carpet.setAlpha(0);
     this.shadow = scene.add.ellipse(x, y + 22, 34, 12, 0x120408, 0.32);
     this.shadow.setDepth(19);
     this.dust = scene.add.particles(0, 0, 'poof-particle', {
@@ -74,11 +92,26 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
       gravityY: 240,
     });
     this.dust.setDepth(19);
+    this.carpetDust = scene.add.particles(0, 0, 'firework-spark', {
+      speed: { min: 18, max: 52 },
+      scale: { start: 0.55, end: 0 },
+      lifespan: { min: 280, max: 460 },
+      emitting: false,
+      frequency: 36,
+      quantity: 1,
+      tint: [0xffe08a, 0xf6d56a, 0xfff4d0],
+      gravityY: 28,
+      alpha: { start: 0.9, end: 0 },
+      blendMode: Phaser.BlendModes.ADD,
+    });
+    this.carpetDust.setDepth(17);
     this.once('destroy', () => {
       this.view.destroy();
       this.heldShield.destroy();
+      this.carpet.destroy();
       this.shadow.destroy();
       this.dust.destroy();
+      this.carpetDust.destroy();
     });
   }
 
@@ -214,6 +247,7 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
     this.view.setAngle(0);
     this.view.setScale(1);
     this.view.setAlpha(1);
+    this.hideCarpet();
     this.syncView();
   }
 
@@ -240,6 +274,7 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
     this.view.setVisible(true);
     this.view.clearTint();
     this.hideHeldShield();
+    this.hideCarpet();
     this.shadow.setVisible(false);
     this.dust.emitParticleAt(x, y + 18, 12);
     maybeShake(scene, 140, 0.01);
@@ -355,6 +390,7 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
 
   tick(input: PlayerInput, theme: Theme): void {
     if (this.frozen) {
+      this.hideCarpet();
       this.syncView();
       this.shadow.setPosition(this.x, this.y + 22);
       this.shadow.setAlpha(0.22);
@@ -362,6 +398,7 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
     }
 
     if (this.swinging) {
+      this.hideCarpet();
       this.arcadeBody.setVelocity(0, 0);
       this.arcadeBody.setAcceleration(0, 0);
       this.syncView();
@@ -379,6 +416,7 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
 
     if (grounded) {
       this.coyoteUntil = now + 90;
+      this.swimReadyAt = 0;
     }
 
     if (input.jumpJust) {
@@ -423,8 +461,30 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
       body.setVelocityY(Math.max(body.velocity.y, 240));
     }
 
-    if (theme === 'ocean' && !this.jumpLocked && input.jump && !grounded && body.velocity.y > 40) {
-      body.setVelocityY(body.velocity.y * 0.82);
+    const onFoot = grounded || now < this.coyoteUntil;
+    const mode = airJumpMode(theme);
+    if (
+      mode === 'swim-stroke' &&
+      canSwimStroke({
+        jumpLocked: this.jumpLocked,
+        grounded: onFoot,
+        jumpJust: input.jumpJust,
+        now,
+        strokeReadyAt: this.swimReadyAt,
+      })
+    ) {
+      body.setVelocityY(applySwimStroke(swimStrokeVelocity(physics.gravity)));
+      this.swimReadyAt = now + SWIM_STROKE_COOLDOWN_MS;
+      this.jumpBufferUntil = 0;
+      audio.play(this.scene, 'jump');
+      this.squash(0.9, 1.12, 80);
+    }
+
+    if (
+      mode === 'carpet-glide' &&
+      canCarpetGlide({ jumpHeld: input.jump, grounded, velocityY: body.velocity.y })
+    ) {
+      body.setVelocityY(carpetGlideVelocity(body.velocity.y));
     }
 
     if (grounded && !this.wasGrounded) {
@@ -433,6 +493,7 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
     }
     this.wasGrounded = grounded;
     this.present(grounded, body.velocity.x, body.velocity.y);
+    this.syncCarpet(mode === 'carpet-glide' && !grounded && input.jump && !this.jumpLocked);
   }
 
   private squash(scaleX: number, scaleY: number, duration: number): void {
@@ -522,5 +583,33 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
     this.heldShield.setVisible(false);
     this.heldShield.setScale(1);
     this.heldShield.setAlpha(1);
+  }
+
+  private syncCarpet(visible: boolean): void {
+    const target = visible ? 1 : 0;
+    const alpha = Phaser.Math.Linear(this.carpet.alpha, target, visible ? 0.28 : 0.4);
+    this.carpet.setAlpha(alpha);
+    if (alpha <= 0.04 && !visible) {
+      this.hideCarpet();
+      return;
+    }
+
+    const now = this.scene.time.now;
+    const pos = flyingCarpetPosition(this.x, this.y, now);
+    this.carpet.setPosition(pos.x, pos.y);
+    this.carpet.setFlipX(this.flipX);
+    this.carpet.setTexture(now % 280 < 140 ? 'flying-carpet-a' : 'flying-carpet-b');
+    this.carpet.setVisible(true);
+    this.shadow.setVisible(false);
+
+    const trail = carpetTrailPosition(pos.x, pos.y, this.flipX);
+    this.carpetDust.setPosition(trail.x, trail.y);
+    this.carpetDust.emitting = visible;
+  }
+
+  private hideCarpet(): void {
+    this.carpet.setVisible(false);
+    this.carpet.setAlpha(0);
+    this.carpetDust.emitting = false;
   }
 }

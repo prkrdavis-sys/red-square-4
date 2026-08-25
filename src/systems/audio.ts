@@ -1,6 +1,6 @@
 import Phaser from 'phaser';
 
-import { type Theme } from '../config';
+import { THEMES, type Theme } from '../config';
 import { applySettings, loadSettings, onSettingsApplied } from '../data/settings';
 import { makeSeamlessLoop, recordedThemeUrl } from './music-loop';
 import { themeBuffer } from './music';
@@ -366,8 +366,10 @@ function prefetchRecordedThemes(): void {
   if (!context) {
     return;
   }
-  if (recordedThemeUrl('grass')) {
-    void loadRecordedTheme(context, 'grass');
+  for (const theme of THEMES) {
+    if (recordedThemeUrl(theme)) {
+      void loadRecordedTheme(context, theme);
+    }
   }
 }
 

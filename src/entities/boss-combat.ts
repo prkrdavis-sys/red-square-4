@@ -1,9 +1,24 @@
+import { TILE } from '../config';
+
 export interface BossHurtbox {
   width: number;
   height: number;
   offsetX: number;
   offsetY: number;
 }
+
+/** Vertical slice of the arena used to keep lunges from camping the ceiling. */
+export interface ArenaYBounds {
+  top: number;
+  bottom: number;
+}
+
+/** Flash i-frames after a stomp. Must stay shorter than post-stomp recovery. */
+export const STOMP_INVULN_MS = 280;
+/** Open recovery after a stomp, including the brief i-frames at the start. */
+export const POST_STOMP_RECOVERY_MS = 1100;
+/** One fish lunge toward the player before they swim home. */
+export const FISH_DASH_MS = 240;
 
 export interface SpriteOpaqueBounds {
   x: number;
@@ -138,4 +153,24 @@ export function crownGuardLayout(
     scale: Math.max(1.05, fit) * (0.96 + pulse * 0.08),
     alpha: 0.5 + pulse * 0.12,
   };
+}
+
+/** Commit a left/right charge toward the player. Call once at telegraph start. */
+export function lockChargeDir(playerX: number, bossX: number): number {
+  return Math.sign(playerX - bossX) || -1;
+}
+
+/** Idle and reset swim height: spawn Y, clamped into the lower third of the arena. */
+export function swimHomeY(spawnY: number, arena: ArenaYBounds): number {
+  const span = Math.max(1, arena.bottom - arena.top);
+  const bandTop = arena.bottom - span / 3;
+  return Math.min(arena.bottom, Math.max(bandTop, spawnY));
+}
+
+/**
+ * Highest a boss may stay after a lunge starts returning.
+ * Three tiles above the floor, and never above the arena roof.
+ */
+export function aerialLungeCeiling(arena: ArenaYBounds): number {
+  return Math.max(arena.top, arena.bottom - 3 * TILE);
 }

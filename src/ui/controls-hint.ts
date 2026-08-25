@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
-import { GAME_HEIGHT, GAME_WIDTH, type SpecialKind } from '../config';
+import { GAME_HEIGHT, GAME_WIDTH, type SpecialKind, type Theme } from '../config';
+import { airJumpHint } from '../systems/air-jump';
 import { specialDescription, specialLabel } from '../systems/special-copy';
 import { addPanel, dismissOnOutside, MenuButton, MenuNav, textStyle, UI } from './menu';
 
@@ -10,11 +11,18 @@ const CONTROL_ROWS: ReadonlyArray<{ action: string; keys: string }> = [
   { action: 'Pause', keys: 'P, Esc, or Pause' },
 ];
 
-export function showControlsHint(scene: Phaser.Scene, kind: SpecialKind, onDismiss: () => void): void {
+export function showControlsHint(
+  scene: Phaser.Scene,
+  kind: SpecialKind,
+  theme: Theme,
+  onDismiss: () => void,
+): void {
   let closed = false;
   const bits: Phaser.GameObjects.GameObject[] = [];
   const cx = GAME_WIDTH / 2;
-  const panelHeight = 508;
+  const jumpHint = airJumpHint(theme);
+  const extra = jumpHint ? 36 : 0;
+  const panelHeight = 508 + extra;
 
   const finish = (): void => {
     if (closed) {
@@ -55,7 +63,16 @@ export function showControlsHint(scene: Phaser.Scene, kind: SpecialKind, onDismi
     );
   });
 
-  const specialY = rowTop + CONTROL_ROWS.length * 34 + 28;
+  const specialY = rowTop + CONTROL_ROWS.length * 34 + 28 + extra;
+  if (jumpHint) {
+    bits.push(
+      scene.add
+        .text(cx, rowTop + CONTROL_ROWS.length * 34 + 6, jumpHint, textStyle('16px', UI.gold))
+        .setOrigin(0.5, 0.5)
+        .setScrollFactor(0)
+        .setDepth(84),
+    );
+  }
   bits.push(
     scene.add
       .text(cx, specialY, 'Shift  is the special ability', textStyle('22px', UI.gold))
@@ -77,13 +94,13 @@ export function showControlsHint(scene: Phaser.Scene, kind: SpecialKind, onDismi
       .setScrollFactor(0)
       .setDepth(84),
     scene.add
-      .text(cx, specialY + 118, 'Touch: Left, Right, Jump, and the bolt button', textStyle('16px', UI.muted))
+      .text(cx, specialY + 118, 'Touch: drag the left half to move, Jump, and the bolt button', textStyle('16px', UI.muted))
       .setOrigin(0.5)
       .setScrollFactor(0)
       .setDepth(84),
   );
 
-  const go = new MenuButton(scene, cx, GAME_HEIGHT / 2 + 176, 'GOT IT', finish);
+  const go = new MenuButton(scene, cx, GAME_HEIGHT / 2 + 176 + extra, 'GOT IT', finish);
   go.setDepth(90);
   go.disableInteractive();
   const nav = new MenuNav(scene, [go], finish);

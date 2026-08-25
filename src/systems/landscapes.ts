@@ -89,18 +89,18 @@ function palette(theme: Theme): LandscapePalette {
       };
     case 'desert':
       return {
-        skyTop: 0x5ea0d8,
-        skyHorizon: 0xf6d39a,
-        cloud: 0xfff6e8,
-        cloudShade: 0xf0d9b4,
-        far: 0xd8b07a,
-        farCap: 0xf3e0b8,
-        mountain: 0xc9953f,
-        mountainShade: 0xa67428,
-        cap: 0xf0d9a0,
+        skyTop: 0x2470c0,
+        skyHorizon: 0xf8c878,
+        cloud: 0xfff4e0,
+        cloudShade: 0xe8d0a4,
+        far: 0xc4a070,
+        farCap: 0xe0c898,
+        mountain: 0xd09a42,
+        mountainShade: 0xa06e24,
+        cap: 0xf2d28a,
         ground: 0xe0b05a,
-        groundShade: 0xc4923e,
-        groundTop: 0xf0d48a,
+        groundShade: 0xb88632,
+        groundTop: 0xf4d890,
       };
     case 'ocean':
       return {
@@ -1557,6 +1557,708 @@ function drawMeadowGround(ctx: CanvasRenderingContext2D, colors: LandscapePalett
   }
 }
 
+type DuneCloudKind = 'wisp' | 'flat' | 'puff';
+
+function paintDuneSky(ctx: CanvasRenderingContext2D, width: number, height: number, colors: LandscapePalette): void {
+  const mid = 0x6aabe0;
+  const steps = 56;
+  const slice = Math.ceil(height / steps) + 1;
+  for (let i = 0; i < steps; i += 1) {
+    const t = i / (steps - 1);
+    const color =
+      t < 0.12
+        ? mixColor(colors.skyTop, mid, t / 0.12)
+        : t < 0.24
+          ? mixColor(mid, mixColor(mid, colors.skyHorizon, 0.45), (t - 0.12) / 0.12)
+          : mixColor(mixColor(mid, colors.skyHorizon, 0.45), colors.skyHorizon, Math.min(1, (t - 0.24) / 0.2));
+    ctx.fillStyle = css(color);
+    ctx.fillRect(0, (height / steps) * i, width, slice);
+  }
+
+  const haze = ctx.createLinearGradient(0, height * 0.46, 0, height);
+  haze.addColorStop(0, css(0xffe0a0, 0));
+  haze.addColorStop(0.4, css(0xf6c878, 0.14));
+  haze.addColorStop(1, css(0xf8d898, 0.36));
+  ctx.fillStyle = haze;
+  ctx.fillRect(0, height * 0.44, width, height * 0.56);
+
+  ctx.fillStyle = css(0xfff0d0, 0.12);
+  for (const streak of [
+    { x: 180, y: 40, rx: 96, ry: 6 },
+    { x: 520, y: 26, rx: 70, ry: 4.5 },
+    { x: 940, y: 52, rx: 118, ry: 7 },
+    { x: 1380, y: 22, rx: 80, ry: 5 },
+    { x: 1820, y: 44, rx: 104, ry: 6 },
+    { x: 2260, y: 30, rx: 76, ry: 4.5 },
+  ]) {
+    fillEllipse(ctx, streak.x, streak.y, streak.rx, streak.ry, width);
+    fillEllipse(ctx, streak.x + 36, streak.y + 6, streak.rx * 0.5, streak.ry * 0.65, width);
+  }
+
+  ctx.fillStyle = css(0xffd878, 0.05);
+  for (const shimmer of [
+    { x: 220, y: 420, rx: 90, ry: 8 },
+    { x: 680, y: 480, rx: 120, ry: 10 },
+    { x: 1240, y: 440, rx: 100, ry: 8 },
+    { x: 1780, y: 500, rx: 130, ry: 11 },
+    { x: 2280, y: 460, rx: 88, ry: 7 },
+  ]) {
+    fillEllipse(ctx, shimmer.x, shimmer.y, shimmer.rx, shimmer.ry, width);
+  }
+
+  ctx.strokeStyle = css(0x3a2a18, 0.42);
+  ctx.lineWidth = 1.6;
+  ctx.lineCap = 'round';
+  for (const bird of [
+    { x: 310, y: 92, s: 1.15 },
+    { x: 348, y: 104, s: 0.8 },
+    { x: 980, y: 70, s: 1 },
+    { x: 1016, y: 80, s: 0.7 },
+    { x: 1680, y: 118, s: 1.2 },
+    { x: 1722, y: 128, s: 0.75 },
+    { x: 2200, y: 86, s: 0.9 },
+  ]) {
+    wrapStamp(bird.x, width, 16, (ox) => {
+      const x = bird.x + ox;
+      ctx.beginPath();
+      ctx.moveTo(x - 11 * bird.s, bird.y + 1.4 * bird.s);
+      ctx.quadraticCurveTo(x - 2.4 * bird.s, bird.y - 5.2 * bird.s, x, bird.y);
+      ctx.quadraticCurveTo(x + 2.4 * bird.s, bird.y - 5.2 * bird.s, x + 11 * bird.s, bird.y + 1.4 * bird.s);
+      ctx.stroke();
+    });
+  }
+}
+
+function stampDuneCloud(
+  ctx: CanvasRenderingContext2D,
+  cx: number,
+  cy: number,
+  scale: number,
+  width: number,
+  body: number,
+  shade: number,
+  kind: DuneCloudKind,
+): void {
+  switch (kind) {
+    case 'wisp':
+      ctx.fillStyle = css(shade, 0.45);
+      fillEllipse(ctx, cx + 4, cy + 4, 46 * scale, 8 * scale, width);
+      ctx.fillStyle = css(body, 0.88);
+      fillEllipse(ctx, cx, cy, 48 * scale, 8 * scale, width);
+      fillEllipse(ctx, cx + 22 * scale, cy - 2, 22 * scale, 5 * scale, width);
+      return;
+    case 'flat':
+      ctx.fillStyle = css(shade, 0.5);
+      fillEllipse(ctx, cx + 2, cy + 5, 36 * scale, 10 * scale, width);
+      ctx.fillStyle = css(body, 0.9);
+      fillEllipse(ctx, cx, cy, 38 * scale, 10 * scale, width);
+      fillCircle(ctx, cx - 12 * scale, cy - 1, 8 * scale, width);
+      fillCircle(ctx, cx + 14 * scale, cy - 2, 9 * scale, width);
+      return;
+    case 'puff':
+      ctx.fillStyle = css(shade, 0.4);
+      fillCircle(ctx, cx + 2, cy + 4, 10 * scale, width);
+      ctx.fillStyle = css(body, 0.7);
+      fillCircle(ctx, cx, cy, 10 * scale, width);
+      fillCircle(ctx, cx - 8 * scale, cy + 2, 7 * scale, width);
+      fillCircle(ctx, cx + 9 * scale, cy + 1, 7 * scale, width);
+      return;
+    default: {
+      const neverKind: never = kind;
+      return neverKind;
+    }
+  }
+}
+
+function drawDuneClouds(ctx: CanvasRenderingContext2D, colors: LandscapePalette): void {
+  const width = LANDSCAPE.stripW;
+  const clouds: { x: number; y: number; s: number; kind: DuneCloudKind }[] = [
+    { x: 220, y: 70, s: 0.95, kind: 'wisp' },
+    { x: 560, y: 48, s: 0.62, kind: 'puff' },
+    { x: 880, y: 78, s: 0.84, kind: 'flat' },
+    { x: 1280, y: 56, s: 0.7, kind: 'wisp' },
+    { x: 1680, y: 86, s: 0.58, kind: 'puff' },
+    { x: 2040, y: 62, s: 0.9, kind: 'flat' },
+    { x: 2380, y: 74, s: 0.66, kind: 'wisp' },
+  ];
+  for (const cloud of clouds) {
+    stampDuneCloud(ctx, cloud.x, cloud.y, cloud.s, width, colors.cloud, colors.cloudShade, cloud.kind);
+  }
+}
+
+function stampDunePyramid(
+  ctx: CanvasRenderingContext2D,
+  cx: number,
+  baseY: number,
+  w: number,
+  h: number,
+  width: number,
+  body: number,
+  shade: number,
+  cap: number,
+  detailed: boolean,
+): void {
+  wrapStamp(cx, width, w / 2 + 10, (ox) => {
+    const x = cx + ox;
+    ctx.fillStyle = css(body);
+    triangleAt(ctx, x - w / 2, baseY, x, baseY - h, x + w / 2, baseY);
+    ctx.fillStyle = css(shade, 0.82);
+    triangleAt(ctx, x, baseY - h, x + w / 2, baseY, x + w * 0.08, baseY);
+    if (detailed) {
+      ctx.save();
+      ctx.beginPath();
+      ctx.moveTo(x - w / 2, baseY);
+      ctx.lineTo(x, baseY - h);
+      ctx.lineTo(x + w / 2, baseY);
+      ctx.closePath();
+      ctx.clip();
+      ctx.strokeStyle = css(shade, 0.42);
+      ctx.lineWidth = 1.4;
+      for (let y = 10; y < h - 8; y += 9) {
+        const t = y / h;
+        const half = (w / 2) * (1 - t);
+        ctx.beginPath();
+        ctx.moveTo(x - half, baseY - y);
+        ctx.lineTo(x + half, baseY - y);
+        ctx.stroke();
+      }
+      ctx.fillStyle = css(0x5a3a14, 0.62);
+      ctx.fillRect(x - Math.max(4, w * 0.04), baseY - h * 0.12, Math.max(8, w * 0.08), h * 0.12);
+      ctx.restore();
+    }
+    ctx.fillStyle = css(cap, 0.92);
+    triangleAt(
+      ctx,
+      x - w * 0.11,
+      baseY - h * 0.8,
+      x,
+      baseY - h,
+      x + w * 0.11,
+      baseY - h * 0.8,
+    );
+  });
+}
+
+function stampMesa(
+  ctx: CanvasRenderingContext2D,
+  cx: number,
+  baseY: number,
+  w: number,
+  h: number,
+  width: number,
+  body: number,
+  shade: number,
+  top: number,
+): void {
+  wrapStamp(cx, width, w / 2 + 8, (ox) => {
+    const x = cx + ox;
+    const topW = w * 0.6;
+    ctx.fillStyle = css(body);
+    ctx.beginPath();
+    ctx.moveTo(x - w / 2, baseY);
+    ctx.lineTo(x - topW / 2, baseY - h);
+    ctx.lineTo(x + topW / 2, baseY - h);
+    ctx.lineTo(x + w / 2, baseY);
+    ctx.closePath();
+    ctx.fill();
+    ctx.fillStyle = css(shade, 0.42);
+    ctx.beginPath();
+    ctx.moveTo(x + 2, baseY - h);
+    ctx.lineTo(x + topW / 2, baseY - h);
+    ctx.lineTo(x + w / 2, baseY);
+    ctx.lineTo(x + 6, baseY);
+    ctx.closePath();
+    ctx.fill();
+    ctx.fillStyle = css(top, 0.75);
+    ctx.fillRect(x - topW / 2, baseY - h - 3, topW, 4);
+  });
+}
+
+function stampSaguaro(
+  ctx: CanvasRenderingContext2D,
+  cx: number,
+  baseY: number,
+  scale: number,
+  width: number,
+  body: number,
+  shade: number,
+  bloom: boolean,
+): void {
+  wrapStamp(cx, width, 22 * scale, (ox) => {
+    const x = cx + ox;
+    ctx.fillStyle = css(body);
+    ctx.fillRect(x - 5 * scale, baseY - 52 * scale, 10 * scale, 52 * scale);
+    ellipseAt(ctx, x, baseY - 52 * scale, 5 * scale, 6 * scale);
+    ctx.fillRect(x - 16 * scale, baseY - 34 * scale, 12 * scale, 6 * scale);
+    ctx.fillRect(x - 16 * scale, baseY - 48 * scale, 6 * scale, 20 * scale);
+    ellipseAt(ctx, x - 13 * scale, baseY - 48 * scale, 3.2 * scale, 4 * scale);
+    ctx.fillRect(x + 4 * scale, baseY - 28 * scale, 12 * scale, 6 * scale);
+    ctx.fillRect(x + 10 * scale, baseY - 40 * scale, 6 * scale, 18 * scale);
+    ellipseAt(ctx, x + 13 * scale, baseY - 40 * scale, 3.2 * scale, 4 * scale);
+    ctx.fillStyle = css(shade, 0.32);
+    ctx.fillRect(x - 2 * scale, baseY - 50 * scale, 2 * scale, 46 * scale);
+    if (bloom) {
+      ctx.fillStyle = css(0xf0a0c8);
+      ellipseAt(ctx, x, baseY - 58 * scale, 3.2 * scale, 3.2 * scale);
+      ctx.fillStyle = css(0xffe066);
+      ellipseAt(ctx, x, baseY - 58 * scale, 1.3 * scale, 1.3 * scale);
+    }
+  });
+}
+
+function stampPricklyPear(
+  ctx: CanvasRenderingContext2D,
+  cx: number,
+  baseY: number,
+  scale: number,
+  width: number,
+): void {
+  wrapStamp(cx, width, 20 * scale, (ox) => {
+    const x = cx + ox;
+    const pads = [
+      { dx: 0, dy: 22, rx: 9, ry: 12 },
+      { dx: -10, dy: 38, rx: 8, ry: 10 },
+      { dx: 9, dy: 40, rx: 7.5, ry: 10 },
+      { dx: 2, dy: 54, rx: 6.5, ry: 8 },
+    ];
+    for (const pad of pads) {
+      ctx.fillStyle = css(0x3d7a2a);
+      ellipseAt(ctx, x + pad.dx * scale, baseY - pad.dy * scale, pad.rx * scale, pad.ry * scale);
+      ctx.fillStyle = css(0x58a040, 0.45);
+      ellipseAt(
+        ctx,
+        x + (pad.dx - 2) * scale,
+        baseY - (pad.dy + 2) * scale,
+        pad.rx * 0.4 * scale,
+        pad.ry * 0.35 * scale,
+      );
+    }
+    ctx.fillStyle = css(0xe85a7a);
+    ellipseAt(ctx, x + 3 * scale, baseY - 60 * scale, 2.2 * scale, 2.2 * scale);
+  });
+}
+
+function stampPalm(
+  ctx: CanvasRenderingContext2D,
+  cx: number,
+  baseY: number,
+  scale: number,
+  width: number,
+): void {
+  wrapStamp(cx, width, 28 * scale, (ox) => {
+    const x = cx + ox;
+    ctx.fillStyle = css(0x8a5a28);
+    ctx.beginPath();
+    ctx.moveTo(x - 4 * scale, baseY);
+    ctx.lineTo(x - 1.4 * scale, baseY - 46 * scale);
+    ctx.lineTo(x + 2.8 * scale, baseY - 46 * scale);
+    ctx.lineTo(x + 4.6 * scale, baseY);
+    ctx.closePath();
+    ctx.fill();
+    ctx.fillStyle = css(0x6a4018, 0.4);
+    for (let i = 0; i < 5; i += 1) {
+      ctx.fillRect(x - 3 * scale, baseY - 8 * scale - i * 8 * scale, 7 * scale, 1.4 * scale);
+    }
+    const fronds = [
+      { a: -1.15, c: 0x2d6a28 },
+      { a: -0.55, c: 0x3d8a34 },
+      { a: 0, c: 0x4aa040 },
+      { a: 0.55, c: 0x3d8a34 },
+      { a: 1.15, c: 0x2d6a28 },
+    ];
+    for (const frond of fronds) {
+      ctx.fillStyle = css(frond.c);
+      const fx = x + Math.sin(frond.a) * 20 * scale;
+      const fy = baseY - 50 * scale + Math.cos(frond.a) * 6 * scale;
+      ellipseAt(ctx, fx, fy, 14 * scale, 4.2 * scale);
+    }
+    ctx.fillStyle = css(0xc4783a);
+    ellipseAt(ctx, x, baseY - 46 * scale, 4.5 * scale, 3.4 * scale);
+  });
+}
+
+function stampRuin(
+  ctx: CanvasRenderingContext2D,
+  cx: number,
+  baseY: number,
+  scale: number,
+  width: number,
+): void {
+  wrapStamp(cx, width, 28 * scale, (ox) => {
+    const x = cx + ox;
+    ctx.fillStyle = css(0xc4a070);
+    ctx.fillRect(x - 16 * scale, baseY - 28 * scale, 7 * scale, 28 * scale);
+    ctx.fillRect(x + 8 * scale, baseY - 34 * scale, 7 * scale, 34 * scale);
+    ctx.fillStyle = css(0xa88850);
+    ctx.fillRect(x - 18 * scale, baseY - 32 * scale, 34 * scale, 5 * scale);
+    ctx.fillStyle = css(0x8a6a38);
+    triangleAt(
+      ctx,
+      x + 14 * scale,
+      baseY - 34 * scale,
+      x + 22 * scale,
+      baseY - 18 * scale,
+      x + 10 * scale,
+      baseY - 18 * scale,
+    );
+    ctx.fillStyle = css(0xf0d48a, 0.35);
+    ctx.fillRect(x - 14 * scale, baseY - 26 * scale, 2 * scale, 20 * scale);
+  });
+}
+
+function duneBackPeaks(texH: number): Peak[] {
+  const s = texH / 310;
+  return [
+    { x: 260, w: 440, h: 52 * s },
+    { x: 820, w: 520, h: 68 * s },
+    { x: 1420, w: 400, h: 46 * s },
+    { x: 1960, w: 480, h: 62 * s },
+    { x: 2400, w: 360, h: 44 * s },
+  ];
+}
+
+function duneFrontPeaks(texH: number): Peak[] {
+  const s = texH / 310;
+  return [
+    { x: 320, w: 300, h: 48 * s },
+    { x: 860, w: 360, h: 60 * s },
+    { x: 1400, w: 280, h: 42 * s },
+    { x: 1880, w: 340, h: 56 * s },
+    { x: 2320, w: 260, h: 40 * s },
+  ];
+}
+
+function duneHillPeaks(): Peak[] {
+  return [
+    { x: 220, w: 380, h: 70 },
+    { x: 760, w: 440, h: 92 },
+    { x: 1280, w: 320, h: 58 },
+    { x: 1760, w: 400, h: 80 },
+    { x: 2260, w: 340, h: 68 },
+  ];
+}
+
+function drawDuneFar(ctx: CanvasRenderingContext2D, colors: LandscapePalette, texH: number): void {
+  const width = LANDSCAPE.stripW;
+  const back = ridgeHeights(
+    width,
+    texH,
+    duneBackPeaks(texH),
+    [
+      { amp: texH * 0.045, cycles: 2, phase: 0.8 },
+      { amp: texH * 0.025, cycles: 4, phase: 1.4 },
+    ],
+    0.5,
+  );
+  paintMeadowSlope(
+    ctx,
+    back,
+    texH,
+    width,
+    colors.far,
+    mixColor(colors.far, 0x8a6a40, 0.28),
+    mixColor(colors.far, colors.farCap, 0.35),
+    32,
+    7,
+  );
+  stampMesa(
+    ctx,
+    480,
+    texH - sampleHeight(back, 480, width) + 4,
+    90,
+    38,
+    width,
+    mixColor(colors.far, 0x8a7048, 0.2),
+    mixColor(colors.far, 0x6a5030, 0.3),
+    colors.farCap,
+  );
+  stampMesa(
+    ctx,
+    1680,
+    texH - sampleHeight(back, 1680, width) + 4,
+    110,
+    46,
+    width,
+    mixColor(colors.far, 0x8a7048, 0.2),
+    mixColor(colors.far, 0x6a5030, 0.3),
+    colors.farCap,
+  );
+  stampDunePyramid(
+    ctx,
+    980,
+    texH - sampleHeight(back, 980, width) + 3,
+    70,
+    58,
+    width,
+    mixColor(colors.far, 0x8a6a40, 0.15),
+    mixColor(colors.far, 0x6a5030, 0.25),
+    colors.farCap,
+    false,
+  );
+  stampDunePyramid(
+    ctx,
+    2140,
+    texH - sampleHeight(back, 2140, width) + 3,
+    58,
+    48,
+    width,
+    mixColor(colors.far, 0x8a6a40, 0.15),
+    mixColor(colors.far, 0x6a5030, 0.25),
+    colors.farCap,
+    false,
+  );
+
+  const front = ridgeHeights(
+    width,
+    texH,
+    duneFrontPeaks(texH),
+    [
+      { amp: texH * 0.03, cycles: 3, phase: 1.2 },
+      { amp: texH * 0.018, cycles: 6, phase: 0.5 },
+    ],
+    0.34,
+  );
+  paintMeadowSlope(
+    ctx,
+    front,
+    texH,
+    width,
+    mixColor(colors.far, colors.mountain, 0.22),
+    mixColor(colors.far, 0x8a6a40, 0.22),
+    mixColor(colors.farCap, colors.far, 0.4),
+    28,
+    6,
+  );
+
+  ctx.save();
+  ctx.globalCompositeOperation = 'source-atop';
+  const haze = ctx.createLinearGradient(0, texH * 0.22, 0, texH);
+  haze.addColorStop(0, css(0xf0d8a8, 0));
+  haze.addColorStop(1, css(0xf0d8a8, 0.32));
+  ctx.fillStyle = haze;
+  ctx.fillRect(0, 0, width, texH);
+  ctx.restore();
+}
+
+function drawDuneHills(ctx: CanvasRenderingContext2D, colors: LandscapePalette, texH: number): void {
+  const width = LANDSCAPE.stripW;
+  const back = ridgeHeights(
+    width,
+    texH,
+    duneHillPeaks(),
+    [
+      { amp: texH * 0.04, cycles: 2, phase: 0.3 },
+      { amp: texH * 0.025, cycles: 4, phase: 1.5 },
+    ],
+    0.52,
+  );
+  paintMeadowSlope(
+    ctx,
+    back,
+    texH,
+    width,
+    mixColor(colors.mountain, colors.far, 0.38),
+    colors.mountainShade,
+    colors.cap,
+    60,
+    10,
+  );
+  stampDunePyramid(
+    ctx,
+    420,
+    texH - sampleHeight(back, 420, width) + 3,
+    88,
+    96,
+    width,
+    mixColor(colors.mountain, colors.far, 0.2),
+    colors.mountainShade,
+    colors.cap,
+    false,
+  );
+  stampDunePyramid(
+    ctx,
+    1860,
+    texH - sampleHeight(back, 1860, width) + 3,
+    74,
+    80,
+    width,
+    mixColor(colors.mountain, colors.far, 0.2),
+    colors.mountainShade,
+    colors.cap,
+    false,
+  );
+
+  const front = ridgeHeights(
+    width,
+    texH,
+    duneFrontPeaks(texH),
+    [
+      { amp: texH * 0.035, cycles: 2, phase: 1.7 },
+      { amp: texH * 0.02, cycles: 5, phase: 0.6 },
+    ],
+    0.38,
+  );
+  paintMeadowSlope(ctx, front, texH, width, colors.mountain, colors.mountainShade, colors.cap, 56, 12);
+  stampDunePyramid(
+    ctx,
+    620,
+    texH - sampleHeight(front, 620, width) + 4,
+    150,
+    168,
+    width,
+    colors.mountain,
+    colors.mountainShade,
+    colors.cap,
+    true,
+  );
+  stampDunePyramid(
+    ctx,
+    1180,
+    texH - sampleHeight(front, 1180, width) + 4,
+    96,
+    108,
+    width,
+    colors.mountain,
+    colors.mountainShade,
+    colors.cap,
+    true,
+  );
+  stampDunePyramid(
+    ctx,
+    2080,
+    texH - sampleHeight(front, 2080, width) + 4,
+    128,
+    140,
+    width,
+    colors.mountain,
+    colors.mountainShade,
+    colors.cap,
+    true,
+  );
+  stampRuin(ctx, 900, texH - sampleHeight(front, 900, width) + 3, 1, width);
+  stampSaguaro(ctx, 280, texH - sampleHeight(front, 280, width) + 3, 0.92, width, 0x2d6a28, 0x1e4a1c, true);
+  stampSaguaro(ctx, 330, texH - sampleHeight(front, 330, width) + 3, 0.7, width, 0x3d7a2a, 0x2d5a1c, false);
+  stampPricklyPear(ctx, 360, texH - sampleHeight(front, 360, width) + 3, 0.85, width);
+  stampSaguaro(ctx, 980, texH - sampleHeight(front, 980, width) + 3, 0.8, width, 0x2d6a28, 0x1e4a1c, false);
+  stampSaguaro(ctx, 1520, texH - sampleHeight(front, 1520, width) + 3, 1, width, 0x2d6a28, 0x1e4a1c, true);
+  stampPricklyPear(ctx, 1570, texH - sampleHeight(front, 1570, width) + 3, 0.78, width);
+  stampSaguaro(ctx, 2300, texH - sampleHeight(front, 2300, width) + 3, 0.86, width, 0x3d7a2a, 0x2d5a1c, false);
+  stampPalm(ctx, 1680, texH - sampleHeight(front, 1680, width) + 3, 1.05, width);
+  stampPalm(ctx, 1724, texH - sampleHeight(front, 1724, width) + 3, 0.82, width);
+  stampPalm(ctx, 1648, texH - sampleHeight(front, 1648, width) + 3, 0.7, width);
+  ctx.fillStyle = css(0x3a8aaa, 0.45);
+  const oasisY = texH - sampleHeight(front, 1696, width) + 6;
+  fillEllipse(ctx, 1696, oasisY, 22, 6, width);
+  ctx.fillStyle = css(0x7bebf3, 0.28);
+  fillEllipse(ctx, 1692, oasisY - 2, 10, 2.4, width);
+}
+
+function drawDuneGround(ctx: CanvasRenderingContext2D, colors: LandscapePalette, texH: number): void {
+  const width = LANDSCAPE.stripW;
+  const ridge = ridgeHeights(
+    width,
+    texH,
+    [
+      { x: 300, w: 420, h: 58 },
+      { x: 880, w: 480, h: 74 },
+      { x: 1540, w: 380, h: 50 },
+      { x: 2120, w: 440, h: 68 },
+      { x: 2480, w: 260, h: 40 },
+    ],
+    [
+      { amp: 20, cycles: 2, phase: 0.5 },
+      { amp: 12, cycles: 4, phase: 1.6 },
+      { amp: 6, cycles: 7, phase: 0.9 },
+    ],
+    0.76,
+  );
+  paintMeadowSlope(ctx, ridge, texH, width, colors.ground, colors.groundShade, colors.groundTop, 88, 18);
+
+  ctx.save();
+  ctx.globalCompositeOperation = 'source-atop';
+  for (let i = 0; i < 36; i += 1) {
+    const y = 18 + i * 10;
+    ctx.strokeStyle = css(i % 2 === 0 ? colors.groundShade : colors.groundTop, 0.14);
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    for (let x = 0; x <= width; x += 8) {
+      const yy = y + 3.2 * Math.sin((x / width) * Math.PI * 2 * 6 + i * 0.45);
+      if (x === 0) {
+        ctx.moveTo(x, yy);
+      } else {
+        ctx.lineTo(x, yy);
+      }
+    }
+    ctx.stroke();
+  }
+  for (let i = 0; i < 220; i += 1) {
+    const x = (i * 113 + 29) % width;
+    const y = ((i * 47 + 11) % (texH - 18)) + 8;
+    ctx.fillStyle = css(i % 3 === 0 ? colors.groundShade : colors.groundTop, 0.18);
+    ctx.fillRect(x, y, 2.2, 1.3);
+  }
+  ctx.restore();
+
+  ctx.strokeStyle = css(0xc4a060, 0.42);
+  ctx.lineWidth = 5;
+  ctx.lineCap = 'round';
+  ctx.beginPath();
+  for (let x = 80; x <= 980; x += 8) {
+    const y = texH - sampleHeight(ridge, x, width) + 14;
+    if (x === 80) {
+      ctx.moveTo(x, y);
+    } else {
+      ctx.lineTo(x, y);
+    }
+  }
+  ctx.stroke();
+
+  for (let x = 6; x < width; x += 14) {
+    const y = texH - sampleHeight(ridge, x, width) + 1;
+    if (x % 42 !== 0) {
+      continue;
+    }
+    ctx.fillStyle = css(0xc4a05a);
+    ctx.beginPath();
+    ctx.moveTo(x - 1, y);
+    ctx.quadraticCurveTo(x + 2, y - 10, x + 6, y - 16);
+    ctx.quadraticCurveTo(x + 3, y - 8, x + 2, y);
+    ctx.closePath();
+    ctx.fill();
+  }
+
+  const rocks = [240, 700, 1120, 1600, 2040, 2440];
+  for (const x of rocks) {
+    const y = texH - sampleHeight(ridge, x, width) + 2;
+    wrapStamp(x, width, 16, (ox) => {
+      const px = x + ox;
+      ctx.fillStyle = css(0xb8863a);
+      ellipseAt(ctx, px, y - 7, 13, 7);
+      ctx.fillStyle = css(0x8a5a22);
+      ellipseAt(ctx, px + 5, y - 6, 7, 5);
+      ctx.fillStyle = css(0xf0d48a, 0.4);
+      ellipseAt(ctx, px - 3, y - 10, 4.5, 2);
+    });
+  }
+
+  stampSaguaro(ctx, 180, texH - sampleHeight(ridge, 180, width) + 3, 0.55, width, 0x2d6a28, 0x1e4a1c, false);
+  stampPricklyPear(ctx, 520, texH - sampleHeight(ridge, 520, width) + 3, 0.62, width);
+  stampSaguaro(ctx, 1340, texH - sampleHeight(ridge, 1340, width) + 3, 0.5, width, 0x3d7a2a, 0x2d5a1c, true);
+  stampPricklyPear(ctx, 1900, texH - sampleHeight(ridge, 1900, width) + 3, 0.58, width);
+
+  const bones = [860, 1760];
+  for (const x of bones) {
+    const y = texH - sampleHeight(ridge, x, width) + 1;
+    wrapStamp(x, width, 14, (ox) => {
+      const px = x + ox;
+      ctx.fillStyle = css(0xe8d8b0);
+      ctx.fillRect(px - 10, y - 5, 20, 3.2);
+      ellipseAt(ctx, px - 11, y - 3.4, 3.4, 3);
+      ellipseAt(ctx, px + 11, y - 3.4, 3.4, 3);
+    });
+  }
+}
+
 function drawSky(scene: Phaser.Scene, theme: Theme, colors: LandscapePalette): void {
   if (theme === 'ocean') {
     paintCanvas(scene, skyKey(theme), LANDSCAPE.stripW, GAME_HEIGHT, (ctx) => {
@@ -1576,6 +2278,12 @@ function drawSky(scene: Phaser.Scene, theme: Theme, colors: LandscapePalette): v
   if (theme === 'grass') {
     paintCanvas(scene, skyKey(theme), LANDSCAPE.stripW, GAME_HEIGHT, (ctx) => {
       paintMeadowSky(ctx, LANDSCAPE.stripW, GAME_HEIGHT, colors);
+    });
+    return;
+  }
+  if (theme === 'desert') {
+    paintCanvas(scene, skyKey(theme), LANDSCAPE.stripW, GAME_HEIGHT, (ctx) => {
+      paintDuneSky(ctx, LANDSCAPE.stripW, GAME_HEIGHT, colors);
     });
     return;
   }
@@ -1688,6 +2396,10 @@ function drawClouds(scene: Phaser.Scene, theme: Theme, colors: LandscapePalette)
       drawMeadowClouds(ctx, colors);
       return;
     }
+    if (theme === 'desert') {
+      drawDuneClouds(ctx, colors);
+      return;
+    }
     for (const cloud of cloudPlan(theme)) {
       stampCloud(ctx, cloud.x, cloud.y, cloud.s, LANDSCAPE.stripW, colors.cloud, colors.cloudShade);
     }
@@ -1746,76 +2458,6 @@ function snowPeaks(far: boolean, texH: number): Peak[] {
   ];
 }
 
-function fillTriangle(
-  ctx: CanvasRenderingContext2D,
-  x1: number,
-  y1: number,
-  x2: number,
-  y2: number,
-  x3: number,
-  y3: number,
-  width: number,
-): void {
-  const draw = (dx: number) => {
-    ctx.beginPath();
-    ctx.moveTo(x1 + dx, y1);
-    ctx.lineTo(x2 + dx, y2);
-    ctx.lineTo(x3 + dx, y3);
-    ctx.closePath();
-    ctx.fill();
-  };
-  draw(0);
-  const minX = Math.min(x1, x2, x3);
-  const maxX = Math.max(x1, x2, x3);
-  if (minX < 0) {
-    draw(width);
-  }
-  if (maxX > width) {
-    draw(-width);
-  }
-}
-
-function drawPyramids(ctx: CanvasRenderingContext2D, colors: LandscapePalette, far: boolean, texH: number): void {
-  const width = LANDSCAPE.stripW;
-  const pyramids = far
-    ? [
-        { x: 240, w: 130, h: 95 },
-        { x: 680, w: 190, h: 140 },
-        { x: 1180, w: 110, h: 85 },
-        { x: 1660, w: 170, h: 120 },
-        { x: 2140, w: 140, h: 100 },
-        { x: 2480, w: 100, h: 75 },
-      ]
-    : [
-        { x: 180, w: 170, h: 175 },
-        { x: 500, w: 85, h: 85 },
-        { x: 820, w: 230, h: 230 },
-        { x: 1180, w: 120, h: 130 },
-        { x: 1500, w: 65, h: 65 },
-        { x: 1840, w: 190, h: 185 },
-        { x: 2200, w: 150, h: 150 },
-        { x: 2480, w: 100, h: 100 },
-      ];
-  const base = texH - 2;
-  for (const py of pyramids) {
-    ctx.fillStyle = css(colors.mountain);
-    fillTriangle(ctx, py.x - py.w / 2, base, py.x, base - py.h, py.x + py.w / 2, base, width);
-    ctx.fillStyle = css(colors.mountainShade);
-    fillTriangle(ctx, py.x, base - py.h, py.x + py.w / 2, base, py.x + py.w * 0.1, base, width);
-    ctx.fillStyle = css(colors.cap, 0.9);
-    fillTriangle(
-      ctx,
-      py.x - py.w * 0.12,
-      base - py.h * 0.78,
-      py.x,
-      base - py.h,
-      py.x + py.w * 0.12,
-      base - py.h * 0.78,
-      width,
-    );
-  }
-}
-
 function drawKeeps(ctx: CanvasRenderingContext2D, colors: LandscapePalette, far: boolean, texH: number): void {
   const width = LANDSCAPE.stripW;
   const keeps = far
@@ -1872,12 +2514,11 @@ function drawRange(scene: Phaser.Scene, key: string, theme: Theme, colors: Lands
       return;
     }
     if (theme === 'desert') {
-      ctx.fillStyle = css(far ? colors.far : colors.mountain);
-      ctx.fillRect(0, texH * 0.3, width, texH * 0.7);
-      const pyramidColors = far
-        ? { ...colors, mountain: colors.far, mountainShade: colors.far, cap: colors.farCap }
-        : colors;
-      drawPyramids(ctx, pyramidColors, far, texH);
+      if (far) {
+        drawDuneFar(ctx, colors, texH);
+      } else {
+        drawDuneHills(ctx, colors, texH);
+      }
       return;
     }
     if (theme === 'castle') {
@@ -1960,27 +2601,24 @@ function drawGround(scene: Phaser.Scene, theme: Theme, colors: LandscapePalette)
       drawMeadowGround(ctx, colors, texH);
       return;
     }
+    if (theme === 'desert') {
+      drawDuneGround(ctx, colors, texH);
+      return;
+    }
 
     const ridge = ridgeHeights(
       width,
       texH,
-      theme === 'desert'
-        ? [
-            { x: 320, w: 360, h: 55 },
-            { x: 900, w: 440, h: 70 },
-            { x: 1560, w: 320, h: 45 },
-            { x: 2160, w: 400, h: 65 },
-          ]
-        : [
-            { x: 240, w: 400, h: 70 },
-            { x: 820, w: 340, h: 95 },
-            { x: 1460, w: 480, h: 80 },
-            { x: 2100, w: 360, h: 105 },
-            { x: 2480, w: 260, h: 55 },
-          ],
       [
-        { amp: theme === 'desert' ? 22 : 28, cycles: 2, phase: 0.4 },
-        { amp: theme === 'desert' ? 12 : 16, cycles: 3, phase: 1.7 },
+        { x: 240, w: 400, h: 70 },
+        { x: 820, w: 340, h: 95 },
+        { x: 1460, w: 480, h: 80 },
+        { x: 2100, w: 360, h: 105 },
+        { x: 2480, w: 260, h: 55 },
+      ],
+      [
+        { amp: 28, cycles: 2, phase: 0.4 },
+        { amp: 16, cycles: 3, phase: 1.7 },
         { amp: 8, cycles: 5, phase: 0.8 },
       ],
       0.78,

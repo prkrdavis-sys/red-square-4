@@ -1068,7 +1068,7 @@ export class PlayScene extends Phaser.Scene {
     audio.setMusicDuck(0.38);
     this.game.canvas.dataset.controlsHint = '1';
     this.syncTouchHud();
-    showControlsHint(this, this.special.kind, () => {
+    showControlsHint(this, this.special.kind, getLevel(this.levelId).theme, () => {
       if (!this.controlsHintOpen) {
         return;
       }

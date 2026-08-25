@@ -34,11 +34,16 @@ import {
   placeNoJumpZone,
 } from './grid';
 import {
+  aerialLungeCeiling,
   crownGuardLayout,
   crownGuardVisible,
   hurtboxFromOpaque,
   isFallingStomp,
+  lockChargeDir,
+  POST_STOMP_RECOVERY_MS,
+  STOMP_INVULN_MS,
   stompBlocked,
+  swimHomeY,
 } from '../entities/boss-combat';
 
 describe('late-stage length and checkpoints', () => {
@@ -440,6 +445,36 @@ describe('boss crown guard telegraph', () => {
     expect(pose.scale).toBeLessThan(1.6);
     expect(pose.alpha).toBeGreaterThan(0.45);
     expect(pose.alpha).toBeLessThan(0.7);
+  });
+});
+
+describe('boss pacing helpers', () => {
+  const arena: ArenaKeep = { left: 100, right: 900, top: 32, bottom: 576, enterX: 120 };
+
+  it('keeps post-stomp i-frames shorter than the open recovery window', () => {
+    expect(STOMP_INVULN_MS).toBe(280);
+    expect(POST_STOMP_RECOVERY_MS).toBe(1100);
+    expect(STOMP_INVULN_MS).toBeLessThan(POST_STOMP_RECOVERY_MS);
+  });
+
+  it('commits a charge direction and does not flip when the player crosses behind', () => {
+    const locked = lockChargeDir(700, 400);
+    expect(locked).toBe(1);
+    expect(locked).toBe(1);
+    expect(lockChargeDir(100, 400)).toBe(-1);
+    expect(lockChargeDir(400, 400)).toBe(-1);
+  });
+
+  it('keeps swim-home in the lower third and below the aerial ceiling', () => {
+    const home = swimHomeY(540, arena);
+    const ceiling = aerialLungeCeiling(arena);
+    const lowerThirdTop = arena.bottom - (arena.bottom - arena.top) / 3;
+    expect(home).toBeGreaterThanOrEqual(lowerThirdTop);
+    expect(home).toBeLessThanOrEqual(arena.bottom);
+    expect(home).toBeGreaterThan(ceiling);
+    expect(swimHomeY(40, arena)).toBe(lowerThirdTop);
+    expect(ceiling).toBe(arena.bottom - 3 * TILE);
+    expect(ceiling).toBeGreaterThan(arena.top);
   });
 });
 

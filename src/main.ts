@@ -13,6 +13,7 @@ import { WorldMapScene } from './scenes/WorldMapScene';
 import { audio } from './systems/audio';
 import { bootHudPause, layoutHudPause } from './systems/hud-pause';
 import { bootTouchControls, watchLandscapePrompt } from './systems/touch-controls';
+import { bindGameToViewport, bootViewport } from './systems/viewport';
 
 if (import.meta.env.PROD) {
   registerSW({ immediate: true });
@@ -38,13 +39,17 @@ const config: Phaser.Types.Core.GameConfig = {
   scale: {
     mode: Phaser.Scale.FIT,
     autoCenter: Phaser.Scale.CENTER_BOTH,
+    expandParent: false,
+    autoRound: true,
   },
   scene: [BootScene, TitleScene, WorldMapScene, PlayScene, SettingsScene, SkinsScene, CreditsScene],
 };
 
+bootViewport();
 bootTouchControls();
 bootHudPause();
 const game = new Phaser.Game(config);
+bindGameToViewport(game);
 watchLandscapePrompt(game);
 game.scale.on('resize', layoutHudPause);
 if (import.meta.env.DEV) {

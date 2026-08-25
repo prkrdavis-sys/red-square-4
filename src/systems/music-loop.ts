@@ -2,6 +2,7 @@ import { type Theme } from '../config';
 
 export const RECORDED_THEME_URLS: Partial<Record<Theme, string>> = {
   grass: 'assets/audio/grass-overworld.mp3',
+  desert: 'assets/audio/desert-overworld.mp3',
 };
 
 export const LOOP_FADE_SECONDS = 2.5;
@@ -10,8 +11,9 @@ export function recordedThemeUrl(theme: Theme): string | null {
   switch (theme) {
     case 'grass':
       return RECORDED_THEME_URLS.grass ?? null;
-    case 'snow':
     case 'desert':
+      return RECORDED_THEME_URLS.desert ?? null;
+    case 'snow':
     case 'ocean':
     case 'castle':
     case 'rainforest':

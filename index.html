@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta
       name="viewport"
-      content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover"
+      content="width=device-width, initial-scale=1, minimum-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover, interactive-widget=resizes-content"
     />
     <meta name="application-name" content="Red Square 4" />
     <meta name="apple-mobile-web-app-title" content="Red Square 4" />
@@ -30,19 +30,18 @@
     </button>
 
     <div id="touch-controls" aria-hidden="true">
-      <div class="touch-cluster touch-cluster-left">
-        <button type="button" class="touch-btn" data-touch="left" aria-label="Move left">
-          <span class="touch-btn-ring"></span>
-          <svg class="touch-btn-icon" viewBox="0 0 48 48" fill="none" aria-hidden="true">
+      <div class="touch-move-pad" data-touch-move aria-label="Move left or right">
+        <div class="touch-slider" data-touch-slider aria-hidden="true">
+          <span class="touch-slider-shell"></span>
+          <svg class="touch-slider-arrow touch-slider-arrow-left" viewBox="0 0 48 48" fill="none">
             <path d="M29 10 L15 24 L29 38" stroke="currentColor" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round" />
           </svg>
-        </button>
-        <button type="button" class="touch-btn" data-touch="right" aria-label="Move right">
-          <span class="touch-btn-ring"></span>
-          <svg class="touch-btn-icon" viewBox="0 0 48 48" fill="none" aria-hidden="true">
+          <span class="touch-slider-groove"></span>
+          <span class="touch-slider-thumb"></span>
+          <svg class="touch-slider-arrow touch-slider-arrow-right" viewBox="0 0 48 48" fill="none">
             <path d="M19 10 L33 24 L19 38" stroke="currentColor" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round" />
           </svg>
-        </button>
+        </div>
       </div>
       <div class="touch-cluster touch-cluster-right">
         <button type="button" class="touch-btn touch-btn-special" data-touch="special" aria-label="Use world power">

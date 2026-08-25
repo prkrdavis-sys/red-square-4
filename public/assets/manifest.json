@@ -41,6 +41,7 @@
     "sfx-poof": "assets/audio/poof.ogg",
     "sfx-select": "assets/audio/select.ogg",
     "sfx-map": "assets/audio/map.ogg",
-    "theme-grass": "assets/audio/grass-overworld.mp3"
+    "theme-grass": "assets/audio/grass-overworld.mp3",
+    "theme-desert": "assets/audio/desert-overworld.mp3"
   }
 }

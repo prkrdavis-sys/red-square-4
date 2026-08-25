@@ -4,10 +4,11 @@ import { THEMES } from '../config';
 import { crossfadeLoop, loopableLength, recordedThemeUrl } from './music-loop';
 
 describe('recorded theme tracks', () => {
-  it('uses the overworld recording only for grass / world 1', () => {
+  it('uses overworld recordings for grass and desert', () => {
     expect(recordedThemeUrl('grass')).toBe('assets/audio/grass-overworld.mp3');
+    expect(recordedThemeUrl('desert')).toBe('assets/audio/desert-overworld.mp3');
     for (const theme of THEMES) {
-      if (theme !== 'grass') {
+      if (theme !== 'grass' && theme !== 'desert') {
         expect(recordedThemeUrl(theme)).toBeNull();
       }
     }

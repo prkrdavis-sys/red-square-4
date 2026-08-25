@@ -9,14 +9,17 @@ html,
 body {
   margin: 0;
   padding: 0;
-  width: 100%;
-  height: 100%;
-  min-height: 100dvh;
-  min-height: -webkit-fill-available;
+  position: fixed;
+  top: var(--vv-top, 0px);
+  left: var(--vv-left, 0px);
+  width: var(--vv-width, 100%);
+  height: var(--vv-height, 100svh);
   background: #0b0b12;
   overflow: hidden;
   touch-action: none;
   overscroll-behavior: none;
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
   -webkit-user-select: none;
   user-select: none;
   -webkit-touch-callout: none;
@@ -24,17 +27,22 @@ body {
 }
 
 #app {
-  width: 100%;
-  height: 100%;
-  min-height: 100dvh;
-  min-height: -webkit-fill-available;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  position: fixed;
+  top: var(--vv-top, 0px);
+  left: var(--vv-left, 0px);
+  width: var(--vv-width, 100%);
+  height: var(--vv-height, 100svh);
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
 }
 
 #app canvas {
   display: block;
+  min-width: 0;
+  min-height: 0;
+  max-width: 100%;
+  max-height: 100%;
 }
 
 #hud-pause {
@@ -130,7 +138,10 @@ body.hud-pause-on #hud-pause {
 #touch-controls {
   display: none;
   position: fixed;
-  inset: 0;
+  top: var(--vv-top, 0px);
+  left: var(--vv-left, 0px);
+  width: var(--vv-width, 100%);
+  height: var(--vv-height, 100svh);
   z-index: 20;
   pointer-events: none;
 }
@@ -145,20 +156,128 @@ body.touch-play #touch-controls {
   }
 }
 
+.touch-move-pad {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 50%;
+  height: 100%;
+  pointer-events: auto;
+  touch-action: none;
+}
+
+.touch-slider {
+  --thumb-x: 0px;
+  position: absolute;
+  left: calc(10px + env(safe-area-inset-left, 0px));
+  bottom: calc(10px + env(safe-area-inset-bottom, 0px));
+  width: calc(var(--touch-btn-size) * 2.2);
+  height: var(--touch-btn-size);
+  pointer-events: none;
+  color: rgba(255, 248, 240, 0.38);
+}
+
+.touch-slider.is-steering {
+  bottom: auto;
+  transform: translate(-50%, -50%);
+}
+
+.touch-slider-shell {
+  position: absolute;
+  inset: 12% 4%;
+  border-radius: 999px;
+  border: 1.5px solid rgba(255, 255, 255, 0.16);
+  background: rgba(255, 255, 255, 0.04);
+  box-shadow:
+    0 0 0 1px rgba(12, 8, 10, 0.1),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(2px);
+  -webkit-backdrop-filter: blur(2px);
+}
+
+.touch-slider-groove {
+  position: absolute;
+  left: 22%;
+  right: 22%;
+  top: 50%;
+  height: 6px;
+  transform: translateY(-50%);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.touch-slider-thumb {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 32%;
+  height: 32%;
+  border-radius: 50%;
+  transform: translate(calc(-50% + var(--thumb-x)), -50%);
+  border: 1.5px solid rgba(255, 255, 255, 0.22);
+  background: rgba(255, 255, 255, 0.12);
+  box-shadow:
+    0 0 0 1px rgba(12, 8, 10, 0.12),
+    inset 0 1px 0 rgba(255, 255, 255, 0.16);
+}
+
+.touch-slider-arrow {
+  position: absolute;
+  top: 50%;
+  width: 28%;
+  height: 52%;
+  transform: translateY(-50%);
+  transform-origin: center center;
+  transition:
+    transform 90ms cubic-bezier(0.33, 1.35, 0.52, 1),
+    color 90ms ease;
+}
+
+.touch-slider-arrow-left {
+  left: 6%;
+}
+
+.touch-slider-arrow-right {
+  right: 6%;
+}
+
+.touch-slider.is-left .touch-slider-arrow-left,
+.touch-slider.is-right .touch-slider-arrow-right {
+  color: rgba(255, 248, 240, 0.9);
+  transform: translateY(calc(-50% + 4px)) scale(1.07, 0.74);
+}
+
+.touch-slider.is-steering .touch-slider-shell {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 255, 255, 0.32);
+}
+
+.touch-slider.is-steering .touch-slider-thumb {
+  background: rgba(255, 255, 255, 0.2);
+  border-color: rgba(255, 255, 255, 0.42);
+}
+
 .touch-cluster {
   position: absolute;
   bottom: calc(10px + env(safe-area-inset-bottom, 0px));
-  display: flex;
-  align-items: center;
-  gap: var(--touch-btn-gap);
-}
-
-.touch-cluster-left {
-  left: calc(10px + env(safe-area-inset-left, 0px));
 }
 
 .touch-cluster-right {
-  right: calc(10px + env(safe-area-inset-right, 0px));
+  right: calc(4px + env(safe-area-inset-right, 0px));
+  width: calc(var(--touch-btn-size) * 2.05);
+  height: calc(var(--touch-btn-size) * 1.95);
+}
+
+.touch-cluster-right .touch-btn[data-touch='special'] {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+}
+
+.touch-cluster-right .touch-btn[data-touch='jump'] {
+  position: absolute;
+  right: calc(var(--touch-btn-size) * 0.92);
+  bottom: calc(var(--touch-btn-size) * 0.82);
 }
 
 .touch-btn {
@@ -256,7 +375,11 @@ body.touch-play #touch-controls {
 #rotate-prompt {
   display: none;
   position: fixed;
-  inset: 0;
+  top: var(--vv-top, 0px);
+  left: var(--vv-left, 0px);
+  width: var(--vv-width, 100%);
+  height: var(--vv-height, 100svh);
+  box-sizing: border-box;
   z-index: 40;
   align-items: center;
   justify-content: center;
