@@ -54,7 +54,7 @@ export class SettingsScene extends Phaser.Scene {
     new MenuNav(this, [this.musicBtn, this.sfxBtn, this.volumeBtn, this.shakeBtn, this.fullBtn, back], () => this.goBack());
 
     this.add
-      .text(cx, 172, 'Tap to change  ·  Arrows / Enter  ·  Esc back', textStyle('16px', '#d0c0b8'))
+      .text(cx, 172, 'Tap to change  ·  Arrows / Enter  ·  Esc back', textStyle('18px', '#d0c0b8'))
       .setOrigin(0.5)
       .setDepth(80);
 

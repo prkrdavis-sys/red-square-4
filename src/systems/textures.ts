@@ -8,6 +8,7 @@ import {
   SKINS,
   skinById,
   type Accessory,
+  type HeldItem,
   type HeroPalette,
   type SkinDef,
 } from '../data/skins';
@@ -185,6 +186,7 @@ function paintAccessoryBack(
   accessory: Accessory,
   pose: HeroPose,
   skin: HeroPalette,
+  ornate: boolean,
 ): void {
   const flutter = pose === 'run-a' ? 4 : pose === 'run-b' ? 7 : pose === 'jump' ? 9 : 5;
   switch (accessory) {
@@ -193,12 +195,24 @@ function paintAccessoryBack(
       g.fillRoundedRect(38, 8, 8 + flutter, 30, 4);
       g.fillStyle(skin.shade, 1);
       g.fillRoundedRect(39, 9, 6 + flutter, 27, 3);
+      if (ornate) {
+        g.fillStyle(0x7ad4e8, 1);
+        g.fillRoundedRect(40, 11, 4 + flutter, 10, 2);
+        g.fillStyle(0xffe08a, 1);
+        g.fillCircle(41, 12, 1.6);
+      }
       break;
     case 'halo':
       g.fillStyle(0xffe9a8, 1);
       g.fillEllipse(HERO_SIZE / 2, 3, 30, 8);
       g.fillStyle(skin.ink, 1);
       g.fillEllipse(HERO_SIZE / 2, 3, 20, 3);
+      if (ornate) {
+        g.fillStyle(0xfff6d0, 0.85);
+        g.fillEllipse(HERO_SIZE / 2, 3, 36, 10);
+        g.fillStyle(0x2a2230, 1);
+        g.fillEllipse(HERO_SIZE / 2, 3, 16, 2);
+      }
       break;
     case 'horns':
       g.fillStyle(skin.ink, 1);
@@ -235,6 +249,7 @@ function paintAccessoryFront(
   accessory: Accessory,
   pose: HeroPose,
   skin: HeroPalette,
+  ornate: boolean,
 ): void {
   const droop = pose === 'dead' ? 3 : 0;
   switch (accessory) {
@@ -260,6 +275,15 @@ function paintAccessoryFront(
       g.fillTriangle(31, 5 + droop, 38, 5 + droop, 34.5, -3 + droop);
       g.fillStyle(0xff5a6a, 1);
       g.fillCircle(24, 8 + droop, 2.4);
+      if (ornate) {
+        g.fillStyle(0xfff3b0, 1);
+        g.fillTriangle(20, 4 + droop, 28, 4 + droop, 24, -7 + droop);
+        g.fillStyle(0x7ad8ff, 1);
+        g.fillCircle(13.5, 7 + droop, 1.5);
+        g.fillCircle(34.5, 7 + droop, 1.5);
+        g.fillStyle(0xfffef2, 1);
+        g.fillCircle(24, 7 + droop, 1.4);
+      }
       break;
     case 'scarf':
       g.fillStyle(skin.ink, 1);
@@ -288,10 +312,173 @@ function paintAccessoryFront(
   }
 }
 
+function paintBossTrim(g: Phaser.GameObjects.Graphics, item: HeldItem, palette: HeroPalette): void {
+  switch (item) {
+    case 'none':
+      return;
+    case 'oak-sprig':
+      g.fillStyle(0x2a4a18, 1);
+      g.fillRoundedRect(8, 27, 32, 5, 2);
+      g.fillStyle(0x6ab04a, 1);
+      g.fillCircle(12, 29, 2.2);
+      g.fillCircle(24, 28, 2.4);
+      g.fillCircle(36, 29, 2);
+      g.fillStyle(0xffd35c, 1);
+      g.fillCircle(24, 32, 1.4);
+      return;
+    case 'icicle':
+      g.fillStyle(0xd8f6ff, 0.95);
+      g.fillTriangle(8, 22, 12, 34, 7, 34);
+      g.fillTriangle(40, 22, 41, 34, 36, 34);
+      g.fillStyle(0xffffff, 0.8);
+      g.fillRect(10, 26, 28, 2);
+      return;
+    case 'ankh':
+      g.fillStyle(0xc9a227, 1);
+      g.fillRoundedRect(8, 26, 32, 6, 2);
+      g.fillStyle(0xfff0a8, 1);
+      g.fillRoundedRect(18, 27, 12, 4, 1);
+      g.fillCircle(24, 22, 3.2);
+      g.fillStyle(palette.ink, 1);
+      g.fillCircle(24, 22, 1.4);
+      return;
+    case 'trident':
+      g.fillStyle(0x1a6a80, 1);
+      g.fillRoundedRect(8, 26, 32, 6, 2);
+      g.fillStyle(0x7ad4e8, 1);
+      g.fillCircle(13, 29, 2);
+      g.fillCircle(24, 28, 2.2);
+      g.fillCircle(35, 29, 2);
+      g.fillStyle(0xffe08a, 1);
+      g.fillRect(22, 24, 4, 3);
+      return;
+    case 'keep-blade':
+      g.fillStyle(0x1a1624, 1);
+      g.fillRoundedRect(8, 24, 32, 8, 2);
+      g.fillStyle(0x7a6a90, 1);
+      g.fillCircle(14, 28, 1.8);
+      g.fillCircle(24, 28, 1.8);
+      g.fillCircle(34, 28, 1.8);
+      g.fillStyle(0xffd35c, 1);
+      g.fillRect(22, 22, 4, 3);
+      return;
+    case 'liana-crook':
+      g.fillStyle(0x164820, 1);
+      g.fillRoundedRect(7, 26, 34, 6, 3);
+      g.fillStyle(0x4aaa48, 1);
+      g.fillEllipse(13, 28, 7, 5);
+      g.fillEllipse(24, 27, 8, 5);
+      g.fillEllipse(35, 28, 7, 5);
+      g.fillStyle(0x8ae070, 1);
+      g.fillCircle(24, 27, 1.8);
+      return;
+    default: {
+      const neverItem: never = item;
+      return neverItem;
+    }
+  }
+}
+
+function heldItemHop(pose: HeroPose): number {
+  switch (pose) {
+    case 'run-a':
+      return -1;
+    case 'run-b':
+      return 2;
+    case 'jump':
+      return -3;
+    case 'fall':
+      return 1;
+    case 'dead':
+      return 4;
+    case 'idle':
+    case 'blink':
+      return 0;
+    default: {
+      const neverPose: never = pose;
+      return neverPose;
+    }
+  }
+}
+
+function paintHeldItem(g: Phaser.GameObjects.Graphics, item: HeldItem, pose: HeroPose): void {
+  const hop = heldItemHop(pose);
+  const x = 39;
+  const y = 20 + hop;
+  switch (item) {
+    case 'none':
+      return;
+    case 'oak-sprig':
+      g.fillStyle(0x3a2410, 1);
+      g.fillRect(x, y + 2, 2, 14);
+      g.fillStyle(0x4a7a28, 1);
+      g.fillTriangle(x - 1, y + 8, x + 7, y + 3, x + 2, y + 10);
+      g.fillTriangle(x - 2, y + 4, x + 6, y - 2, x + 1, y + 6);
+      g.fillStyle(0x8ad060, 1);
+      g.fillCircle(x + 4, y + 2, 1.5);
+      g.fillStyle(0x2a1810, 1);
+      g.fillTriangle(x + 1, y + 11, x + 4, y + 10, x + 2, y + 13);
+      return;
+    case 'icicle':
+      g.fillStyle(0x7ec8d8, 1);
+      g.fillTriangle(x - 1, y, x + 5, y + 2, x + 1, y + 18);
+      g.fillStyle(0xe8fbff, 1);
+      g.fillTriangle(x, y + 1, x + 3, y + 3, x + 1.4, y + 14);
+      g.fillStyle(0xffffff, 0.9);
+      g.fillRect(x, y + 3, 1.4, 5);
+      return;
+    case 'ankh':
+      g.fillStyle(0xc9a227, 1);
+      g.fillCircle(x + 2, y + 3, 3.2);
+      g.fillRect(x + 1, y + 5, 2, 11);
+      g.fillRect(x - 2, y + 8, 8, 2);
+      g.fillStyle(0xfff4b8, 1);
+      g.fillCircle(x + 2, y + 3, 1.6);
+      g.fillRect(x + 1.4, y + 6, 1, 6);
+      return;
+    case 'trident':
+      g.fillStyle(0xc9a227, 1);
+      g.fillRect(x + 1, y + 5, 2, 13);
+      g.fillRect(x - 2, y + 4, 8, 2);
+      g.fillRect(x - 2, y, 2, 6);
+      g.fillRect(x + 1, y - 2, 2, 8);
+      g.fillRect(x + 4, y, 2, 6);
+      g.fillStyle(0xfff0b0, 1);
+      g.fillRect(x + 1.3, y + 6, 1.2, 8);
+      g.fillCircle(x + 2, y - 1, 1.1);
+      return;
+    case 'keep-blade':
+      g.fillStyle(0x1a1624, 1);
+      g.fillRect(x, y + 10, 3, 8);
+      g.fillStyle(0xffd35c, 1);
+      g.fillRect(x - 2, y + 9, 8, 2);
+      g.fillStyle(0xc8c4d4, 1);
+      g.fillTriangle(x - 1, y + 9, x + 4, y + 9, x + 1.5, y - 1);
+      g.fillStyle(0xf4f0ff, 1);
+      g.fillTriangle(x + 0.6, y + 8, x + 2.4, y + 8, x + 1.5, y + 1);
+      return;
+    case 'liana-crook':
+      g.fillStyle(0x2a5a20, 1);
+      g.fillRect(x + 1, y + 6, 2, 12);
+      g.fillStyle(0x4aaa48, 1);
+      g.fillCircle(x + 2, y + 4, 4);
+      g.fillStyle(0x164820, 1);
+      g.fillCircle(x + 2, y + 4, 2);
+      g.fillStyle(0x8ae070, 1);
+      g.fillCircle(x + 4, y + 2, 1.4);
+      return;
+    default: {
+      const neverItem: never = item;
+      return neverItem;
+    }
+  }
+}
+
 function paintHeroSquare(g: Phaser.GameObjects.Graphics, pose: HeroPose, skin: SkinDef): void {
   const cx = HERO_SIZE / 2;
   const palette = skin.palette;
-  paintAccessoryBack(g, skin.accessory, pose, palette);
+  const ornate = skin.heldItem !== 'none';
+  paintAccessoryBack(g, skin.accessory, pose, palette, ornate);
   paintHeroFeet(g, pose, palette);
 
   g.fillStyle(palette.ink, 1);
@@ -302,13 +489,15 @@ function paintHeroSquare(g: Phaser.GameObjects.Graphics, pose: HeroPose, skin: S
   g.fillRoundedRect(5, 24, 38, 13, { tl: 0, tr: 0, bl: 5, br: 5 });
   g.fillStyle(palette.gloss, 1);
   g.fillRoundedRect(7, 6, 11, 5, { tl: 3, tr: 2, bl: 2, br: 2 });
+  paintBossTrim(g, skin.heldItem, palette);
 
   const faceY = pose === 'jump' ? 18 : pose === 'fall' || pose === 'dead' ? 21 : 19;
   const eyes = heroEyes(pose);
   paintHeroEye(g, 16, faceY, eyes, palette);
   paintHeroEye(g, 32, faceY, eyes, palette);
   paintHeroMouth(g, cx, faceY + 13, pose, palette);
-  paintAccessoryFront(g, skin.accessory, pose, palette);
+  paintAccessoryFront(g, skin.accessory, pose, palette, ornate);
+  paintHeldItem(g, skin.heldItem, pose);
 }
 
 /**
@@ -352,6 +541,7 @@ function defaultSkin(): SkinDef {
     name: 'Red Square',
     palette: CLASSIC_PALETTE,
     accessory: 'none',
+    heldItem: 'none',
   };
 }
 
@@ -893,6 +1083,55 @@ function starPoints(cx: number, cy: number, outer: number, inner: number): Array
   return points;
 }
 
+function drawCoin(scene: Phaser.Scene): void {
+  const g = gfx(scene);
+  const c = 16;
+  g.fillStyle(0xfff4b8, 0.28);
+  g.fillCircle(c, c, 15.5);
+  g.fillStyle(0xb88820, 1);
+  g.fillCircle(c, c, 14.4);
+  g.fillStyle(0xf2c94c, 1);
+  g.fillCircle(c, c, 12.2);
+  g.fillStyle(0xffe27a, 1);
+  g.fillCircle(c, c, 9.6);
+  g.fillStyle(0xd4a22a, 1);
+  g.fillRoundedRect(c - 4.2, c - 4.2, 8.4, 8.4, 1.6);
+  g.fillStyle(0xfff3b0, 1);
+  g.fillRoundedRect(c - 3, c - 3, 6, 6, 1.2);
+  g.fillStyle(0xb88820, 1);
+  g.fillRoundedRect(c - 1.6, c - 1.6, 3.2, 3.2, 0.7);
+  g.fillStyle(0xfffef4, 0.95);
+  g.fillEllipse(c - 4.4, c - 5.2, 6.4, 3.2);
+  g.fillCircle(c + 5.2, c + 3.2, 1.3);
+  commit(g, 'coin', 32, 32);
+}
+
+function drawCoinRays(scene: Phaser.Scene): void {
+  const g = gfx(scene);
+  const cx = 32;
+  const cy = 32;
+  g.fillStyle(0xfff6c8, 0.2);
+  g.fillCircle(cx, cy, 14);
+  const rayCount = 10;
+  for (let i = 0; i < rayCount; i += 1) {
+    const long = i % 2 === 0;
+    const angle = (i / rayCount) * Math.PI * 2;
+    const inner = 8;
+    const outer = long ? 30 : 20;
+    const spread = long ? 0.09 : 0.06;
+    g.fillStyle(long ? 0xfff4b0 : 0xffd866, long ? 0.78 : 0.42);
+    g.fillTriangle(
+      cx + Math.cos(angle) * inner,
+      cy + Math.sin(angle) * inner,
+      cx + Math.cos(angle - spread) * outer,
+      cy + Math.sin(angle - spread) * outer,
+      cx + Math.cos(angle + spread) * outer,
+      cy + Math.sin(angle + spread) * outer,
+    );
+  }
+  commit(g, 'coin-rays', 64, 64);
+}
+
 function drawStarRays(scene: Phaser.Scene): void {
   const g = gfx(scene);
   const cx = 64;
@@ -936,6 +1175,8 @@ function drawCampaignPickups(scene: Phaser.Scene): void {
   star.fillCircle(cx + 8, cy + 2, 2.6);
   commit(star, 'star', 72, 72);
   drawStarRays(scene);
+  drawCoin(scene);
+  drawCoinRays(scene);
 
   const shield = gfx(scene);
   const sx = 32;

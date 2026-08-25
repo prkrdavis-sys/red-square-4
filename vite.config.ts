@@ -148,9 +148,9 @@ export default defineConfig({
         ],
       },
       workbox: {
-        cacheId: 'rs4-20260819',
+        cacheId: 'rs4-20260825',
         importScripts: ['sw-force-reload.js'],
-        globPatterns: ['**/*.{js,css,ico,png,svg,json,ogg,webmanifest}'],
+        globPatterns: ['**/*.{js,css,ico,png,svg,json,ogg,mp3,webmanifest,woff2}'],
         globIgnores: ['**/vendor/**', '**/sw-force-reload.js'],
         cleanupOutdatedCaches: true,
         skipWaiting: true,

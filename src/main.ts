@@ -1,3 +1,4 @@
+import '@fontsource/vt323/latin-400.css';
 import Phaser from 'phaser';
 import { registerSW } from 'virtual:pwa-register';
 import './style.css';

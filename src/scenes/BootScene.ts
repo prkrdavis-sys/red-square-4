@@ -3,6 +3,7 @@ import { hydrateSave } from '../data/progress';
 import { applySettings } from '../data/settings';
 import { CHARACTER_ASSETS } from '../systems/characters';
 import { applySkin, createGameTextures } from '../systems/textures';
+import { waitForUiFont } from '../ui/menu';
 
 interface AssetManifest {
   characterRoot?: string;
@@ -37,7 +38,7 @@ export class BootScene extends Phaser.Scene {
     const audioKeys = Object.keys(audioFiles);
     const saveReady = hydrateSave();
     const startTitle = () => {
-      void saveReady.then((save) => {
+      void Promise.all([saveReady, waitForUiFont()]).then(([save]) => {
         applySkin(this, save.equippedSkin);
         this.scene.start('TitleScene');
       });

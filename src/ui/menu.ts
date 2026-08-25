@@ -2,8 +2,10 @@ import Phaser from 'phaser';
 import { GAME_HEIGHT, GAME_WIDTH, THEMES, themeSky } from '../config';
 import { audio } from '../systems/audio';
 
+export const GAME_FONT_FAMILY = 'VT323';
+
 export const UI = {
-  font: 'Courier New, monospace',
+  font: `${GAME_FONT_FAMILY}, Trebuchet MS, sans-serif`,
   panelFill: 0x140c10,
   panelStroke: 0xe23b3b,
   buttonFill: 0x2a1418,
@@ -17,13 +19,33 @@ export const UI = {
 
 const WORLD_ACCENTS = THEMES.map((theme) => themeSky(theme));
 
+export async function waitForUiFont(): Promise<void> {
+  if (typeof document === 'undefined' || !document.fonts) {
+    return;
+  }
+  try {
+    await document.fonts.load(`400 18px "${GAME_FONT_FAMILY}"`);
+  } catch {
+    return;
+  }
+}
+
 export function textStyle(size: string, color: string = UI.text): Phaser.Types.GameObjects.Text.TextStyle {
   return {
     fontFamily: UI.font,
     fontSize: size,
     color,
     stroke: '#12080a',
-    strokeThickness: 5,
+    strokeThickness: 1,
+    resolution: 2,
+    shadow: {
+      offsetX: 2,
+      offsetY: 2,
+      color: '#12080a',
+      blur: 0,
+      fill: true,
+      stroke: false,
+    },
   };
 }
 
@@ -82,7 +104,7 @@ export class MenuButton extends Phaser.GameObjects.Container {
     this.heightPx = height;
     this.bg = scene.add.rectangle(0, 0, width, height, UI.buttonFill, 1);
     this.border = scene.add.rectangle(0, 0, width, height, UI.buttonFill, 0).setStrokeStyle(3, UI.buttonStroke, 1);
-    this.labelText = scene.add.text(0, 0, label, textStyle('22px')).setOrigin(0.5);
+    this.labelText = scene.add.text(0, 0, label, textStyle('24px')).setOrigin(0.5);
     this.add([this.bg, this.border, this.labelText]);
     this.setSize(width, height);
     this.setScrollFactor(0);
@@ -344,4 +366,33 @@ export function dismissOnOutside(
     scene.input.off('pointerup', tryDismiss);
     scene.input.off('pointerupoutside', tryDismiss);
   });
+}
+
+export function addCoinPurse(
+  scene: Phaser.Scene,
+  x: number,
+  y: number,
+  coins: number,
+): Phaser.GameObjects.Container {
+  const width = 176;
+  const height = 42;
+  const bg = scene.add.rectangle(0, 0, width, height, 0x10080c, 0.94).setStrokeStyle(3, 0xd4a84a, 1);
+  const inner = scene.add.rectangle(0, 0, width - 8, height - 8, 0x000000, 0).setStrokeStyle(1, 0xffe9a8, 0.4);
+  const icon = scene.add.image(-width / 2 + 22, 0, 'coin').setScale(0.62);
+  const label = scene.add.text(10, 0, coinPurseLabel(coins), textStyle('18px', UI.gold)).setOrigin(0, 0.5);
+  const box = scene.add.container(x, y, [bg, inner, icon, label]).setScrollFactor(0).setDepth(90);
+  box.setSize(width, height);
+  box.setData('coinLabel', label);
+  return box;
+}
+
+export function setCoinPurseAmount(box: Phaser.GameObjects.Container, coins: number): void {
+  const label = box.getData('coinLabel');
+  if (label instanceof Phaser.GameObjects.Text) {
+    label.setText(coinPurseLabel(coins));
+  }
+}
+
+function coinPurseLabel(coins: number): string {
+  return `COINS  ${coins}`;
 }

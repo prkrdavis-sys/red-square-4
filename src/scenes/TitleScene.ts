@@ -63,16 +63,14 @@ export class TitleScene extends Phaser.Scene {
 
     this.add
       .text(GAME_WIDTH / 2, 258, 'RED SQUARE 4', {
-        fontFamily: UI.font,
-        fontSize: '64px',
-        color: '#ffffff',
+        ...textStyle('64px', '#ffffff'),
         stroke: '#7a1212',
-        strokeThickness: 10,
+        strokeThickness: 6,
       })
       .setOrigin(0.5);
 
     this.add
-      .text(GAME_WIDTH / 2, 312, 'A Mario-inspired platforming campaign', textStyle('18px', UI.gold))
+      .text(GAME_WIDTH / 2, 312, 'A Mario-inspired platforming campaign', textStyle('20px', UI.gold))
       .setOrigin(0.5);
 
     const save = loadSave();
@@ -83,7 +81,7 @@ export class TitleScene extends Phaser.Scene {
           GAME_WIDTH / 2,
           338,
           `Saved  ·  ${save.cleared.length} cleared  ·  resume ${resumeLevelId(save)}`,
-          textStyle('16px', UI.gold),
+          textStyle('18px', UI.gold),
         )
         .setOrigin(0.5);
     }
@@ -113,7 +111,7 @@ export class TitleScene extends Phaser.Scene {
     new MenuNav(this, buttons);
 
     this.add
-      .text(GAME_WIDTH / 2, 678, 'Tap a button     Arrows / WASD     Enter confirm', textStyle('16px', '#e8f0ff'))
+      .text(GAME_WIDTH / 2, 678, 'Tap a button     Arrows / WASD     Enter confirm', textStyle('18px', '#e8f0ff'))
       .setOrigin(0.5);
   }
 

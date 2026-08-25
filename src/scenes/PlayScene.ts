@@ -11,6 +11,7 @@ import {
   type LevelId,
 } from '../config';
 import {
+  addCoins,
   checkpointForLevelStart,
   clearCheckpoint,
   collectStar,
@@ -25,9 +26,11 @@ import {
   setLastPlayed,
 } from '../data/progress';
 import { applySettings } from '../data/settings';
-import { skinForLevel, type SkinDef } from '../data/skins';
+import { isBossRewardSkin, skinForLevel, type SkinDef } from '../data/skins';
 import { Baddie } from '../entities/Baddie';
 import { Boss } from '../entities/Boss';
+import { Coin } from '../entities/Coin';
+import { shouldDropCoin } from '../systems/coin-drop';
 import { isFallingStomp, stompBox } from '../entities/boss-combat';
 import { EnemyProjectile } from '../entities/EnemyProjectile';
 import { TerrainHazard } from '../entities/TerrainHazard';
@@ -82,6 +85,22 @@ function playerFromCollider(
     return object;
   }
   if ('gameObject' in object && object.gameObject instanceof Player) {
+    return object.gameObject;
+  }
+  return undefined;
+}
+
+function coinFromCollider(
+  object:
+    | Phaser.Types.Physics.Arcade.GameObjectWithBody
+    | Phaser.Physics.Arcade.Body
+    | Phaser.Physics.Arcade.StaticBody
+    | Phaser.Tilemaps.Tile,
+): Coin | undefined {
+  if (object instanceof Coin) {
+    return object;
+  }
+  if ('gameObject' in object && object.gameObject instanceof Coin) {
     return object.gameObject;
   }
   return undefined;
@@ -161,6 +180,7 @@ export class PlayScene extends Phaser.Scene {
   private fightEngaged = false;
   private threatsLive = false;
   private flak!: Phaser.GameObjects.Group;
+  private coins!: Phaser.Physics.Arcade.Group;
   private retainFlak = false;
   private special!: WorldSpecial;
 
@@ -330,6 +350,21 @@ export class PlayScene extends Phaser.Scene {
     this.physics.add.overlap(this.flak, hazards, (objectA, objectB) => {
       const frag = flakFromCollider(objectA) ?? flakFromCollider(objectB);
       frag?.destroy();
+    });
+
+    this.coins = this.physics.add.group({ runChildUpdate: true, allowGravity: true });
+    this.physics.add.collider(this.coins, solids);
+    this.physics.add.collider(
+      this.coins,
+      oneways,
+      undefined,
+      (objectA, objectB) => this.coinOneWayProcess(objectA, objectB),
+    );
+    this.physics.add.overlap(player, this.coins, (objectA, objectB) => {
+      const coin = coinFromCollider(objectA) ?? coinFromCollider(objectB);
+      if (coin) {
+        this.collectCoin(coin);
+      }
     });
 
     this.cameras.main.startFollow(player, true, 0.14, 0.14);
@@ -704,6 +739,9 @@ export class PlayScene extends Phaser.Scene {
       const result = baddie.tryStomp();
       player.bounce();
       audio.play(this, result === 'defeated' ? 'stomp' : 'hurt');
+      if (result === 'defeated' && shouldDropCoin()) {
+        this.coins.add(new Coin(this, baddie.x, baddie.y - 10));
+      }
       return;
     }
     this.killPlayer('baddie');
@@ -812,6 +850,42 @@ export class PlayScene extends Phaser.Scene {
     player.bossBounce(boss.x, safeX);
   }
 
+  private coinOneWayProcess(
+    objectA:
+      | Phaser.Types.Physics.Arcade.GameObjectWithBody
+      | Phaser.Physics.Arcade.Body
+      | Phaser.Physics.Arcade.StaticBody
+      | Phaser.Tilemaps.Tile,
+    objectB:
+      | Phaser.Types.Physics.Arcade.GameObjectWithBody
+      | Phaser.Physics.Arcade.Body
+      | Phaser.Physics.Arcade.StaticBody
+      | Phaser.Tilemaps.Tile,
+  ): boolean {
+    const coin = coinFromCollider(objectA) ?? coinFromCollider(objectB);
+    if (!coin) {
+      return false;
+    }
+    return coin.arcadeBody.velocity.y >= 0;
+  }
+
+  private collectCoin(coin: Coin): void {
+    if (!coin.active || coin.isCollecting) {
+      return;
+    }
+    coin.beginCollect();
+    addCoins(1);
+    audio.play(this, 'collect');
+    this.tweens.add({
+      targets: coin.fadeTargets(),
+      y: coin.y - 28,
+      alpha: 0,
+      scale: coin.scaleX * 1.4,
+      duration: 220,
+      onComplete: () => coin.destroy(),
+    });
+  }
+
   private collectPickup(pickup: Phaser.Physics.Arcade.Sprite): void {
     if (!pickup.active) {
       return;
@@ -896,12 +970,7 @@ export class PlayScene extends Phaser.Scene {
 
   private createHud(name: string): void {
     const style: Phaser.Types.GameObjects.Text.TextStyle = {
-      fontFamily: 'Avenir Next, Trebuchet MS, Segoe UI, sans-serif',
-      fontStyle: 'bold',
-      fontSize: '20px',
-      color: '#ffffff',
-      stroke: '#000000',
-      strokeThickness: 5,
+      ...textStyle('24px', '#ffffff'),
     };
     this.add.text(24, 16, `${this.levelId}  ${name}`, style).setScrollFactor(0).setDepth(50).setResolution(2);
     this.hudLives = this.add.text(24, 44, 'Lives', style).setScrollFactor(0).setDepth(50).setResolution(2);
@@ -923,18 +992,18 @@ export class PlayScene extends Phaser.Scene {
       .setResolution(2)
       .setVisible(false);
     this.hudSpecial = this.add
-      .text(24, 82, '', { ...style, color: '#fff0a8', fontSize: '18px' })
+      .text(24, 82, '', { ...style, color: '#fff0a8', fontSize: '20px' })
       .setScrollFactor(0)
       .setDepth(50)
       .setResolution(2);
     this.hudCollectibles = this.add
-      .text(GAME_WIDTH / 2, 16, '', { ...style, color: '#fff4d0', fontSize: '17px' })
+      .text(GAME_WIDTH / 2, 16, '', { ...style, color: '#fff4d0', fontSize: '20px' })
       .setOrigin(0.5, 0)
       .setScrollFactor(0)
       .setDepth(50)
       .setResolution(2);
     this.hudShield = this.add
-      .text(GAME_WIDTH / 2, 44, '', { ...style, color: '#9eefff', fontSize: '15px' })
+      .text(GAME_WIDTH / 2, 44, '', { ...style, color: '#9eefff', fontSize: '18px' })
       .setOrigin(0.5, 0)
       .setScrollFactor(0)
       .setDepth(50)
@@ -1055,8 +1124,11 @@ export class PlayScene extends Phaser.Scene {
 
     if (unlockedSkin) {
       const bannerY = GAME_HEIGHT / 2 - panelHeight / 2 + 86;
+      const banner = isBossRewardSkin(unlockedSkin)
+        ? `NEW SKIN UNLOCKED\n${unlockedSkin.name}`
+        : `SKIN AVAILABLE\n${unlockedSkin.name}  ·  ${unlockedSkin.cost ?? 0} coins`;
       const label = this.add
-        .text(GAME_WIDTH / 2 + 22, bannerY, `NEW SKIN UNLOCKED\n${unlockedSkin.name}`, {
+        .text(GAME_WIDTH / 2 + 22, bannerY, banner, {
           ...textStyle('18px', '#ffe9a8'),
           align: 'center',
           lineSpacing: 4,

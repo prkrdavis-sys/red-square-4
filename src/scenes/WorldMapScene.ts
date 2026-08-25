@@ -12,7 +12,7 @@ import {
 import { applySettings } from '../data/settings';
 import { getLevel } from '../levels/worlds';
 import { audio } from '../systems/audio';
-import { launchOverlay, MenuButton, textStyle, UI } from '../ui/menu';
+import { addCoinPurse, launchOverlay, MenuButton, textStyle, UI } from '../ui/menu';
 
 interface NodeView {
   id: LevelId;
@@ -66,26 +66,13 @@ export class WorldMapScene extends Phaser.Scene {
       this.add.rectangle(x + 2, 120, band - 4, footerTop - 128, themeSky(theme), 0.55).setOrigin(0, 0);
       this.add
         .text(x + band / 2, 148, `WORLD ${world}`, {
-          fontFamily: 'Courier New, monospace',
-          fontSize: '16px',
-          color: '#ffffff',
+          ...textStyle('16px', '#ffffff'),
           stroke: '#000000',
-          strokeThickness: 4,
         })
         .setOrigin(0.5);
+      this.add.text(x + band / 2, 174, themeName(theme), textStyle('16px', '#fff4d0')).setOrigin(0.5);
       this.add
-        .text(x + band / 2, 174, themeName(theme), {
-          fontFamily: 'Courier New, monospace',
-          fontSize: '12px',
-          color: '#fff4d0',
-        })
-        .setOrigin(0.5);
-      this.add
-        .text(x + band / 2, 198, `STARS ${worldCollectibleCount(save, world)}/12`, {
-          fontFamily: 'Courier New, monospace',
-          fontSize: '11px',
-          color: '#fff4d0',
-        })
+        .text(x + band / 2, 198, `STARS ${worldCollectibleCount(save, world)}/12`, textStyle('15px', '#fff4d0'))
         .setOrigin(0.5);
     }
 
@@ -110,24 +97,20 @@ export class WorldMapScene extends Phaser.Scene {
       }
       this.add
         .text(node.x, node.y, `${node.world}-${node.stage}`, {
-          fontFamily: 'Courier New, monospace',
-          fontSize: '12px',
-          color: unlocked ? '#222222' : '#888888',
+          ...textStyle('14px', unlocked ? '#222222' : '#888888'),
+          strokeThickness: 0,
         })
         .setOrigin(0.5);
       const stars = levelCollectibleCount(node.id, save);
+      const complete = stars === 3;
       const starIcon = this.add.image(node.x - 12, node.y + 26, 'star').setScale(0.22);
-      if (!unlocked || stars === 0) {
+      if (!complete) {
         starIcon.setTint(0x6a7380);
-        starIcon.setAlpha(unlocked ? 0.7 : 0.35);
+        starIcon.setAlpha(unlocked ? 0.45 : 0.28);
       }
       this.add
         .text(node.x + 2, node.y + 26, `${stars}/3`, {
-          fontFamily: 'Courier New, monospace',
-          fontSize: '11px',
-          color: unlocked ? '#fff4d0' : '#6a7380',
-          stroke: '#12080a',
-          strokeThickness: 3,
+          ...textStyle('14px', complete ? '#fff4d0' : unlocked ? '#8a93a0' : '#6a7380'),
         })
         .setOrigin(0, 0.5);
       if (unlocked) {
@@ -154,13 +137,12 @@ export class WorldMapScene extends Phaser.Scene {
 
     this.add
       .text(GAME_WIDTH / 2, 56, 'WORLD MAP', {
-        fontFamily: 'Courier New, monospace',
-        fontSize: '40px',
-        color: '#ffffff',
+        ...textStyle('40px', '#ffffff'),
         stroke: '#000000',
-        strokeThickness: 6,
+        strokeThickness: 4,
       })
       .setOrigin(0.5);
+    addCoinPurse(this, GAME_WIDTH - 108, 56, save.coins);
 
     this.add.rectangle(0, footerTop, GAME_WIDTH, GAME_HEIGHT - footerTop, 0x10161c, 1).setOrigin(0, 0);
     this.add.rectangle(GAME_WIDTH / 2, footerTop + 1, GAME_WIDTH, 2, UI.panelStroke, 0.8);
@@ -171,7 +153,7 @@ export class WorldMapScene extends Phaser.Scene {
 
     this.add
       .text(GAME_WIDTH - 32, footerTop + 16, 'Tap a course', {
-        ...textStyle('16px', UI.muted),
+        ...textStyle('18px', UI.muted),
         align: 'right',
       })
       .setOrigin(1, 0);
@@ -220,11 +202,7 @@ export class WorldMapScene extends Phaser.Scene {
 
     this.hint = this.add
       .text(GAME_WIDTH / 2, footerTop + 16, '', {
-        fontFamily: UI.font,
-        fontSize: '18px',
-        color: UI.gold,
-        stroke: '#12080a',
-        strokeThickness: 4,
+        ...textStyle('18px', UI.gold),
         align: 'center',
         lineSpacing: 6,
       })

@@ -1,7 +1,7 @@
 import Phaser from 'phaser';
 import { GAME_HEIGHT, GAME_WIDTH } from '../config';
 import { maybeShake } from '../data/settings';
-import { UI } from './menu';
+import { textStyle, UI } from './menu';
 
 export function showBossFightBanner(scene: Phaser.Scene): void {
   const x = GAME_WIDTH / 2;
@@ -29,11 +29,9 @@ export function showBossFightBanner(scene: Phaser.Scene): void {
     .setDepth(56);
   const ghost = scene.add
     .text(x, y, 'BOSS FIGHT', {
-      fontFamily: UI.font,
-      fontSize: '58px',
-      color: '#e23b3b',
+      ...textStyle('58px', '#e23b3b'),
       stroke: '#6a0610',
-      strokeThickness: 12,
+      strokeThickness: 6,
     })
     .setOrigin(0.5)
     .setScrollFactor(0)
@@ -41,11 +39,9 @@ export function showBossFightBanner(scene: Phaser.Scene): void {
     .setAlpha(0.7);
   const label = scene.add
     .text(x, y, 'BOSS FIGHT', {
-      fontFamily: UI.font,
-      fontSize: '58px',
-      color: UI.gold,
+      ...textStyle('58px', UI.gold),
       stroke: '#6a0610',
-      strokeThickness: 12,
+      strokeThickness: 6,
     })
     .setOrigin(0.5)
     .setScrollFactor(0)
@@ -55,10 +51,7 @@ export function showBossFightBanner(scene: Phaser.Scene): void {
     .setAngle(-10);
   const slashL = scene.add
     .text(x - 160, y, '///', {
-      fontFamily: UI.font,
-      fontSize: '28px',
-      color: '#e23b3b',
-      stroke: '#12080a',
+      ...textStyle('28px', '#e23b3b'),
       strokeThickness: 6,
     })
     .setOrigin(0.5)
@@ -67,10 +60,7 @@ export function showBossFightBanner(scene: Phaser.Scene): void {
     .setAlpha(0);
   const slashR = scene.add
     .text(x + 160, y, '///', {
-      fontFamily: UI.font,
-      fontSize: '28px',
-      color: '#e23b3b',
-      stroke: '#12080a',
+      ...textStyle('28px', '#e23b3b'),
       strokeThickness: 6,
     })
     .setOrigin(0.5)

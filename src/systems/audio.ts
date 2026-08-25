@@ -2,6 +2,7 @@ import Phaser from 'phaser';
 
 import { type Theme } from '../config';
 import { applySettings, loadSettings, onSettingsApplied } from '../data/settings';
+import { makeSeamlessLoop, recordedThemeUrl } from './music-loop';
 import { themeBuffer } from './music';
 
 type SfxName =
@@ -253,6 +254,9 @@ let currentTheme: Theme | null = null;
 let pendingTheme: Theme = 'grass';
 let musicDuck = 1;
 
+const recordedBuffers = new WeakMap<AudioContext, Map<Theme, AudioBuffer>>();
+const recordedLoads = new WeakMap<AudioContext, Map<Theme, Promise<AudioBuffer | null>>>();
+
 function musicLevel(): number {
   const settings = loadSettings();
   if (!settings.music) {
@@ -285,20 +289,11 @@ function stopMusicSource(): void {
   currentTheme = null;
 }
 
-function startTheme(theme: Theme): void {
-  if (!loadSettings().music) {
-    stopMusicSource();
-    return;
-  }
-  const context = ctx();
-  if (!context) {
-    return;
-  }
+function playBuffer(context: AudioContext, theme: Theme, buffer: AudioBuffer): void {
   if (currentTheme === theme && musicSource && musicGain) {
     applyMusicMix();
     return;
   }
-  const buffer = themeBuffer(context, theme);
   stopMusicSource();
   musicGain = context.createGain();
   musicGain.gain.setValueAtTime(Math.max(0.0001, musicLevel()), context.currentTime);
@@ -316,6 +311,94 @@ function startTheme(theme: Theme): void {
       currentTheme = null;
     }
   };
+}
+
+async function decodeRecordedTheme(context: AudioContext, theme: Theme): Promise<AudioBuffer | null> {
+  const url = recordedThemeUrl(theme);
+  if (!url) {
+    return null;
+  }
+  try {
+    const response = await fetch(url);
+    if (!response.ok) {
+      return null;
+    }
+    const bytes = await response.arrayBuffer();
+    const decoded = await context.decodeAudioData(bytes.slice(0));
+    return makeSeamlessLoop(context, decoded);
+  } catch {
+    return null;
+  }
+}
+
+function loadRecordedTheme(context: AudioContext, theme: Theme): Promise<AudioBuffer | null> {
+  const cached = recordedBuffers.get(context)?.get(theme);
+  if (cached) {
+    return Promise.resolve(cached);
+  }
+  let loads = recordedLoads.get(context);
+  if (!loads) {
+    loads = new Map();
+    recordedLoads.set(context, loads);
+  }
+  const pending = loads.get(theme);
+  if (pending) {
+    return pending;
+  }
+  const load = decodeRecordedTheme(context, theme).then((buffer) => {
+    if (buffer) {
+      let cache = recordedBuffers.get(context);
+      if (!cache) {
+        cache = new Map();
+        recordedBuffers.set(context, cache);
+      }
+      cache.set(theme, buffer);
+    }
+    loads.delete(theme);
+    return buffer;
+  });
+  loads.set(theme, load);
+  return load;
+}
+
+function prefetchRecordedThemes(): void {
+  const context = ctx();
+  if (!context) {
+    return;
+  }
+  if (recordedThemeUrl('grass')) {
+    void loadRecordedTheme(context, 'grass');
+  }
+}
+
+function startTheme(theme: Theme): void {
+  if (!loadSettings().music) {
+    stopMusicSource();
+    return;
+  }
+  const context = ctx();
+  if (!context) {
+    return;
+  }
+  if (currentTheme === theme && musicSource && musicGain) {
+    applyMusicMix();
+    return;
+  }
+  if (recordedThemeUrl(theme)) {
+    const recorded = recordedBuffers.get(context)?.get(theme);
+    if (recorded) {
+      playBuffer(context, theme, recorded);
+      return;
+    }
+    void loadRecordedTheme(context, theme).then((buffer) => {
+      if (pendingTheme !== theme || !loadSettings().music) {
+        return;
+      }
+      playBuffer(context, theme, buffer ?? themeBuffer(context, theme));
+    });
+    return;
+  }
+  playBuffer(context, theme, themeBuffer(context, theme));
 }
 
 function syncMusic(): void {
@@ -341,6 +424,7 @@ export const audio = {
       return;
     }
     unlockInstalled = true;
+    prefetchRecordedThemes();
     onSettingsApplied(() => {
       syncMusic();
     });

@@ -1,6 +1,12 @@
 import { ALL_LEVEL_IDS, parseLevelId, type LevelId } from '../config';
 import { persistReadClient, persistWriteClient } from './persist';
-import { DEFAULT_SKIN_ID, isSkinUnlocked, skinById } from './skins';
+import {
+  DEFAULT_SKIN_ID,
+  isBossRewardSkin,
+  isSkinUnlocked,
+  legacyPurchasedSkinIds,
+  skinById,
+} from './skins';
 
 const STORAGE_KEY = 'red-square-4-save-v2';
 const LEGACY_STORAGE_KEY = 'red-square-4-save-v1';
@@ -15,6 +21,8 @@ export interface SaveData {
   checkpoints: Partial<Record<LevelId, { x: number; y: number }>>;
   creatureCards: string[];
   equippedSkin: string;
+  coins: number;
+  purchasedSkins: string[];
 }
 
 let memory: SaveData | null = null;
@@ -32,6 +40,7 @@ function cloneSave(save: SaveData): SaveData {
       ]),
     ) as SaveData['checkpoints'],
     creatureCards: [...save.creatureCards],
+    purchasedSkins: [...save.purchasedSkins],
   };
 }
 
@@ -44,6 +53,8 @@ function defaultSave(): SaveData {
     checkpoints: {},
     creatureCards: [],
     equippedSkin: DEFAULT_SKIN_ID,
+    coins: 0,
+    purchasedSkins: [],
   };
 }
 
@@ -80,12 +91,28 @@ function fallbackLastPlayed(unlocked: LevelId[], cleared: LevelId[]): LevelId {
   return leftover ?? unlocked[unlocked.length - 1] ?? '1-1';
 }
 
-function normalizeSkin(id: string, cleared: LevelId[]): string {
+function normalizeSkin(id: string, save: { cleared: LevelId[]; purchasedSkins: string[] }): string {
   const skin = skinById(id);
-  if (!skin || !isSkinUnlocked(skin, { cleared })) {
+  if (!skin || !isSkinUnlocked(skin, save)) {
     return DEFAULT_SKIN_ID;
   }
   return skin.id;
+}
+
+function normalizeCoins(value: number): number {
+  if (!Number.isFinite(value)) {
+    return 0;
+  }
+  return Math.max(0, Math.floor(value));
+}
+
+function normalizePurchasedSkins(ids: string[]): string[] {
+  return Array.from(
+    new Set(ids.filter((id) => {
+      const skin = skinById(id);
+      return !!skin && !!skin.cost && !isBossRewardSkin(skin);
+    })),
+  );
 }
 
 function normalizeSave(save: SaveData): SaveData {
@@ -114,6 +141,7 @@ function normalizeSave(save: SaveData): SaveData {
       checkpoints[id] = { x: checkpoint.x, y: checkpoint.y };
     }
   }
+  const purchasedSkins = normalizePurchasedSkins(save.purchasedSkins);
   return {
     unlocked,
     cleared,
@@ -121,7 +149,9 @@ function normalizeSave(save: SaveData): SaveData {
     collectibles,
     checkpoints,
     creatureCards: Array.from(new Set(save.creatureCards.filter((card) => typeof card === 'string'))),
-    equippedSkin: normalizeSkin(save.equippedSkin, cleared),
+    equippedSkin: normalizeSkin(save.equippedSkin, { cleared, purchasedSkins }),
+    coins: normalizeCoins(save.coins),
+    purchasedSkins,
   };
 }
 
@@ -154,6 +184,13 @@ function parseSave(raw: string | null | undefined): SaveData | null {
       ? parsed.creatureCards.filter((card): card is string => typeof card === 'string')
       : [];
     const equippedSkin = typeof parsed.equippedSkin === 'string' ? parsed.equippedSkin : DEFAULT_SKIN_ID;
+    const coins = typeof parsed.coins === 'number' ? parsed.coins : 0;
+    const migratePurchases = !Object.prototype.hasOwnProperty.call(parsed, 'purchasedSkins');
+    const purchasedSkins = Array.isArray(parsed.purchasedSkins)
+      ? parsed.purchasedSkins.filter((id): id is string => typeof id === 'string')
+      : migratePurchases
+        ? legacyPurchasedSkinIds(cleared)
+        : [];
     return normalizeSave({
       unlocked,
       cleared,
@@ -162,6 +199,8 @@ function parseSave(raw: string | null | undefined): SaveData | null {
       checkpoints,
       creatureCards,
       equippedSkin,
+      coins,
+      purchasedSkins,
     });
   } catch {
     return null;
@@ -189,6 +228,8 @@ function unionSave(a: SaveData, b: SaveData): SaveData {
     checkpoints,
     creatureCards: [...a.creatureCards, ...b.creatureCards],
     equippedSkin: b.equippedSkin === DEFAULT_SKIN_ID ? a.equippedSkin : b.equippedSkin,
+    coins: Math.max(a.coins, b.coins),
+    purchasedSkins: [...a.purchasedSkins, ...b.purchasedSkins],
   });
 }
 
@@ -308,6 +349,39 @@ export function setEquippedSkin(id: string): SaveData {
   save.equippedSkin = id;
   writeSave(save);
   return loadSave();
+}
+
+export function addCoins(amount: number): SaveData {
+  const save = loadSave();
+  save.coins = normalizeCoins(save.coins + amount);
+  writeSave(save);
+  return loadSave();
+}
+
+export function purchaseSkin(id: string): { ok: boolean; save: SaveData } {
+  const save = loadSave();
+  const skin = skinById(id);
+  if (!skin || !skin.level || skin.cost === undefined || isBossRewardSkin(skin)) {
+    return { ok: false, save };
+  }
+  if (!save.cleared.includes(skin.level) || save.purchasedSkins.includes(skin.id)) {
+    return { ok: false, save };
+  }
+  if (save.coins < skin.cost) {
+    return { ok: false, save };
+  }
+  save.coins -= skin.cost;
+  save.purchasedSkins.push(skin.id);
+  writeSave(save);
+  return { ok: true, save: loadSave() };
+}
+
+export function resetSaveCache(): void {
+  memory = null;
+}
+
+export function parseSaveRaw(raw: string): SaveData | null {
+  return parseSave(raw);
 }
 
 export function isUnlocked(id: LevelId): boolean {

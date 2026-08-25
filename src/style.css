@@ -2,6 +2,7 @@
   color-scheme: dark;
   --touch-btn-size: 104px;
   --touch-btn-gap: 14px;
+  --game-font: 'VT323', 'Trebuchet MS', sans-serif;
 }
 
 html,
@@ -51,10 +52,10 @@ body {
   border: 3px solid #8a3038;
   background: #2a1418;
   color: #fff8f0;
-  font-family: 'Courier New', monospace;
-  font-size: clamp(14px, 2.6vh, 18px);
-  font-weight: 700;
-  letter-spacing: 0.08em;
+  font-family: var(--game-font);
+  font-size: clamp(16px, 2.8vh, 20px);
+  font-weight: 400;
+  letter-spacing: 0.06em;
   line-height: 1;
   text-shadow: 0 2px 0 #12080a;
   pointer-events: auto;
@@ -303,15 +304,15 @@ body.desktop-pointer #rotate-prompt {
 
 .rotate-title {
   margin: 0;
-  font-family: 'Courier New', monospace;
+  font-family: var(--game-font);
   font-size: 1.35rem;
   letter-spacing: 0.04em;
 }
 
 .rotate-copy {
   margin: 0;
-  font-family: 'Courier New', monospace;
-  font-size: 0.95rem;
+  font-family: var(--game-font);
+  font-size: 1rem;
   color: #d0c0b8;
   line-height: 1.4;
 }
