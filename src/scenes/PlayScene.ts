@@ -61,6 +61,12 @@ import {
   setHudPauseHandler,
   showHudPause,
 } from '../systems/hud-pause';
+import {
+  applyTouchSpecialCharge,
+  createSpecialMeter,
+  resetTouchSpecialCharge,
+  type SpecialMeter,
+} from '../systems/special-meter';
 import { getTouchState, hideTouchControls, showTouchControls } from '../systems/touch-controls';
 import { skinThumbKey } from '../systems/textures';
 import { showBossFightBanner } from '../ui/boss-fight';
@@ -168,7 +174,7 @@ export class PlayScene extends Phaser.Scene {
   private hudLives!: Phaser.GameObjects.Text;
   private hudLifeIcons: Phaser.GameObjects.Image[] = [];
   private hudBoss!: Phaser.GameObjects.Text;
-  private hudSpecial!: Phaser.GameObjects.Text;
+  private specialMeter!: SpecialMeter;
   private hudCollectibles!: Phaser.GameObjects.Text;
   private hudShield!: Phaser.GameObjects.Text;
   private pauseOverlay!: Phaser.GameObjects.Container;
@@ -450,6 +456,7 @@ export class PlayScene extends Phaser.Scene {
       delete this.game.canvas.dataset.levelId;
       delete this.game.canvas.dataset.controlsHint;
       hideTouchControls();
+      resetTouchSpecialCharge();
       hideHudPause();
       if (!this.retainFlak) {
         forgetFlak();
@@ -520,12 +527,7 @@ export class PlayScene extends Phaser.Scene {
     this.hudLifeIcons.forEach((icon, index) => {
       icon.setVisible(index < session.lives);
     });
-    this.hudSpecial.setText(
-      this.special.ready
-        ? `Special - ${this.special.label}`
-        : `Special - ${this.special.label}  ${Math.ceil(this.special.cooldownRatio * 10)}`,
-    );
-    this.hudSpecial.setColor(this.special.ready ? '#fff0a8' : '#9aa5b1');
+    this.syncSpecialCharge();
     this.hudCollectibles.setText(`STARS  ${levelCollectibleCount(this.levelId)}/3`);
     this.hudShield.setText(player.shielded ? 'SHIELD  READY' : 'SHIELD  —');
     const boss = worldBoss?.active ? worldBoss : miniBoss?.active ? miniBoss : undefined;
@@ -991,11 +993,7 @@ export class PlayScene extends Phaser.Scene {
       .setDepth(50)
       .setResolution(2)
       .setVisible(false);
-    this.hudSpecial = this.add
-      .text(24, 82, '', { ...style, color: '#fff0a8', fontSize: '20px' })
-      .setScrollFactor(0)
-      .setDepth(50)
-      .setResolution(2);
+    this.specialMeter = createSpecialMeter(this, this.special.label);
     this.hudCollectibles = this.add
       .text(GAME_WIDTH / 2, 16, '', { ...style, color: '#fff4d0', fontSize: '20px' })
       .setOrigin(0.5, 0)
@@ -1060,6 +1058,15 @@ export class PlayScene extends Phaser.Scene {
       this.pauseBtn.setVisible(true);
       this.pauseBtn.enablePointer(28);
     }
+    this.syncSpecialCharge();
+  }
+
+  private syncSpecialCharge(): void {
+    const charge = this.special.chargeRatio;
+    const touchPlay = document.body.classList.contains('touch-play');
+    this.specialMeter.setVisible(!touchPlay);
+    this.specialMeter.setCharge(charge);
+    applyTouchSpecialCharge(charge);
   }
 
   private openControlsHint(): void {

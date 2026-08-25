@@ -6,6 +6,7 @@ import { Player } from '../entities/Player';
 import { TerrainHazard } from '../entities/TerrainHazard';
 import type { BuiltLevel } from '../levels/builder';
 import { enableOneWayCollision, ONEWAY_HEIGHT } from '../levels/colliders';
+import { specialChargeRatio } from './special-cooldown';
 import { specialLabel } from './special-copy';
 import { onewayTileKey } from './textures';
 
@@ -43,6 +44,10 @@ export class WorldSpecial {
   get cooldownRatio(): number {
     const remaining = Math.max(0, this.readyAt - this.scene.time.now);
     return remaining / COOLDOWNS[this.kind];
+  }
+
+  get chargeRatio(): number {
+    return specialChargeRatio(this.cooldownRatio);
   }
 
   activate(player: Player, direction: number): boolean {

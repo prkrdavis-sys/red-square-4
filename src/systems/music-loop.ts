@@ -1,23 +1,30 @@
 import { type Theme } from '../config';
 
-export const RECORDED_THEME_URLS: Partial<Record<Theme, string>> = {
+export const RECORDED_THEME_URLS: Record<Theme, string> = {
   grass: 'assets/audio/grass-overworld.mp3',
+  snow: 'assets/audio/snow-overworld.mp3',
   desert: 'assets/audio/desert-overworld.mp3',
+  ocean: 'assets/audio/ocean-overworld.mp3',
+  castle: 'assets/audio/castle-overworld.mp3',
+  rainforest: 'assets/audio/rainforest-overworld.mp3',
 };
 
 export const LOOP_FADE_SECONDS = 2.5;
 
-export function recordedThemeUrl(theme: Theme): string | null {
+export function recordedThemeUrl(theme: Theme): string {
   switch (theme) {
     case 'grass':
-      return RECORDED_THEME_URLS.grass ?? null;
-    case 'desert':
-      return RECORDED_THEME_URLS.desert ?? null;
+      return RECORDED_THEME_URLS.grass;
     case 'snow':
+      return RECORDED_THEME_URLS.snow;
+    case 'desert':
+      return RECORDED_THEME_URLS.desert;
     case 'ocean':
+      return RECORDED_THEME_URLS.ocean;
     case 'castle':
+      return RECORDED_THEME_URLS.castle;
     case 'rainforest':
-      return null;
+      return RECORDED_THEME_URLS.rainforest;
     default: {
       const neverTheme: never = theme;
       return neverTheme;

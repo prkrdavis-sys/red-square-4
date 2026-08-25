@@ -14,6 +14,7 @@ import {
   dismissOnOutside,
   MenuButton,
   setCoinPurseAmount,
+  shouldAcceptTap,
   textStyle,
   UI,
 } from '../ui/menu';
@@ -44,6 +45,7 @@ export class SkinsScene extends Phaser.Scene {
   private actionBtn!: MenuButton;
   private purse!: Phaser.GameObjects.Container;
   private onKey!: (event: KeyboardEvent) => void;
+  private lastActivateAt = Number.NEGATIVE_INFINITY;
 
   constructor() {
     super('SkinsScene');
@@ -90,14 +92,14 @@ export class SkinsScene extends Phaser.Scene {
         .setInteractive({ useHandCursor: true });
       frame.on('pointerover', () => this.select(i, false));
       frame.on('pointerdown', (pointer: Phaser.Input.Pointer) => {
-        if (!pointer.wasTouch) {
+        if (!pointer.wasTouch || !this.claimPointer()) {
           return;
         }
         this.select(i, false);
         this.activate();
       });
       frame.on('pointerup', (pointer: Phaser.Input.Pointer) => {
-        if (pointer.wasTouch) {
+        if (pointer.wasTouch || !this.claimPointer()) {
           return;
         }
         this.select(i, false);
@@ -256,6 +258,15 @@ export class SkinsScene extends Phaser.Scene {
         return neverStatus;
       }
     }
+  }
+
+  private claimPointer(): boolean {
+    const now = performance.now();
+    if (!shouldAcceptTap(this.lastActivateAt, now)) {
+      return false;
+    }
+    this.lastActivateAt = now;
+    return true;
   }
 
   private activate(): void {

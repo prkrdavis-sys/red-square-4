@@ -4,13 +4,15 @@ import { THEMES } from '../config';
 import { crossfadeLoop, loopableLength, recordedThemeUrl } from './music-loop';
 
 describe('recorded theme tracks', () => {
-  it('uses overworld recordings for grass and desert', () => {
+  it('maps every biome to its overworld recording', () => {
     expect(recordedThemeUrl('grass')).toBe('assets/audio/grass-overworld.mp3');
+    expect(recordedThemeUrl('snow')).toBe('assets/audio/snow-overworld.mp3');
     expect(recordedThemeUrl('desert')).toBe('assets/audio/desert-overworld.mp3');
+    expect(recordedThemeUrl('ocean')).toBe('assets/audio/ocean-overworld.mp3');
+    expect(recordedThemeUrl('castle')).toBe('assets/audio/castle-overworld.mp3');
+    expect(recordedThemeUrl('rainforest')).toBe('assets/audio/rainforest-overworld.mp3');
     for (const theme of THEMES) {
-      if (theme !== 'grass' && theme !== 'desert') {
-        expect(recordedThemeUrl(theme)).toBeNull();
-      }
+      expect(recordedThemeUrl(theme).length).toBeGreaterThan(0);
     }
   });
 });

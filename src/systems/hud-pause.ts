@@ -107,6 +107,15 @@ export function bootHudPause(): void {
     event.stopPropagation();
     activate();
   });
+  button.addEventListener(
+    'touchstart',
+    (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      lockLandscape();
+    },
+    { passive: false },
+  );
   button.addEventListener('pointerdown', (event) => {
     event.stopPropagation();
     if (!isPrimaryPointer(event)) {

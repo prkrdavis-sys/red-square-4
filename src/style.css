@@ -271,23 +271,24 @@ body.touch-play #touch-controls {
 }
 
 .touch-cluster-right {
-  top: 0;
+  --touch-diag: var(--touch-btn-size);
+  top: auto;
   right: calc(4px + env(safe-area-inset-right, 0px));
-  bottom: calc(10px + env(safe-area-inset-bottom, 0px));
-  width: var(--touch-btn-size);
-  height: auto;
+  width: calc(var(--touch-btn-size) + var(--touch-diag));
+  height: calc(var(--touch-btn-size) + var(--touch-diag));
 }
 
 .touch-cluster-right .touch-btn[data-touch='special'] {
   position: absolute;
-  right: 0;
+  right: var(--touch-diag);
   bottom: 0;
 }
 
 .touch-cluster-right .touch-btn[data-touch='jump'] {
   position: absolute;
   right: 0;
-  top: calc(50% - var(--touch-btn-size) / 2);
+  top: auto;
+  bottom: var(--touch-diag);
 }
 
 .touch-btn {
@@ -365,12 +366,54 @@ body.touch-play #touch-controls {
 }
 
 .touch-btn-special {
+  --special-ready: 1;
   color: rgba(255, 235, 151, 0.4);
+}
+
+.touch-btn-charge {
+  position: absolute;
+  inset: 6%;
+  overflow: hidden;
+  border-radius: 50%;
+  background: rgba(18, 10, 8, 0.55);
+  pointer-events: none;
+}
+
+.touch-btn-charge-fill {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: calc(var(--special-ready) * 100%);
+  background: linear-gradient(180deg, #ffe79a 0%, #e8a030 100%);
+  opacity: 0.88;
+  pointer-events: none;
+}
+
+.touch-btn-special:not(.is-ready) {
+  color: rgba(255, 235, 151, 0.34);
 }
 
 .touch-btn-special .touch-btn-ring {
   border-color: rgba(255, 224, 123, 0.2);
   background: rgba(117, 78, 24, 0.06);
+}
+
+.touch-btn-special.is-ready {
+  color: rgba(255, 248, 214, 0.96);
+}
+
+.touch-btn-special.is-ready .touch-btn-ring {
+  border-color: rgba(255, 224, 123, 0.55);
+  background: rgba(117, 78, 24, 0.14);
+  box-shadow:
+    0 0 0 1px rgba(12, 8, 10, 0.1),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1),
+    0 0 18px rgba(255, 210, 90, 0.35);
+}
+
+.touch-btn-special.is-ready .touch-btn-charge-fill {
+  opacity: 1;
 }
 
 .touch-btn-special.is-pressed {

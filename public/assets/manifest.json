@@ -42,6 +42,10 @@
     "sfx-select": "assets/audio/select.ogg",
     "sfx-map": "assets/audio/map.ogg",
     "theme-grass": "assets/audio/grass-overworld.mp3",
-    "theme-desert": "assets/audio/desert-overworld.mp3"
+    "theme-snow": "assets/audio/snow-overworld.mp3",
+    "theme-desert": "assets/audio/desert-overworld.mp3",
+    "theme-ocean": "assets/audio/ocean-overworld.mp3",
+    "theme-castle": "assets/audio/castle-overworld.mp3",
+    "theme-rainforest": "assets/audio/rainforest-overworld.mp3"
   }
 }

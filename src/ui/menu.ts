@@ -1,6 +1,9 @@
 import Phaser from 'phaser';
 import { GAME_HEIGHT, GAME_WIDTH, THEMES, themeSky } from '../config';
 import { audio } from '../systems/audio';
+import { MENU_OPEN_GUARD_MS, menuDismissIsArmed, shouldAcceptTap } from './menu-tap';
+
+export { MENU_OPEN_GUARD_MS, MENU_TAP_LOCK_MS, menuDismissIsArmed, shouldAcceptTap } from './menu-tap';
 
 export const GAME_FONT_FAMILY = 'VT323';
 
@@ -83,6 +86,7 @@ export class MenuButton extends Phaser.GameObjects.Container {
   onActivate: () => void;
   onAdjust?: (dir: -1 | 1) => void;
   focused = false;
+  private lastCommitAt = Number.NEGATIVE_INFINITY;
   private readonly bg: Phaser.GameObjects.Rectangle;
   private readonly border: Phaser.GameObjects.Rectangle;
   private readonly labelText: Phaser.GameObjects.Text;
@@ -136,6 +140,11 @@ export class MenuButton extends Phaser.GameObjects.Container {
     if (!this.active || !this.scene.scene.isActive()) {
       return;
     }
+    const now = performance.now();
+    if (!shouldAcceptTap(this.lastCommitAt, now)) {
+      return;
+    }
+    this.lastCommitAt = now;
     audio.play(this.scene, 'select');
     this.onActivate();
   }
@@ -318,19 +327,28 @@ export function closeOverlay(overlay: Phaser.Scene, returnKey: string): void {
   }
 }
 
-export function beginOverlay(scene: Phaser.Scene): void {
-  scene.input.enabled = false;
-  const arm = () => {
+function afterOpenGesture(scene: Phaser.Scene, done: () => void): void {
+  const opened = performance.now();
+  const poll = (): void => {
     if (!scene.scene.isActive()) {
       return;
     }
-    if (scene.input.activePointer.isDown) {
-      scene.time.delayedCall(50, arm);
+    if (scene.input.activePointer.isDown || performance.now() - opened < MENU_OPEN_GUARD_MS) {
+      scene.time.delayedCall(40, poll);
       return;
     }
-    scene.input.enabled = true;
+    done();
   };
-  scene.time.delayedCall(50, arm);
+  scene.time.delayedCall(40, poll);
+}
+
+export function beginOverlay(scene: Phaser.Scene): void {
+  scene.input.enabled = false;
+  afterOpenGesture(scene, () => {
+    if (scene.scene.isActive()) {
+      scene.input.enabled = true;
+    }
+  });
 }
 
 export function dimScreen(
@@ -344,8 +362,12 @@ export function dimScreen(
     .setDepth(60)
     .setInteractive(new Phaser.Geom.Rectangle(0, 0, GAME_WIDTH, GAME_HEIGHT), Phaser.Geom.Rectangle.Contains);
   if (onDismiss) {
+    let ready = false;
+    afterOpenGesture(scene, () => {
+      ready = true;
+    });
     dim.on('pointerup', () => {
-      if (scene.input.enabled) {
+      if (ready && scene.input.enabled) {
         onDismiss();
       }
     });
@@ -366,15 +388,36 @@ export function dismissOnOutside(
   onDismiss: () => void,
   isOpen: () => boolean = () => true,
 ): void {
+  let wasOpen = false;
+  let openSince: number | undefined;
+  const noteOpen = (): boolean => {
+    const open = isOpen();
+    if (open && !wasOpen) {
+      openSince = performance.now();
+    }
+    if (!open) {
+      openSince = undefined;
+    }
+    wasOpen = open;
+    return open;
+  };
   const tryDismiss = (pointer: Phaser.Input.Pointer) => {
-    if (!scene.input.enabled || !scene.scene.isActive() || !isOpen() || !pointerOutsidePanel(panel, pointer)) {
+    if (
+      !scene.input.enabled ||
+      !scene.scene.isActive() ||
+      !noteOpen() ||
+      !menuDismissIsArmed(openSince, performance.now()) ||
+      !pointerOutsidePanel(panel, pointer)
+    ) {
       return;
     }
     onDismiss();
   };
+  scene.events.on(Phaser.Scenes.Events.UPDATE, noteOpen);
   scene.input.on('pointerup', tryDismiss);
   scene.input.on('pointerupoutside', tryDismiss);
   scene.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
+    scene.events.off(Phaser.Scenes.Events.UPDATE, noteOpen);
     scene.input.off('pointerup', tryDismiss);
     scene.input.off('pointerupoutside', tryDismiss);
   });

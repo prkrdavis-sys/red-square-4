@@ -12,7 +12,7 @@ import {
 import { applySettings } from '../data/settings';
 import { getLevel } from '../levels/worlds';
 import { audio } from '../systems/audio';
-import { addCoinPurse, launchOverlay, MenuButton, textStyle, UI } from '../ui/menu';
+import { addCoinPurse, launchOverlay, MenuButton, shouldAcceptTap, textStyle, UI } from '../ui/menu';
 
 interface NodeView {
   id: LevelId;
@@ -43,6 +43,7 @@ export class WorldMapScene extends Phaser.Scene {
   private token!: Phaser.GameObjects.Container;
   private hint!: Phaser.GameObjects.Text;
   private moving = false;
+  private lastNodeTapAt = Number.NEGATIVE_INFINITY;
 
   constructor() {
     super('WorldMapScene');
@@ -283,6 +284,11 @@ export class WorldMapScene extends Phaser.Scene {
     if (this.scene.isPaused()) {
       return;
     }
+    const now = performance.now();
+    if (!shouldAcceptTap(this.lastNodeTapAt, now)) {
+      return;
+    }
+    this.lastNodeTapAt = now;
     if (index === this.cursor) {
       this.playSelected();
       return;

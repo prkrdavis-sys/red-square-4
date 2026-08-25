@@ -28,6 +28,8 @@ let moveHeld: Exclude<MoveAxis, null> | null = null;
 let moveOriginX = 0;
 let booted = false;
 let pausedByRotate = false;
+let gameRef: Phaser.Game | undefined;
+let touchGen = 0;
 
 export function moveDirectionFromDelta(deltaX: number, deadzonePx = MOVE_DEADZONE_PX): MoveAxis {
   if (deltaX <= -deadzonePx) {
@@ -249,6 +251,18 @@ function releasePointer(pointerId: number): void {
   }
 }
 
+function releaseOrphanedCanvasTouches(): void {
+  const input = gameRef?.input;
+  if (!input) {
+    return;
+  }
+  for (const pointer of input.pointers) {
+    if (pointer.id !== 0 && pointer.active && pointer.isDown) {
+      pointer.reset();
+    }
+  }
+}
+
 function releaseAll(): void {
   captured.clear();
   tracked.clear();
@@ -399,10 +413,24 @@ function bindGlobalPointers(): void {
   );
 
   const onTouchesCleared = (event: TouchEvent) => {
-    if (event.touches.length === 0) {
-      releaseAll();
+    if (event.touches.length !== 0) {
+      return;
     }
+    releaseAll();
+    const gen = touchGen;
+    window.setTimeout(() => {
+      if (touchGen === gen) {
+        releaseOrphanedCanvasTouches();
+      }
+    }, 0);
   };
+  window.addEventListener(
+    'touchstart',
+    () => {
+      touchGen += 1;
+    },
+    true,
+  );
   window.addEventListener('touchend', onTouchesCleared, true);
   window.addEventListener('touchcancel', onTouchesCleared, true);
 
@@ -517,6 +545,7 @@ export function bootTouchControls(): void {
 }
 
 export function watchLandscapePrompt(game: Phaser.Game): void {
+  gameRef = game;
   const sync = () => {
     syncLandscapePrompt(game);
   };

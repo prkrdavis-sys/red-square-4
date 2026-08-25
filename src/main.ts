@@ -42,6 +42,9 @@ const config: Phaser.Types.Core.GameConfig = {
     expandParent: false,
     autoRound: true,
   },
+  input: {
+    activePointers: 3,
+  },
   scene: [BootScene, TitleScene, WorldMapScene, PlayScene, SettingsScene, SkinsScene, CreditsScene],
 };
 
