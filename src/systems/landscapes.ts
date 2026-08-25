@@ -59,18 +59,18 @@ function palette(theme: Theme): LandscapePalette {
   switch (theme) {
     case 'grass':
       return {
-        skyTop: 0x3a78dc,
-        skyHorizon: 0xa6d0ff,
-        cloud: 0xf7fbff,
-        cloudShade: 0xd7e7f8,
-        far: 0x8bb7c9,
-        farCap: 0xe8f4f8,
-        mountain: 0x5a8a58,
-        mountainShade: 0x3f6a40,
-        cap: 0xe4f0e6,
+        skyTop: 0x1f58c4,
+        skyHorizon: 0xd2ecff,
+        cloud: 0xffffff,
+        cloudShade: 0xc5d8ee,
+        far: 0x6a9eb4,
+        farCap: 0x9cc4d2,
+        mountain: 0x4a7e46,
+        mountainShade: 0x315a32,
+        cap: 0x8fb86a,
         ground: 0x3d9e2f,
-        groundShade: 0x2d7a22,
-        groundTop: 0x58c43c,
+        groundShade: 0x27661c,
+        groundTop: 0x64d046,
       };
     case 'snow':
       return {
@@ -778,6 +778,785 @@ export function ensureOceanPackTextures(scene: Phaser.Scene): { reefs?: string; 
   return pack;
 }
 
+type MeadowCloudKind = 'cumulus' | 'flat' | 'puff';
+
+function wrapStamp(x: number, width: number, pad: number, draw: (ox: number) => void): void {
+  draw(0);
+  if (x < pad) {
+    draw(width);
+  }
+  if (x > width - pad) {
+    draw(-width);
+  }
+}
+
+function ellipseAt(ctx: CanvasRenderingContext2D, x: number, y: number, rx: number, ry: number): void {
+  ctx.beginPath();
+  ctx.ellipse(x, y, Math.max(0.6, rx), Math.max(0.6, ry), 0, 0, Math.PI * 2);
+  ctx.fill();
+}
+
+function triangleAt(
+  ctx: CanvasRenderingContext2D,
+  x1: number,
+  y1: number,
+  x2: number,
+  y2: number,
+  x3: number,
+  y3: number,
+): void {
+  ctx.beginPath();
+  ctx.moveTo(x1, y1);
+  ctx.lineTo(x2, y2);
+  ctx.lineTo(x3, y3);
+  ctx.closePath();
+  ctx.fill();
+}
+
+function paintMeadowSky(ctx: CanvasRenderingContext2D, width: number, height: number, colors: LandscapePalette): void {
+  const mid = 0x4c8aee;
+  const steps = 56;
+  const slice = Math.ceil(height / steps) + 1;
+  for (let i = 0; i < steps; i += 1) {
+    const t = i / (steps - 1);
+    const color =
+      t < 0.38
+        ? mixColor(colors.skyTop, mid, t / 0.38)
+        : t < 0.72
+          ? mixColor(mid, mixColor(mid, colors.skyHorizon, 0.55), (t - 0.38) / 0.34)
+          : mixColor(mixColor(mid, colors.skyHorizon, 0.55), colors.skyHorizon, (t - 0.72) / 0.28);
+    ctx.fillStyle = css(color);
+    ctx.fillRect(0, (height / steps) * i, width, slice);
+  }
+
+  const haze = ctx.createLinearGradient(0, height * 0.52, 0, height);
+  haze.addColorStop(0, css(0xe8f4ff, 0));
+  haze.addColorStop(0.45, css(0xd8ecff, 0.16));
+  haze.addColorStop(1, css(0xf4fbff, 0.34));
+  ctx.fillStyle = haze;
+  ctx.fillRect(0, height * 0.5, width, height * 0.5);
+
+  ctx.fillStyle = css(0xffffff, 0.14);
+  for (const streak of [
+    { x: 120, y: 46, rx: 88, ry: 7 },
+    { x: 390, y: 28, rx: 64, ry: 5 },
+    { x: 680, y: 58, rx: 110, ry: 8 },
+    { x: 1020, y: 22, rx: 72, ry: 5 },
+    { x: 1380, y: 50, rx: 96, ry: 7 },
+    { x: 1760, y: 34, rx: 80, ry: 6 },
+    { x: 2140, y: 62, rx: 104, ry: 8 },
+    { x: 2440, y: 26, rx: 70, ry: 5 },
+  ]) {
+    fillEllipse(ctx, streak.x, streak.y, streak.rx, streak.ry, width);
+    fillEllipse(ctx, streak.x + 30, streak.y + 7, streak.rx * 0.55, streak.ry * 0.7, width);
+  }
+
+  ctx.strokeStyle = css(0x2a4068, 0.38);
+  ctx.lineWidth = 1.5;
+  ctx.lineCap = 'round';
+  for (const bird of [
+    { x: 240, y: 118, s: 1 },
+    { x: 268, y: 126, s: 0.7 },
+    { x: 292, y: 114, s: 0.85 },
+    { x: 880, y: 72, s: 0.9 },
+    { x: 904, y: 80, s: 0.6 },
+    { x: 1540, y: 132, s: 1.05 },
+    { x: 1570, y: 140, s: 0.7 },
+    { x: 1594, y: 128, s: 0.8 },
+    { x: 2100, y: 96, s: 0.75 },
+    { x: 2122, y: 104, s: 0.55 },
+  ]) {
+    wrapStamp(bird.x, width, 12, (ox) => {
+      const x = bird.x + ox;
+      ctx.beginPath();
+      ctx.moveTo(x - 6 * bird.s, bird.y);
+      ctx.quadraticCurveTo(x - 1.2 * bird.s, bird.y - 3.4 * bird.s, x, bird.y);
+      ctx.quadraticCurveTo(x + 1.2 * bird.s, bird.y - 3.4 * bird.s, x + 6 * bird.s, bird.y);
+      ctx.stroke();
+    });
+  }
+}
+
+function stampMeadowCloud(
+  ctx: CanvasRenderingContext2D,
+  cx: number,
+  cy: number,
+  scale: number,
+  width: number,
+  body: number,
+  shade: number,
+  kind: MeadowCloudKind,
+): void {
+  switch (kind) {
+    case 'cumulus':
+      ctx.fillStyle = css(shade);
+      fillCircle(ctx, cx + 4, cy + 10, 24 * scale, width);
+      fillCircle(ctx, cx - 28 * scale, cy + 12, 16 * scale, width);
+      fillCircle(ctx, cx + 30 * scale, cy + 13, 17 * scale, width);
+      ctx.fillStyle = css(body);
+      fillCircle(ctx, cx, cy, 24 * scale, width);
+      fillCircle(ctx, cx - 30 * scale, cy + 6, 17 * scale, width);
+      fillCircle(ctx, cx + 32 * scale, cy + 7, 19 * scale, width);
+      fillCircle(ctx, cx - 12 * scale, cy - 15 * scale, 15 * scale, width);
+      fillCircle(ctx, cx + 16 * scale, cy - 14 * scale, 16 * scale, width);
+      fillCircle(ctx, cx + 2 * scale, cy - 6 * scale, 13 * scale, width);
+      fillCircle(ctx, cx - 40 * scale, cy + 10, 11 * scale, width);
+      fillCircle(ctx, cx + 44 * scale, cy + 12, 12 * scale, width);
+      ctx.fillStyle = css(0xffffff, 0.55);
+      fillCircle(ctx, cx - 8 * scale, cy - 10 * scale, 9 * scale, width);
+      return;
+    case 'flat':
+      ctx.fillStyle = css(shade);
+      fillEllipse(ctx, cx + 2, cy + 7, 38 * scale, 12 * scale, width);
+      ctx.fillStyle = css(body);
+      fillEllipse(ctx, cx, cy, 40 * scale, 12 * scale, width);
+      fillCircle(ctx, cx - 18 * scale, cy - 2, 11 * scale, width);
+      fillCircle(ctx, cx + 10 * scale, cy - 4, 13 * scale, width);
+      fillCircle(ctx, cx + 28 * scale, cy + 1, 9 * scale, width);
+      ctx.fillStyle = css(0xffffff, 0.4);
+      fillEllipse(ctx, cx - 6 * scale, cy - 4, 16 * scale, 5 * scale, width);
+      return;
+    case 'puff':
+      ctx.fillStyle = css(shade);
+      fillCircle(ctx, cx + 2, cy + 5, 12 * scale, width);
+      ctx.fillStyle = css(body);
+      fillCircle(ctx, cx, cy, 12 * scale, width);
+      fillCircle(ctx, cx - 10 * scale, cy + 3, 8 * scale, width);
+      fillCircle(ctx, cx + 11 * scale, cy + 2, 9 * scale, width);
+      ctx.fillStyle = css(0xffffff, 0.45);
+      fillCircle(ctx, cx - 3 * scale, cy - 3, 5 * scale, width);
+      return;
+    default: {
+      const neverKind: never = kind;
+      return neverKind;
+    }
+  }
+}
+
+function drawMeadowClouds(ctx: CanvasRenderingContext2D, colors: LandscapePalette): void {
+  const width = LANDSCAPE.stripW;
+  const clouds: { x: number; y: number; s: number; kind: MeadowCloudKind }[] = [
+    { x: 150, y: 102, s: 1.22, kind: 'cumulus' },
+    { x: 390, y: 146, s: 0.52, kind: 'puff' },
+    { x: 500, y: 84, s: 0.78, kind: 'flat' },
+    { x: 720, y: 96, s: 1.32, kind: 'cumulus' },
+    { x: 960, y: 154, s: 0.46, kind: 'puff' },
+    { x: 1140, y: 76, s: 0.88, kind: 'flat' },
+    { x: 1360, y: 108, s: 1.1, kind: 'cumulus' },
+    { x: 1600, y: 68, s: 0.6, kind: 'puff' },
+    { x: 1820, y: 128, s: 0.84, kind: 'flat' },
+    { x: 2020, y: 88, s: 1.18, kind: 'cumulus' },
+    { x: 2240, y: 150, s: 0.5, kind: 'puff' },
+    { x: 2460, y: 94, s: 1.02, kind: 'cumulus' },
+  ];
+  for (const cloud of clouds) {
+    stampMeadowCloud(ctx, cloud.x, cloud.y, cloud.s, width, colors.cloud, colors.cloudShade, cloud.kind);
+  }
+}
+
+function paintMeadowSlope(
+  ctx: CanvasRenderingContext2D,
+  heights: number[],
+  texH: number,
+  width: number,
+  body: number,
+  shade: number,
+  highlight: number,
+  shadeDepth: number,
+  highlightDepth: number,
+): void {
+  ctx.fillStyle = css(body);
+  fillBelow(ctx, heights, texH, width);
+  ctx.fillStyle = css(shade, 0.42);
+  fillBand(ctx, heights, texH, width, shadeDepth);
+  ctx.fillStyle = css(highlight, 0.88);
+  fillBand(ctx, heights, texH, width, highlightDepth);
+
+  ctx.save();
+  ctx.globalCompositeOperation = 'source-atop';
+  for (let x = 20; x < width; x += 34) {
+    const h = sampleHeight(heights, x, width);
+    const neigh =
+      0.5 * (sampleHeight(heights, x - 26, width) + sampleHeight(heights, x + 26, width));
+    if (h + 10 < neigh) {
+      const y = texH - h;
+      ctx.fillStyle = css(shade, 0.18);
+      ctx.beginPath();
+      ctx.moveTo(x - 28, y);
+      ctx.lineTo(x + 28, y);
+      ctx.lineTo(x + 10, texH);
+      ctx.lineTo(x - 10, texH);
+      ctx.closePath();
+      ctx.fill();
+    } else if (h > neigh + 8) {
+      ctx.fillStyle = css(highlight, 0.12);
+      ctx.beginPath();
+      ctx.moveTo(x - 16, texH - h);
+      ctx.lineTo(x + 16, texH - h);
+      ctx.lineTo(x + 6, texH - h + 36);
+      ctx.lineTo(x - 6, texH - h + 36);
+      ctx.closePath();
+      ctx.fill();
+    }
+  }
+  ctx.restore();
+}
+
+function stampMeadowPine(
+  ctx: CanvasRenderingContext2D,
+  cx: number,
+  baseY: number,
+  scale: number,
+  width: number,
+  body: number,
+  shade: number,
+  trunk = 0x5a3a1c,
+): void {
+  wrapStamp(cx, width, 28 * scale, (ox) => {
+    const x = cx + ox;
+    ctx.fillStyle = css(trunk);
+    ctx.fillRect(x - 2.2 * scale, baseY - 14 * scale, 4.4 * scale, 14 * scale);
+    ctx.fillStyle = css(shade);
+    triangleAt(ctx, x, baseY - 42 * scale, x + 18 * scale, baseY - 8 * scale, x - 18 * scale, baseY - 8 * scale);
+    ctx.fillStyle = css(body);
+    triangleAt(ctx, x, baseY - 50 * scale, x + 14 * scale, baseY - 18 * scale, x - 14 * scale, baseY - 18 * scale);
+    triangleAt(ctx, x, baseY - 62 * scale, x + 9 * scale, baseY - 30 * scale, x - 9 * scale, baseY - 30 * scale);
+    ctx.fillStyle = css(mixColor(body, 0xd8f0b0, 0.28), 0.45);
+    triangleAt(ctx, x - 2 * scale, baseY - 58 * scale, x + 4 * scale, baseY - 34 * scale, x - 7 * scale, baseY - 34 * scale);
+  });
+}
+
+function stampMeadowTree(
+  ctx: CanvasRenderingContext2D,
+  cx: number,
+  baseY: number,
+  scale: number,
+  width: number,
+  canopy: number,
+  shade: number,
+  highlight: number,
+  trunk = 0x6a4420,
+): void {
+  wrapStamp(cx, width, 36 * scale, (ox) => {
+    const x = cx + ox;
+    ctx.fillStyle = css(trunk);
+    ctx.fillRect(x - 3.2 * scale, baseY - 20 * scale, 6.4 * scale, 20 * scale);
+    ctx.fillStyle = css(0x4a3014);
+    ctx.fillRect(x - 3.2 * scale, baseY - 20 * scale, 2.2 * scale, 20 * scale);
+    ctx.fillStyle = css(shade);
+    ellipseAt(ctx, x + 1 * scale, baseY - 24 * scale, 20 * scale, 16 * scale);
+    ellipseAt(ctx, x - 14 * scale, baseY - 20 * scale, 13 * scale, 11 * scale);
+    ellipseAt(ctx, x + 15 * scale, baseY - 19 * scale, 13 * scale, 11 * scale);
+    ctx.fillStyle = css(canopy);
+    ellipseAt(ctx, x - 2 * scale, baseY - 34 * scale, 16 * scale, 14 * scale);
+    ellipseAt(ctx, x - 13 * scale, baseY - 26 * scale, 12 * scale, 10 * scale);
+    ellipseAt(ctx, x + 13 * scale, baseY - 25 * scale, 12 * scale, 10 * scale);
+    ellipseAt(ctx, x + 3 * scale, baseY - 22 * scale, 11 * scale, 9 * scale);
+    ctx.fillStyle = css(highlight, 0.55);
+    ellipseAt(ctx, x - 7 * scale, baseY - 40 * scale, 7 * scale, 5 * scale);
+  });
+}
+
+function stampFarSilhouette(
+  ctx: CanvasRenderingContext2D,
+  cx: number,
+  baseY: number,
+  scale: number,
+  width: number,
+  color: number,
+): void {
+  wrapStamp(cx, width, 10 * scale, (ox) => {
+    const x = cx + ox;
+    ctx.fillStyle = css(color);
+    ellipseAt(ctx, x, baseY - 9 * scale, 5.2 * scale, 7.4 * scale);
+    triangleAt(ctx, x, baseY - 20 * scale, x + 4.2 * scale, baseY - 8 * scale, x - 4.2 * scale, baseY - 8 * scale);
+  });
+}
+
+function stampMeadowCottage(
+  ctx: CanvasRenderingContext2D,
+  cx: number,
+  baseY: number,
+  scale: number,
+  width: number,
+): void {
+  wrapStamp(cx, width, 28 * scale, (ox) => {
+    const x = cx + ox;
+    ctx.fillStyle = css(0x5a3a1c, 0.28);
+    ellipseAt(ctx, x, baseY + 2 * scale, 22 * scale, 4 * scale);
+    ctx.fillStyle = css(0xefe0c0);
+    ctx.fillRect(x - 16 * scale, baseY - 22 * scale, 32 * scale, 22 * scale);
+    ctx.fillStyle = css(0xe2d0a8);
+    ctx.fillRect(x - 16 * scale, baseY - 22 * scale, 8 * scale, 22 * scale);
+    ctx.fillStyle = css(0x6a3a18);
+    ctx.fillRect(x - 4 * scale, baseY - 12 * scale, 8 * scale, 12 * scale);
+    ctx.fillStyle = css(0x7ec8f0);
+    ctx.fillRect(x + 6 * scale, baseY - 18 * scale, 7 * scale, 6 * scale);
+    ctx.fillStyle = css(0xfff6d8, 0.55);
+    ctx.fillRect(x + 7 * scale, baseY - 17 * scale, 2.2 * scale, 2 * scale);
+    ctx.fillStyle = css(0xb8442c);
+    triangleAt(
+      ctx,
+      x - 20 * scale,
+      baseY - 20 * scale,
+      x,
+      baseY - 38 * scale,
+      x + 20 * scale,
+      baseY - 20 * scale,
+    );
+    ctx.fillStyle = css(0x8a4a32);
+    ctx.fillRect(x + 8 * scale, baseY - 36 * scale, 5.5 * scale, 10 * scale);
+    ctx.fillStyle = css(0xd8e4ee, 0.7);
+    ellipseAt(ctx, x + 11 * scale, baseY - 38 * scale, 3.2 * scale, 2.2 * scale);
+  });
+}
+
+function stampMeadowWindmill(
+  ctx: CanvasRenderingContext2D,
+  cx: number,
+  baseY: number,
+  scale: number,
+  width: number,
+): void {
+  wrapStamp(cx, width, 36 * scale, (ox) => {
+    const x = cx + ox;
+    ctx.fillStyle = css(0x5a3a1c, 0.25);
+    ellipseAt(ctx, x, baseY + 2 * scale, 14 * scale, 3.4 * scale);
+    ctx.fillStyle = css(0xd8c49a);
+    ctx.beginPath();
+    ctx.moveTo(x - 10 * scale, baseY);
+    ctx.lineTo(x - 7 * scale, baseY - 52 * scale);
+    ctx.lineTo(x + 7 * scale, baseY - 52 * scale);
+    ctx.lineTo(x + 10 * scale, baseY);
+    ctx.closePath();
+    ctx.fill();
+    ctx.fillStyle = css(0xc4ae82);
+    ctx.beginPath();
+    ctx.moveTo(x - 10 * scale, baseY);
+    ctx.lineTo(x - 7 * scale, baseY - 52 * scale);
+    ctx.lineTo(x - 2 * scale, baseY - 52 * scale);
+    ctx.lineTo(x - 3 * scale, baseY);
+    ctx.closePath();
+    ctx.fill();
+    ctx.fillStyle = css(0x8a3a22);
+    triangleAt(
+      ctx,
+      x - 9 * scale,
+      baseY - 50 * scale,
+      x,
+      baseY - 64 * scale,
+      x + 9 * scale,
+      baseY - 50 * scale,
+    );
+    ctx.fillStyle = css(0x6a3a18);
+    ctx.fillRect(x - 3 * scale, baseY - 14 * scale, 6 * scale, 14 * scale);
+    ctx.fillStyle = css(0xe8d8b0);
+    ellipseAt(ctx, x, baseY - 48 * scale, 3.6 * scale, 3.6 * scale);
+    ctx.strokeStyle = css(0xf4ead4, 0.92);
+    ctx.lineWidth = 3.2 * scale;
+    ctx.lineCap = 'round';
+    const hubY = baseY - 48 * scale;
+    for (const a of [-0.55, 1.02, 2.59, 4.16]) {
+      ctx.beginPath();
+      ctx.moveTo(x + Math.cos(a) * 4 * scale, hubY + Math.sin(a) * 4 * scale);
+      ctx.lineTo(x + Math.cos(a) * 26 * scale, hubY + Math.sin(a) * 26 * scale);
+      ctx.stroke();
+    }
+    ctx.fillStyle = css(0xf8f0d8);
+    ellipseAt(ctx, x, hubY, 3 * scale, 3 * scale);
+  });
+}
+
+function stampMeadowFence(
+  ctx: CanvasRenderingContext2D,
+  x0: number,
+  x1: number,
+  heights: number[],
+  texH: number,
+  width: number,
+): void {
+  const posts: number[] = [];
+  for (let x = x0; x <= x1; x += 14) {
+    posts.push(x);
+  }
+  ctx.strokeStyle = css(0x7a4a22, 0.8);
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  for (let i = 0; i < posts.length; i += 1) {
+    const x = posts[i] ?? x0;
+    const y = texH - sampleHeight(heights, x, width) - 11;
+    if (i === 0) {
+      ctx.moveTo(x, y);
+    } else {
+      ctx.lineTo(x, y);
+    }
+  }
+  ctx.stroke();
+  ctx.beginPath();
+  for (let i = 0; i < posts.length; i += 1) {
+    const x = posts[i] ?? x0;
+    const y = texH - sampleHeight(heights, x, width) - 6;
+    if (i === 0) {
+      ctx.moveTo(x, y);
+    } else {
+      ctx.lineTo(x, y);
+    }
+  }
+  ctx.stroke();
+  ctx.fillStyle = css(0x8a5a28);
+  for (const x of posts) {
+    const y = texH - sampleHeight(heights, x, width);
+    wrapStamp(x, width, 4, (ox) => {
+      ctx.fillRect(x + ox - 1.2, y - 16, 2.4, 16);
+    });
+  }
+}
+
+function stampMeadowHedge(
+  ctx: CanvasRenderingContext2D,
+  x0: number,
+  x1: number,
+  heights: number[],
+  texH: number,
+  width: number,
+  color: number,
+): void {
+  ctx.fillStyle = css(color);
+  for (let x = x0; x <= x1; x += 7) {
+    const y = texH - sampleHeight(heights, x, width) + 3;
+    fillEllipse(ctx, x, y - 5, 8, 5, width);
+  }
+}
+
+function plantMeadowTrees(
+  ctx: CanvasRenderingContext2D,
+  heights: number[],
+  texH: number,
+  width: number,
+  xs: number[],
+  scale: number,
+  canopy: number,
+  shade: number,
+  highlight: number,
+  pines: number[],
+): void {
+  for (const x of xs) {
+    const y = texH - sampleHeight(heights, x, width) + 3;
+    stampMeadowTree(ctx, x, y, scale, width, canopy, shade, highlight);
+  }
+  for (const x of pines) {
+    const y = texH - sampleHeight(heights, x, width) + 3;
+    stampMeadowPine(ctx, x, y, scale * 0.92, width, canopy, shade);
+  }
+}
+
+function plantFarTreeLine(
+  ctx: CanvasRenderingContext2D,
+  heights: number[],
+  texH: number,
+  width: number,
+  color: number,
+): void {
+  const groves = [180, 540, 890, 1320, 1760, 2140, 2460];
+  for (const origin of groves) {
+    for (const dx of [-22, -10, 0, 12, 24]) {
+      const x = origin + dx;
+      const h = sampleHeight(heights, x, width);
+      if (h < texH * 0.34) {
+        continue;
+      }
+      const scale = 0.42 + Math.abs(dx) * 0.012 + ((origin + dx) % 5) * 0.03;
+      stampFarSilhouette(ctx, x, texH - h + 2, scale, width, color);
+    }
+  }
+}
+
+function meadowBackPeaks(texH: number): Peak[] {
+  const s = texH / 310;
+  return [
+    { x: 220, w: 340, h: 78 * s },
+    { x: 720, w: 420, h: 96 * s },
+    { x: 1260, w: 300, h: 62 * s },
+    { x: 1760, w: 380, h: 88 * s },
+    { x: 2240, w: 360, h: 80 * s },
+  ];
+}
+
+function meadowFrontPeaks(texH: number): Peak[] {
+  const s = texH / 310;
+  return [
+    { x: 300, w: 260, h: 64 * s },
+    { x: 780, w: 300, h: 78 * s },
+    { x: 1280, w: 220, h: 50 * s },
+    { x: 1760, w: 280, h: 70 * s },
+    { x: 2220, w: 250, h: 66 * s },
+    { x: 2520, w: 180, h: 44 * s },
+  ];
+}
+
+function meadowHillPeaks(): Peak[] {
+  return [
+    { x: 200, w: 320, h: 88 },
+    { x: 680, w: 380, h: 118 },
+    { x: 1140, w: 260, h: 70 },
+    { x: 1580, w: 340, h: 104 },
+    { x: 2100, w: 320, h: 96 },
+    { x: 2480, w: 220, h: 62 },
+  ];
+}
+
+function drawMeadowFar(ctx: CanvasRenderingContext2D, colors: LandscapePalette, texH: number): void {
+  const width = LANDSCAPE.stripW;
+  const back = ridgeHeights(
+    width,
+    texH,
+    meadowBackPeaks(texH),
+    [
+      { amp: texH * 0.06, cycles: 2, phase: 0.5 },
+      { amp: texH * 0.035, cycles: 4, phase: 1.6 },
+    ],
+    0.52,
+  );
+  paintMeadowSlope(
+    ctx,
+    back,
+    texH,
+    width,
+    colors.far,
+    mixColor(colors.far, 0x3a5868, 0.28),
+    mixColor(colors.far, colors.farCap, 0.4),
+    36,
+    7,
+  );
+  plantFarTreeLine(ctx, back, texH, width, mixColor(colors.far, 0x2a4454, 0.38));
+
+  const front = ridgeHeights(
+    width,
+    texH,
+    meadowFrontPeaks(texH),
+    [
+      { amp: texH * 0.035, cycles: 3, phase: 1.1 },
+      { amp: texH * 0.02, cycles: 6, phase: 0.4 },
+    ],
+    0.36,
+  );
+  paintMeadowSlope(
+    ctx,
+    front,
+    texH,
+    width,
+    mixColor(colors.far, colors.mountain, 0.22),
+    mixColor(colors.far, 0x3a5868, 0.28),
+    mixColor(colors.far, colors.farCap, 0.35),
+    32,
+    8,
+  );
+  plantFarTreeLine(ctx, front, texH, width, mixColor(colors.far, 0x2a4a3a, 0.5));
+
+  ctx.save();
+  ctx.globalCompositeOperation = 'source-atop';
+  const haze = ctx.createLinearGradient(0, texH * 0.28, 0, texH);
+  haze.addColorStop(0, css(0xd8eef8, 0));
+  haze.addColorStop(1, css(0xd8eef8, 0.3));
+  ctx.fillStyle = haze;
+  ctx.fillRect(0, 0, width, texH);
+  ctx.restore();
+}
+
+function drawMeadowHills(ctx: CanvasRenderingContext2D, colors: LandscapePalette, texH: number): void {
+  const width = LANDSCAPE.stripW;
+  const back = ridgeHeights(
+    width,
+    texH,
+    meadowHillPeaks(),
+    [
+      { amp: texH * 0.05, cycles: 2, phase: 0.25 },
+      { amp: texH * 0.03, cycles: 3, phase: 1.3 },
+      { amp: texH * 0.02, cycles: 6, phase: 2.6 },
+    ],
+    0.56,
+  );
+  paintMeadowSlope(ctx, back, texH, width, mixColor(colors.mountain, colors.far, 0.34), colors.mountainShade, colors.cap, 70, 12);
+  plantMeadowTrees(
+    ctx,
+    back,
+    texH,
+    width,
+    [140, 175, 210, 430, 470, 510, 980, 1020, 1060, 1580, 1620, 1940, 2180, 2220, 2460],
+    0.88,
+    mixColor(colors.mountainShade, 0x1e3a22, 0.15),
+    mixColor(colors.mountainShade, 0x142818, 0.3),
+    colors.mountain,
+    [560, 1320, 2080],
+  );
+
+  const front = ridgeHeights(
+    width,
+    texH,
+    meadowFrontPeaks(texH),
+    [
+      { amp: texH * 0.04, cycles: 2, phase: 1.8 },
+      { amp: texH * 0.025, cycles: 5, phase: 0.7 },
+    ],
+    0.4,
+  );
+  paintMeadowSlope(ctx, front, texH, width, colors.mountain, colors.mountainShade, mixColor(colors.cap, colors.groundTop, 0.35), 64, 14);
+  stampMeadowHedge(ctx, 260, 420, front, texH, width, mixColor(colors.mountainShade, 0x1a3a1c, 0.15));
+  stampMeadowHedge(ctx, 1640, 1840, front, texH, width, mixColor(colors.mountainShade, 0x1a3a1c, 0.15));
+  ctx.strokeStyle = css(0xc4a060, 0.5);
+  ctx.lineWidth = 4.5;
+  ctx.lineCap = 'round';
+  ctx.beginPath();
+  for (let x = 600; x <= 1140; x += 6) {
+    const y = texH - sampleHeight(front, x, width) + 11;
+    if (x === 600) {
+      ctx.moveTo(x, y);
+    } else {
+      ctx.lineTo(x, y);
+    }
+  }
+  ctx.stroke();
+  plantMeadowTrees(
+    ctx,
+    front,
+    texH,
+    width,
+    [260, 300, 340, 380, 800, 840, 880, 920, 1220, 1260, 1300, 1740, 1780, 1820, 2180, 2230, 2280],
+    1.18,
+    0x3d7a32,
+    0x245820,
+    0x7ac84e,
+    [760, 1288, 2200],
+  );
+  stampMeadowFence(ctx, 980, 1160, front, texH, width);
+  stampMeadowWindmill(ctx, 620, texH - sampleHeight(front, 620, width) + 4, 1.08, width);
+  stampMeadowCottage(ctx, 1088, texH - sampleHeight(front, 1088, width) + 3, 1.12, width);
+  stampMeadowCottage(ctx, 1760, texH - sampleHeight(front, 1760, width) + 3, 1, width);
+  stampMeadowCottage(ctx, 2320, texH - sampleHeight(front, 2320, width) + 3, 0.86, width);
+}
+
+function stampCrestTuft(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  tall: number,
+  lean: number,
+  color: number,
+): void {
+  ctx.fillStyle = css(color);
+  ctx.beginPath();
+  ctx.moveTo(x - 1.1, y);
+  ctx.quadraticCurveTo(x + lean * 0.28, y - tall * 0.52, x + lean, y - tall);
+  ctx.quadraticCurveTo(x + lean * 0.18 + 1.6, y - tall * 0.48, x + 2.1, y);
+  ctx.closePath();
+  ctx.fill();
+}
+
+function drawMeadowGround(ctx: CanvasRenderingContext2D, colors: LandscapePalette, texH: number): void {
+  const width = LANDSCAPE.stripW;
+  const ridge = ridgeHeights(
+    width,
+    texH,
+    [
+      { x: 240, w: 400, h: 70 },
+      { x: 820, w: 340, h: 95 },
+      { x: 1460, w: 480, h: 80 },
+      { x: 2100, w: 360, h: 105 },
+      { x: 2480, w: 260, h: 55 },
+    ],
+    [
+      { amp: 28, cycles: 2, phase: 0.4 },
+      { amp: 16, cycles: 3, phase: 1.7 },
+      { amp: 8, cycles: 5, phase: 0.8 },
+    ],
+    0.78,
+  );
+  paintMeadowSlope(ctx, ridge, texH, width, colors.ground, colors.groundShade, colors.groundTop, 92, 22);
+
+  ctx.save();
+  ctx.globalCompositeOperation = 'source-atop';
+  for (let i = 0; i < 640; i += 1) {
+    const x = (i * 97 + 13) % width;
+    const y = ((i * 53 + 19) % (texH - 16)) + 8;
+    ctx.fillStyle = css(i % 3 === 0 ? colors.groundShade : colors.groundTop, 0.22);
+    ctx.fillRect(x, y, 1.6, 3 + (i % 6));
+  }
+  for (let i = 0; i < 220; i += 1) {
+    const x = (i * 149 + 41) % width;
+    const y = ((i * 71 + 8) % Math.floor(texH * 0.55)) + 12;
+    ctx.fillStyle = css(i % 2 === 0 ? 0x8ee05a : 0x2f7a22, 0.28);
+    ellipseAt(ctx, x, y, 8 + (i % 5), 3.4);
+  }
+  ctx.restore();
+
+  for (let x = 4; x < width; x += 9) {
+    const h = sampleHeight(ridge, x, width);
+    const y = texH - h + 1;
+    const tall = 10 + ((x * 17) % 14);
+    const lean = ((x * 13) % 11) - 5;
+    stampCrestTuft(ctx, x, y, tall, lean, x % 18 === 0 ? colors.groundShade : colors.groundTop);
+    if (x % 27 === 0) {
+      stampCrestTuft(ctx, x + 3, y, tall + 6, lean - 3, 0x7ad84a);
+    }
+  }
+
+  const bushes = [180, 520, 860, 1180, 1520, 1880, 2260, 2480];
+  for (const x of bushes) {
+    const y = texH - sampleHeight(ridge, x, width) + 4;
+    wrapStamp(x, width, 24, (ox) => {
+      const px = x + ox;
+      ctx.fillStyle = css(colors.groundShade);
+      ellipseAt(ctx, px, y - 12, 20, 12);
+      ctx.fillStyle = css(mixColor(colors.ground, 0x1e4a18, 0.15));
+      ellipseAt(ctx, px - 10, y - 10, 12, 9);
+      ellipseAt(ctx, px + 11, y - 9, 11, 8);
+      ctx.fillStyle = css(colors.groundTop, 0.55);
+      ellipseAt(ctx, px - 4, y - 18, 7, 4);
+    });
+  }
+
+  const rocks = [340, 980, 1400, 2040];
+  for (const x of rocks) {
+    const y = texH - sampleHeight(ridge, x, width) + 2;
+    wrapStamp(x, width, 16, (ox) => {
+      const px = x + ox;
+      ctx.fillStyle = css(0x6a7a48);
+      ellipseAt(ctx, px, y - 7, 14, 8);
+      ctx.fillStyle = css(0x4a5a32);
+      ellipseAt(ctx, px + 6, y - 6, 8, 6);
+      ctx.fillStyle = css(0xc4d090, 0.4);
+      ellipseAt(ctx, px - 4, y - 11, 5, 2.4);
+    });
+  }
+
+  for (const bloom of [
+    { x: 90, c: 0xffe066 },
+    { x: 210, c: 0xff7aa2 },
+    { x: 400, c: 0xfff8e8 },
+    { x: 610, c: 0xffe066 },
+    { x: 740, c: 0xff7aa2 },
+    { x: 910, c: 0xfff8e8 },
+    { x: 1090, c: 0xffe066 },
+    { x: 1310, c: 0xff7aa2 },
+    { x: 1490, c: 0xfff8e8 },
+    { x: 1670, c: 0xffe066 },
+    { x: 1890, c: 0xff7aa2 },
+    { x: 2070, c: 0xfff8e8 },
+    { x: 2230, c: 0xffe066 },
+    { x: 2410, c: 0xff7aa2 },
+  ]) {
+    const y = texH - sampleHeight(ridge, bloom.x, width) - 8 - (bloom.x % 7);
+    wrapStamp(bloom.x, width, 6, (ox) => {
+      ctx.fillStyle = css(0x2d7a22);
+      ctx.fillRect(bloom.x + ox - 0.7, y + 3, 1.4, 8);
+      ctx.fillStyle = css(bloom.c);
+      ellipseAt(ctx, bloom.x + ox, y, 3.4, 3.1);
+      ctx.fillStyle = css(0xfff4c4);
+      ellipseAt(ctx, bloom.x + ox - 0.6, y - 0.6, 1.2, 1.2);
+    });
+  }
+}
+
 function drawSky(scene: Phaser.Scene, theme: Theme, colors: LandscapePalette): void {
   if (theme === 'ocean') {
     paintCanvas(scene, skyKey(theme), LANDSCAPE.stripW, GAME_HEIGHT, (ctx) => {
@@ -791,6 +1570,12 @@ function drawSky(scene: Phaser.Scene, theme: Theme, colors: LandscapePalette): v
       }
       paintGodRays(ctx, LANDSCAPE.stripW, GAME_HEIGHT);
       paintCaustics(ctx, LANDSCAPE.stripW, 210);
+    });
+    return;
+  }
+  if (theme === 'grass') {
+    paintCanvas(scene, skyKey(theme), LANDSCAPE.stripW, GAME_HEIGHT, (ctx) => {
+      paintMeadowSky(ctx, LANDSCAPE.stripW, GAME_HEIGHT, colors);
     });
     return;
   }
@@ -897,6 +1682,10 @@ function drawClouds(scene: Phaser.Scene, theme: Theme, colors: LandscapePalette)
         fillCircle(ctx, mote.x, mote.y, mote.r, LANDSCAPE.stripW);
         fillCircle(ctx, mote.x + 8, mote.y - 14, Math.max(2, mote.r - 2), LANDSCAPE.stripW);
       }
+      return;
+    }
+    if (theme === 'grass') {
+      drawMeadowClouds(ctx, colors);
       return;
     }
     for (const cloud of cloudPlan(theme)) {
@@ -1124,6 +1913,14 @@ function drawRange(scene: Phaser.Scene, key: string, theme: Theme, colors: Lands
       drawKeeps(ctx, keepColors, far, texH);
       return;
     }
+    if (theme === 'grass') {
+      if (far) {
+        drawMeadowFar(ctx, colors, texH);
+      } else {
+        drawMeadowHills(ctx, colors, texH);
+      }
+      return;
+    }
 
     const peaks = theme === 'snow' ? snowPeaks(far, texH) : grassPeaks(far, texH);
     const ridge = ridgeHeights(
@@ -1157,6 +1954,10 @@ function drawGround(scene: Phaser.Scene, theme: Theme, colors: LandscapePalette)
   paintCanvas(scene, hillKey(theme), width, texH, (ctx) => {
     if (theme === 'ocean') {
       drawOceanFloor(ctx, colors, texH);
+      return;
+    }
+    if (theme === 'grass') {
+      drawMeadowGround(ctx, colors, texH);
       return;
     }
 

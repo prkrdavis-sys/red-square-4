@@ -19,7 +19,7 @@ function layoutFor(theme: Theme): BackdropLayout {
   const groundY = GAME_HEIGHT - LANDSCAPE.groundH;
   switch (theme) {
     case 'grass':
-      return { cloudY: 8, farY: 138, mountainY: 188, groundY, cloudAlpha: 0.94 };
+      return { cloudY: 4, farY: 128, mountainY: 176, groundY, cloudAlpha: 0.96 };
     case 'snow':
       return { cloudY: 8, farY: 118, mountainY: 166, groundY, cloudAlpha: 0.82 };
     case 'desert':
@@ -56,8 +56,23 @@ function addStrip(
 function addSun(scene: Phaser.Scene, theme: Theme): void {
   switch (theme) {
     case 'grass':
-      scene.add.circle(1020, 92, 48, 0xffe08a, 0.28).setScrollFactor(0).setDepth(-48);
-      scene.add.circle(1020, 92, 30, 0xfff4c4, 1).setScrollFactor(0).setDepth(-48);
+      scene.add.circle(1020, 92, 118, 0xffd878, 0.12).setScrollFactor(0).setDepth(-48);
+      scene.add.circle(1020, 92, 72, 0xffc84a, 0.22).setScrollFactor(0).setDepth(-48);
+      scene.add.circle(1020, 92, 34, 0xffe066, 1).setScrollFactor(0).setDepth(-48);
+      scene.add.circle(1014, 86, 9, 0xfff4c4, 0.55).setScrollFactor(0).setDepth(-48);
+      for (const ray of [
+        { a: -26, w: 18, h: 300, al: 0.06 },
+        { a: -8, w: 11, h: 250, al: 0.042 },
+        { a: 12, w: 15, h: 270, al: 0.05 },
+        { a: 30, w: 9, h: 210, al: 0.034 },
+      ]) {
+        scene.add
+          .rectangle(1020, 92, ray.w, ray.h, 0xffe08a, ray.al)
+          .setOrigin(0.5, 0)
+          .setScrollFactor(0)
+          .setDepth(-47)
+          .setAngle(ray.a);
+      }
       break;
     case 'snow':
       scene.add.circle(210, 78, 36, 0xfff8e8, 0.22).setScrollFactor(0).setDepth(-48);
@@ -118,8 +133,11 @@ export class Parallax {
   constructor(scene: Phaser.Scene, theme: Theme) {
     const layout = layoutFor(theme);
 
-    if (theme === 'ocean') {
-      this.layers.push({ image: addStrip(scene, 0, GAME_HEIGHT, skyKey(theme), -50, 1), factor: 0.05 });
+    if (theme === 'ocean' || theme === 'grass') {
+      this.layers.push({
+        image: addStrip(scene, 0, GAME_HEIGHT, skyKey(theme), -50, 1),
+        factor: theme === 'ocean' ? 0.05 : 0.035,
+      });
     } else {
       scene.add
         .image(0, 0, skyKey(theme))
