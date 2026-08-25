@@ -184,7 +184,7 @@ body.touch-play #touch-controls {
   width: calc(var(--touch-btn-size) * 2.2);
   height: var(--touch-btn-size);
   pointer-events: none;
-  color: rgba(255, 248, 240, 0.38);
+  color: rgba(255, 248, 240, 0.22);
 }
 
 .touch-slider.is-steering {
@@ -196,11 +196,11 @@ body.touch-play #touch-controls {
   position: absolute;
   inset: 12% 4%;
   border-radius: 999px;
-  border: 1.5px solid rgba(255, 255, 255, 0.16);
-  background: rgba(255, 255, 255, 0.04);
+  border: 1.5px solid rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.02);
   box-shadow:
-    0 0 0 1px rgba(12, 8, 10, 0.1),
-    inset 0 1px 0 rgba(255, 255, 255, 0.1);
+    0 0 0 1px rgba(12, 8, 10, 0.06),
+    inset 0 1px 0 rgba(255, 255, 255, 0.06);
   backdrop-filter: blur(2px);
   -webkit-backdrop-filter: blur(2px);
 }
@@ -213,7 +213,7 @@ body.touch-play #touch-controls {
   height: 6px;
   transform: translateY(-50%);
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.05);
 }
 
 .touch-slider-thumb {
@@ -224,11 +224,11 @@ body.touch-play #touch-controls {
   height: 32%;
   border-radius: 50%;
   transform: translate(calc(-50% + var(--thumb-x)), -50%);
-  border: 1.5px solid rgba(255, 255, 255, 0.22);
-  background: rgba(255, 255, 255, 0.12);
+  border: 1.5px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.06);
   box-shadow:
-    0 0 0 1px rgba(12, 8, 10, 0.12),
-    inset 0 1px 0 rgba(255, 255, 255, 0.16);
+    0 0 0 1px rgba(12, 8, 10, 0.07),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08);
 }
 
 .touch-slider-arrow {
@@ -253,18 +253,18 @@ body.touch-play #touch-controls {
 
 .touch-slider.is-left .touch-slider-arrow-left,
 .touch-slider.is-right .touch-slider-arrow-right {
-  color: rgba(255, 248, 240, 0.9);
+  color: rgba(255, 248, 240, 0.5);
   transform: translateY(calc(-50% + 4px)) scale(1.07, 0.74);
 }
 
 .touch-slider.is-steering .touch-slider-shell {
-  background: rgba(255, 255, 255, 0.1);
-  border-color: rgba(255, 255, 255, 0.32);
+  background: rgba(255, 255, 255, 0.05);
+  border-color: rgba(255, 255, 255, 0.2);
 }
 
 .touch-slider.is-steering .touch-slider-thumb {
-  background: rgba(255, 255, 255, 0.2);
-  border-color: rgba(255, 255, 255, 0.42);
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 255, 255, 0.24);
 }
 
 .touch-cluster {
@@ -273,16 +273,18 @@ body.touch-play #touch-controls {
 }
 
 .touch-cluster-right {
-  --touch-diag: var(--touch-btn-size);
+  /* Game Boy A/B: jump (A) sits up-right, special (B) down-left, ~33°. */
+  --touch-shift-x: calc(var(--touch-btn-size) * 0.78 + var(--touch-btn-gap));
+  --touch-shift-y: calc(var(--touch-btn-size) * 0.46 + var(--touch-btn-gap));
   top: auto;
   right: calc(4px + env(safe-area-inset-right, 0px));
-  width: calc(var(--touch-btn-size) + var(--touch-diag));
-  height: calc(var(--touch-btn-size) + var(--touch-diag));
+  width: calc(var(--touch-btn-size) + var(--touch-shift-x));
+  height: calc(var(--touch-btn-size) + var(--touch-shift-y));
 }
 
 .touch-cluster-right .touch-btn[data-touch='special'] {
   position: absolute;
-  right: var(--touch-diag);
+  right: var(--touch-shift-x);
   bottom: 0;
 }
 
@@ -290,7 +292,7 @@ body.touch-play #touch-controls {
   position: absolute;
   right: 0;
   top: auto;
-  bottom: var(--touch-diag);
+  bottom: var(--touch-shift-y);
 }
 
 .touch-btn {
@@ -302,7 +304,7 @@ body.touch-play #touch-controls {
   padding: 0;
   border: none;
   background: transparent;
-  color: rgba(255, 248, 240, 0.38);
+  color: rgba(255, 248, 240, 0.22);
   pointer-events: auto;
   cursor: pointer;
   touch-action: none;
@@ -320,11 +322,11 @@ body.touch-play #touch-controls {
   position: absolute;
   inset: 0;
   border-radius: 50%;
-  border: 1.5px solid rgba(255, 255, 255, 0.16);
-  background: rgba(255, 255, 255, 0.04);
+  border: 1.5px solid rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.02);
   box-shadow:
-    0 0 0 1px rgba(12, 8, 10, 0.1),
-    inset 0 1px 0 rgba(255, 255, 255, 0.1);
+    0 0 0 1px rgba(12, 8, 10, 0.06),
+    inset 0 1px 0 rgba(255, 255, 255, 0.06);
   backdrop-filter: blur(2px);
   -webkit-backdrop-filter: blur(2px);
   -webkit-mask-image: radial-gradient(circle closest-side, transparent 50%, #000 54%);
@@ -344,40 +346,40 @@ body.touch-play #touch-controls {
   height: 52%;
   display: block;
   pointer-events: none;
-  filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.22));
+  filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.12));
   transition: filter 90ms ease;
 }
 
 .touch-btn.is-pressed {
-  color: rgba(255, 248, 240, 0.9);
+  color: rgba(255, 248, 240, 0.5);
   transform: translateY(4px) scale(1.07, 0.74);
 }
 
 .touch-btn.is-pressed .touch-btn-ring {
-  background: rgba(255, 255, 255, 0.16);
-  border-color: rgba(255, 255, 255, 0.48);
+  background: rgba(255, 255, 255, 0.07);
+  border-color: rgba(255, 255, 255, 0.26);
   box-shadow:
-    0 0 0 1px rgba(12, 8, 10, 0.16),
-    inset 0 2px 0 rgba(255, 255, 255, 0.16);
-  backdrop-filter: blur(6px) saturate(1.15);
-  -webkit-backdrop-filter: blur(6px) saturate(1.15);
+    0 0 0 1px rgba(12, 8, 10, 0.1),
+    inset 0 2px 0 rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(4px) saturate(1.08);
+  -webkit-backdrop-filter: blur(4px) saturate(1.08);
 }
 
 .touch-btn.is-pressed .touch-btn-icon {
-  filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.4));
+  filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.22));
 }
 
 .touch-btn-special {
   --special-ready: 1;
-  color: rgba(255, 235, 151, 0.4);
+  color: rgba(255, 235, 151, 0.22);
 }
 
 .touch-btn-charge {
   position: absolute;
-  inset: 6%;
+  inset: 24%;
   overflow: hidden;
   border-radius: 50%;
-  background: rgba(18, 10, 8, 0.55);
+  background: transparent;
   pointer-events: none;
 }
 
@@ -387,44 +389,43 @@ body.touch-play #touch-controls {
   right: 0;
   bottom: 0;
   height: calc(var(--special-ready) * 100%);
-  background: linear-gradient(180deg, #ffe79a 0%, #e8a030 100%);
-  opacity: 0.88;
+  background: linear-gradient(180deg, rgba(255, 231, 154, 0.2), rgba(232, 160, 48, 0.1));
+  mix-blend-mode: screen;
   pointer-events: none;
 }
 
 .touch-btn-special:not(.is-ready) {
-  color: rgba(255, 235, 151, 0.34);
+  color: rgba(255, 235, 151, 0.16);
 }
 
 .touch-btn-special .touch-btn-ring {
-  border-color: rgba(255, 224, 123, 0.2);
-  background: rgba(117, 78, 24, 0.06);
+  border-color: rgba(255, 224, 123, 0.1);
+  background: rgba(117, 78, 24, 0.02);
 }
 
 .touch-btn-special.is-ready {
-  color: rgba(255, 248, 214, 0.96);
+  color: rgba(255, 248, 214, 0.24);
 }
 
 .touch-btn-special.is-ready .touch-btn-ring {
-  border-color: rgba(255, 224, 123, 0.55);
-  background: rgba(117, 78, 24, 0.14);
+  border-color: rgba(255, 224, 123, 0.12);
+  background: rgba(117, 78, 24, 0.03);
   box-shadow:
-    0 0 0 1px rgba(12, 8, 10, 0.1),
-    inset 0 1px 0 rgba(255, 255, 255, 0.1),
-    0 0 18px rgba(255, 210, 90, 0.35);
+    0 0 0 1px rgba(12, 8, 10, 0.06),
+    inset 0 1px 0 rgba(255, 255, 255, 0.06);
 }
 
 .touch-btn-special.is-ready .touch-btn-charge-fill {
-  opacity: 1;
+  background: linear-gradient(180deg, rgba(255, 231, 154, 0.2), rgba(232, 160, 48, 0.1));
 }
 
 .touch-btn-special.is-pressed {
-  color: rgba(255, 235, 151, 0.94);
+  color: rgba(255, 235, 151, 0.5);
 }
 
 .touch-btn-special.is-pressed .touch-btn-ring {
-  border-color: rgba(255, 224, 123, 0.52);
-  background: rgba(117, 78, 24, 0.18);
+  border-color: rgba(255, 224, 123, 0.26);
+  background: rgba(117, 78, 24, 0.07);
 }
 
 #rotate-prompt {

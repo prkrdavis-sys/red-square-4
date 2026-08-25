@@ -3,14 +3,34 @@ import { launchVelocity, STOMP_BOUNCE_HEIGHT_TILES, type Theme, themePhysics } f
 import { maybeShake } from '../data/settings';
 import {
   airJumpMode,
+  applyFlowerSpring,
   applySwimStroke,
   canCarpetGlide,
+  canFeatherFlutter,
+  canFlowerSpring,
+  canGhostHover,
   canSwimStroke,
   carpetGlideVelocity,
   carpetTrailPosition,
+  featherFlutterVelocity,
+  featherLeafPosition,
+  flowerSpringSpawn,
+  flowerSpringVelocity,
   flyingCarpetPosition,
+  ghostHoverVelocity,
+  ghostShroudPosition,
+  iceFlashSpawn,
+  iceSkatePosition,
+  nextTripleJumpStep,
   swimStrokeVelocity,
+  tripleChainLive,
+  tripleJumpVelocity,
+  ICE_FLASH_LIFE_MS,
   SWIM_STROKE_COOLDOWN_MS,
+  TRIPLE_JUMP_MIN_SPEED,
+  TRIPLE_JUMP_WINDOW_MS,
+  type TripleJumpChain,
+  type TripleJumpStep,
 } from '../systems/air-jump';
 import { audio } from '../systems/audio';
 import { DEATH_BLAST_MS, spawnDeathBlast } from '../systems/explosion';
@@ -48,6 +68,16 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
   private jumpHeld = false;
   private wasGrounded = true;
   private swimReadyAt = 0;
+  private flowerUsed = false;
+  private flowerParkX = 0;
+  private flowerParkY = 0;
+  private tripleChainStep: TripleJumpChain = 0;
+  private tripleChainUntil = 0;
+  private iceFlashUntil = 0;
+  private iceFlashParkX = 0;
+  private iceFlashParkY = 0;
+  private iceFlashStep: TripleJumpStep = 2;
+  private ghostTinting = false;
   private visualLockUntil = 0;
   private blinkUntil = 0;
   private nextBlinkAt = 0;
@@ -55,9 +85,18 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
   private readonly view: Phaser.GameObjects.Image;
   private readonly heldShield: Phaser.GameObjects.Image;
   private readonly carpet: Phaser.GameObjects.Image;
+  private readonly flowerSpring: Phaser.GameObjects.Image;
+  private readonly iceSkates: Phaser.GameObjects.Image;
+  private readonly iceFlash: Phaser.GameObjects.Image;
+  private readonly ghostShroud: Phaser.GameObjects.Image;
+  private readonly featherLeaf: Phaser.GameObjects.Image;
   private readonly shadow: Phaser.GameObjects.Ellipse;
   private readonly dust: Phaser.GameObjects.Particles.ParticleEmitter;
   private readonly carpetDust: Phaser.GameObjects.Particles.ParticleEmitter;
+  private readonly flowerDust: Phaser.GameObjects.Particles.ParticleEmitter;
+  private readonly iceDust: Phaser.GameObjects.Particles.ParticleEmitter;
+  private readonly ghostDust: Phaser.GameObjects.Particles.ParticleEmitter;
+  private readonly featherDust: Phaser.GameObjects.Particles.ParticleEmitter;
 
   constructor(scene: Phaser.Scene, x: number, y: number) {
     super(scene, x, y, 'player');
@@ -81,6 +120,27 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
     this.carpet.setDepth(18);
     this.carpet.setVisible(false);
     this.carpet.setAlpha(0);
+    this.flowerSpring = scene.add.image(x, y + 26, 'flower-spring-a');
+    this.flowerSpring.setOrigin(0.5, 0.2);
+    this.flowerSpring.setDepth(18);
+    this.flowerSpring.setVisible(false);
+    this.flowerSpring.setAlpha(0);
+    this.iceSkates = scene.add.image(x, y + 26, 'ice-skate-a');
+    this.iceSkates.setDepth(18);
+    this.iceSkates.setVisible(false);
+    this.iceSkates.setAlpha(0);
+    this.iceFlash = scene.add.image(x, y + 24, 'ice-crystal-a');
+    this.iceFlash.setDepth(19);
+    this.iceFlash.setVisible(false);
+    this.iceFlash.setAlpha(0);
+    this.ghostShroud = scene.add.image(x, y + 6, 'ghost-shroud-a');
+    this.ghostShroud.setDepth(17);
+    this.ghostShroud.setVisible(false);
+    this.ghostShroud.setAlpha(0);
+    this.featherLeaf = scene.add.image(x, y + 26, 'feather-leaf-a');
+    this.featherLeaf.setDepth(18);
+    this.featherLeaf.setVisible(false);
+    this.featherLeaf.setAlpha(0);
     this.shadow = scene.add.ellipse(x, y + 22, 34, 12, 0x120408, 0.32);
     this.shadow.setDepth(19);
     this.dust = scene.add.particles(0, 0, 'poof-particle', {
@@ -105,13 +165,72 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
       blendMode: Phaser.BlendModes.ADD,
     });
     this.carpetDust.setDepth(17);
+    this.flowerDust = scene.add.particles(0, 0, 'firework-spark', {
+      speed: { min: 20, max: 70 },
+      scale: { start: 0.5, end: 0 },
+      lifespan: { min: 240, max: 400 },
+      emitting: false,
+      frequency: 50,
+      quantity: 1,
+      tint: [0xff9ec4, 0xffe08a, 0xfff4d0],
+      gravityY: 80,
+      alpha: { start: 0.95, end: 0 },
+    });
+    this.flowerDust.setDepth(17);
+    this.iceDust = scene.add.particles(0, 0, 'firework-spark', {
+      speed: { min: 16, max: 58 },
+      scale: { start: 0.5, end: 0 },
+      lifespan: { min: 260, max: 440 },
+      emitting: false,
+      frequency: 32,
+      quantity: 1,
+      tint: [0xffffff, 0xd8f4ff, 0xb8e0ff],
+      gravityY: 20,
+      alpha: { start: 0.9, end: 0 },
+      blendMode: Phaser.BlendModes.ADD,
+    });
+    this.iceDust.setDepth(17);
+    this.ghostDust = scene.add.particles(0, 0, 'poof-particle', {
+      speed: { min: 12, max: 40 },
+      scale: { start: 0.5, end: 0 },
+      lifespan: { min: 320, max: 520 },
+      emitting: false,
+      frequency: 40,
+      quantity: 1,
+      tint: [0xe8d8ff, 0xc8a0ff, 0xffffff],
+      gravityY: -18,
+      alpha: { start: 0.75, end: 0 },
+      blendMode: Phaser.BlendModes.ADD,
+    });
+    this.ghostDust.setDepth(16);
+    this.featherDust = scene.add.particles(0, 0, 'poof-particle', {
+      speed: { min: 14, max: 42 },
+      scale: { start: 0.45, end: 0 },
+      lifespan: { min: 260, max: 420 },
+      emitting: false,
+      frequency: 38,
+      quantity: 1,
+      tint: [0xb8e87a, 0x7ec85a, 0xe8ffc8],
+      gravityY: 36,
+      alpha: { start: 0.85, end: 0 },
+    });
+    this.featherDust.setDepth(17);
     this.once('destroy', () => {
       this.view.destroy();
       this.heldShield.destroy();
       this.carpet.destroy();
+      this.flowerSpring.destroy();
+      this.iceSkates.destroy();
+      this.iceFlash.destroy();
+      this.ghostShroud.destroy();
+      this.featherLeaf.destroy();
       this.shadow.destroy();
       this.dust.destroy();
       this.carpetDust.destroy();
+      this.flowerDust.destroy();
+      this.iceDust.destroy();
+      this.ghostDust.destroy();
+      this.featherDust.destroy();
     });
   }
 
@@ -247,7 +366,7 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
     this.view.setAngle(0);
     this.view.setScale(1);
     this.view.setAlpha(1);
-    this.hideCarpet();
+    this.hideAirJumpVisuals();
     this.syncView();
   }
 
@@ -274,7 +393,7 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
     this.view.setVisible(true);
     this.view.clearTint();
     this.hideHeldShield();
-    this.hideCarpet();
+    this.hideAirJumpVisuals();
     this.shadow.setVisible(false);
     this.dust.emitParticleAt(x, y + 18, 12);
     maybeShake(scene, 140, 0.01);
@@ -330,7 +449,7 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
       scene.tweens.killTweensOf(this.view);
       this.view.setVisible(false);
       audio.play(scene, 'explode');
-      spawnDeathBlast(scene, x, y);
+      spawnDeathBlast(scene, x, y, this.flipX);
     });
 
     scene.time.delayedCall(460 + DEATH_BLAST_MS, finish);
@@ -367,6 +486,7 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
     this.arcadeBody.allowGravity = false;
     this.arcadeBody.checkCollision.none = true;
     this.view.setTexture('player-jump');
+    this.hideAirJumpVisuals();
   }
 
   poseOnVine(lean: number): void {
@@ -390,7 +510,7 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
 
   tick(input: PlayerInput, theme: Theme): void {
     if (this.frozen) {
-      this.hideCarpet();
+      this.hideAirJumpVisuals();
       this.syncView();
       this.shadow.setPosition(this.x, this.y + 22);
       this.shadow.setAlpha(0.22);
@@ -398,7 +518,7 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
     }
 
     if (this.swinging) {
-      this.hideCarpet();
+      this.hideAirJumpVisuals();
       this.arcadeBody.setVelocity(0, 0);
       this.arcadeBody.setAcceleration(0, 0);
       this.syncView();
@@ -417,6 +537,16 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
     if (grounded) {
       this.coyoteUntil = now + 90;
       this.swimReadyAt = 0;
+      this.flowerUsed = false;
+    }
+
+    if (grounded && !this.wasGrounded) {
+      this.tripleChainUntil = now + TRIPLE_JUMP_WINDOW_MS;
+    }
+    if (grounded && Math.abs(body.velocity.x) <= TRIPLE_JUMP_MIN_SPEED) {
+      this.tripleChainStep = 0;
+    } else if (grounded && now > this.tripleChainUntil) {
+      this.tripleChainStep = 0;
     }
 
     if (input.jumpJust) {
@@ -439,12 +569,27 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
       body.setDragX(40);
     }
 
+    const mode = airJumpMode(theme);
     const canJump = !this.jumpLocked && (grounded || now < this.coyoteUntil);
     if (canJump && now < this.jumpBufferUntil) {
-      body.setVelocityY(physics.jump);
+      let jumpVy = physics.jump;
+      let allowShortHop = true;
+      if (mode === 'triple-jump') {
+        const step = nextTripleJumpStep({
+          previousStep: this.tripleChainStep,
+          now,
+          chainUntil: this.tripleChainUntil,
+          velocityX: body.velocity.x,
+        });
+        jumpVy = tripleJumpVelocity(physics.gravity, step);
+        allowShortHop = step === 1;
+        this.tripleChainStep = step;
+        this.popTripleJumpFlash(step);
+      }
+      body.setVelocityY(jumpVy);
       this.jumpBufferUntil = 0;
       this.coyoteUntil = 0;
-      this.jumpHeld = true;
+      this.jumpHeld = allowShortHop;
       audio.play(this.scene, 'jump');
       this.squash(0.86, 1.18, 100);
     }
@@ -462,38 +607,86 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
     }
 
     const onFoot = grounded || now < this.coyoteUntil;
-    const mode = airJumpMode(theme);
-    if (
-      mode === 'swim-stroke' &&
-      canSwimStroke({
-        jumpLocked: this.jumpLocked,
-        grounded: onFoot,
-        jumpJust: input.jumpJust,
-        now,
-        strokeReadyAt: this.swimReadyAt,
-      })
-    ) {
-      body.setVelocityY(applySwimStroke(swimStrokeVelocity(physics.gravity)));
-      this.swimReadyAt = now + SWIM_STROKE_COOLDOWN_MS;
-      this.jumpBufferUntil = 0;
-      audio.play(this.scene, 'jump');
-      this.squash(0.9, 1.12, 80);
-    }
-
-    if (
-      mode === 'carpet-glide' &&
-      canCarpetGlide({ jumpHeld: input.jump, grounded, velocityY: body.velocity.y })
-    ) {
-      body.setVelocityY(carpetGlideVelocity(body.velocity.y));
+    switch (mode) {
+      case 'swim-stroke':
+        if (
+          canSwimStroke({
+            jumpLocked: this.jumpLocked,
+            grounded: onFoot,
+            jumpJust: input.jumpJust,
+            now,
+            strokeReadyAt: this.swimReadyAt,
+          })
+        ) {
+          body.setVelocityY(applySwimStroke(swimStrokeVelocity(physics.gravity)));
+          this.swimReadyAt = now + SWIM_STROKE_COOLDOWN_MS;
+          this.jumpBufferUntil = 0;
+          audio.play(this.scene, 'swim');
+          this.squash(0.9, 1.12, 80);
+        }
+        break;
+      case 'flower-spring':
+        if (
+          canFlowerSpring({
+            jumpLocked: this.jumpLocked,
+            grounded: onFoot,
+            jumpJust: input.jumpJust,
+            used: this.flowerUsed,
+          })
+        ) {
+          body.setVelocityY(applyFlowerSpring(flowerSpringVelocity(physics.gravity)));
+          this.flowerUsed = true;
+          this.jumpBufferUntil = 0;
+          audio.play(this.scene, 'jump');
+          this.squash(0.9, 1.16, 90);
+          this.popFlowerSpring();
+        }
+        break;
+      case 'carpet-glide':
+        if (canCarpetGlide({ jumpHeld: input.jump, grounded, velocityY: body.velocity.y })) {
+          body.setVelocityY(carpetGlideVelocity(body.velocity.y));
+        }
+        break;
+      case 'ghost-hover':
+        if (canGhostHover({ jumpHeld: input.jump, grounded, velocityY: body.velocity.y })) {
+          body.setVelocityY(ghostHoverVelocity(body.velocity.y));
+        }
+        break;
+      case 'feather-flutter':
+        if (canFeatherFlutter({ jumpHeld: input.jump, grounded, velocityY: body.velocity.y })) {
+          body.setVelocityY(featherFlutterVelocity(body.velocity.y, now));
+        }
+        break;
+      case 'triple-jump':
+        break;
+      default: {
+        const neverMode: never = mode;
+        void neverMode;
+      }
     }
 
     if (grounded && !this.wasGrounded) {
       this.squash(1.2, 0.78, 110);
       this.dust.emitParticleAt(this.x, this.y + 20, 6);
+      this.hideFlowerSpring();
     }
     this.wasGrounded = grounded;
     this.present(grounded, body.velocity.x, body.velocity.y);
-    this.syncCarpet(mode === 'carpet-glide' && !grounded && input.jump && !this.jumpLocked);
+    const rideHeld = !grounded && input.jump && !this.jumpLocked;
+    this.syncCarpet(mode === 'carpet-glide' && rideHeld);
+    this.syncFlowerSpring();
+    this.syncIceSkates(
+      tripleChainLive({
+        chainStep: this.tripleChainStep,
+        now,
+        chainUntil: this.tripleChainUntil,
+        grounded,
+        velocityX: body.velocity.x,
+      }),
+    );
+    this.syncIceFlash();
+    this.syncGhostShroud(mode === 'ghost-hover' && rideHeld);
+    this.syncFeatherLeaf(mode === 'feather-flutter' && rideHeld);
   }
 
   private squash(scaleX: number, scaleY: number, duration: number): void {
@@ -563,7 +756,9 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
     this.view.setPosition(this.x, this.y);
     this.view.setFlipX(this.flipX);
     this.view.setAlpha(this.alpha);
-    this.view.setVisible(true);
+    if (!this.frozen) {
+      this.view.setVisible(true);
+    }
     this.syncHeldShield();
   }
 
@@ -611,5 +806,215 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
     this.carpet.setVisible(false);
     this.carpet.setAlpha(0);
     this.carpetDust.emitting = false;
+  }
+
+  private hideAirJumpVisuals(): void {
+    this.hideCarpet();
+    this.hideFlowerSpring();
+    this.hideIceSkates();
+    this.hideIceFlash();
+    this.hideGhostShroud();
+    this.hideFeatherLeaf();
+  }
+
+  private popFlowerSpring(): void {
+    const spawn = flowerSpringSpawn(this.x, this.y);
+    this.flowerParkX = spawn.x;
+    this.flowerParkY = spawn.y;
+    this.scene.tweens.killTweensOf(this.flowerSpring);
+    this.flowerSpring.setPosition(spawn.x, spawn.y);
+    this.flowerSpring.setTexture('flower-spring-a');
+    this.flowerSpring.setVisible(true);
+    this.flowerSpring.setAlpha(1);
+    this.flowerSpring.setScale(1.18, 0.42);
+    this.flowerDust.emitParticleAt(spawn.x, spawn.y - 8, 10);
+    this.scene.tweens.add({
+      targets: this.flowerSpring,
+      scaleX: 1,
+      scaleY: 1.12,
+      duration: 90,
+      ease: 'Back.easeOut',
+      onComplete: () => {
+        if (!this.flowerSpring.active) {
+          return;
+        }
+        this.flowerSpring.setTexture('flower-spring-b');
+        this.scene.tweens.add({
+          targets: this.flowerSpring,
+          scaleY: 1,
+          duration: 70,
+        });
+        this.scene.tweens.add({
+          targets: this.flowerSpring,
+          alpha: 0,
+          delay: 160,
+          duration: 180,
+          onComplete: () => this.hideFlowerSpring(),
+        });
+      },
+    });
+  }
+
+  private syncFlowerSpring(): void {
+    if (!this.flowerSpring.visible || this.flowerSpring.alpha <= 0) {
+      this.flowerDust.emitting = false;
+      return;
+    }
+    this.flowerSpring.setPosition(this.flowerParkX, this.flowerParkY);
+    this.flowerDust.setPosition(this.flowerParkX, this.flowerParkY - 6);
+    this.flowerDust.emitting = this.flowerSpring.alpha > 0.35;
+  }
+
+  private hideFlowerSpring(): void {
+    this.scene.tweens.killTweensOf(this.flowerSpring);
+    this.flowerSpring.setVisible(false);
+    this.flowerSpring.setAlpha(0);
+    this.flowerSpring.setScale(1);
+    this.flowerDust.emitting = false;
+  }
+
+  private popTripleJumpFlash(step: TripleJumpStep): void {
+    const burst = iceFlashSpawn(this.x, this.y);
+    this.iceDust.emitParticleAt(burst.x, burst.y, step === 3 ? 12 : step === 2 ? 8 : 4);
+    if (step === 1) {
+      return;
+    }
+    this.iceFlashStep = step;
+    this.iceFlashUntil = this.scene.time.now + ICE_FLASH_LIFE_MS;
+    this.iceFlashParkX = burst.x;
+    this.iceFlashParkY = burst.y;
+    this.iceFlash.setTexture(step === 3 ? 'snow-swirl-a' : 'ice-crystal-a');
+    this.iceFlash.setPosition(burst.x, burst.y);
+    this.iceFlash.setVisible(true);
+    this.iceFlash.setAlpha(1);
+    this.iceFlash.setScale(step === 3 ? 1.28 : 1);
+  }
+
+  private syncIceSkates(visible: boolean): void {
+    const target = visible ? 1 : 0;
+    const alpha = Phaser.Math.Linear(this.iceSkates.alpha, target, visible ? 0.32 : 0.45);
+    this.iceSkates.setAlpha(alpha);
+    if (alpha <= 0.04 && !visible) {
+      this.hideIceSkates();
+      return;
+    }
+
+    const now = this.scene.time.now;
+    const pos = iceSkatePosition(this.x, this.y, now);
+    this.iceSkates.setPosition(pos.x, pos.y);
+    this.iceSkates.setFlipX(this.flipX);
+    this.iceSkates.setTexture(now % 200 < 100 ? 'ice-skate-a' : 'ice-skate-b');
+    this.iceSkates.setVisible(true);
+
+    const trail = carpetTrailPosition(pos.x, pos.y, this.flipX);
+    this.iceDust.setPosition(trail.x, trail.y);
+    this.iceDust.emitting = visible;
+  }
+
+  private hideIceSkates(): void {
+    this.iceSkates.setVisible(false);
+    this.iceSkates.setAlpha(0);
+    if (this.scene.time.now >= this.iceFlashUntil) {
+      this.iceDust.emitting = false;
+    }
+  }
+
+  private syncIceFlash(): void {
+    const now = this.scene.time.now;
+    if (now >= this.iceFlashUntil) {
+      this.hideIceFlash();
+      return;
+    }
+    const remain = this.iceFlashUntil - now;
+    const frameB = now % 160 < 80;
+    this.iceFlash.setTexture(
+      this.iceFlashStep === 3
+        ? frameB
+          ? 'snow-swirl-b'
+          : 'snow-swirl-a'
+        : frameB
+          ? 'ice-crystal-b'
+          : 'ice-crystal-a',
+    );
+    this.iceFlash.setPosition(this.iceFlashParkX, this.iceFlashParkY);
+    this.iceFlash.setAlpha(Phaser.Math.Clamp(remain / 120, 0, 1));
+    this.iceFlash.setVisible(true);
+  }
+
+  private hideIceFlash(): void {
+    this.iceFlash.setVisible(false);
+    this.iceFlash.setAlpha(0);
+    this.iceFlashUntil = 0;
+  }
+
+  private syncGhostShroud(visible: boolean): void {
+    const target = visible ? 1 : 0;
+    const alpha = Phaser.Math.Linear(this.ghostShroud.alpha, target, visible ? 0.4 : 0.4);
+    this.ghostShroud.setAlpha(alpha);
+    if (visible && !this.shielded) {
+      const pulse = 0.5 + 0.5 * Math.sin(this.scene.time.now / 130);
+      this.view.setTint(pulse > 0.5 ? 0xd4c0ff : 0xb088e8);
+      this.ghostTinting = true;
+    } else if (this.ghostTinting && !this.shielded) {
+      this.view.clearTint();
+      this.ghostTinting = false;
+    } else if (!visible) {
+      this.ghostTinting = false;
+    }
+
+    if (alpha <= 0.04 && !visible) {
+      this.hideGhostShroud();
+      return;
+    }
+
+    const now = this.scene.time.now;
+    const pos = ghostShroudPosition(this.x, this.y, now);
+    this.ghostShroud.setPosition(pos.x, pos.y);
+    this.ghostShroud.setFlipX(this.flipX);
+    this.ghostShroud.setTexture(now % 280 < 140 ? 'ghost-shroud-a' : 'ghost-shroud-b');
+    this.ghostShroud.setVisible(true);
+    this.shadow.setVisible(false);
+
+    const trail = carpetTrailPosition(pos.x, pos.y + 10, this.flipX);
+    this.ghostDust.setPosition(trail.x, trail.y);
+    this.ghostDust.emitting = visible;
+  }
+
+  private hideGhostShroud(): void {
+    this.ghostShroud.setVisible(false);
+    this.ghostShroud.setAlpha(0);
+    this.ghostDust.emitting = false;
+    if (this.ghostTinting && !this.shielded) {
+      this.view.clearTint();
+    }
+    this.ghostTinting = false;
+  }
+
+  private syncFeatherLeaf(visible: boolean): void {
+    const target = visible ? 1 : 0;
+    const alpha = Phaser.Math.Linear(this.featherLeaf.alpha, target, visible ? 0.4 : 0.4);
+    this.featherLeaf.setAlpha(alpha);
+    if (alpha <= 0.04 && !visible) {
+      this.hideFeatherLeaf();
+      return;
+    }
+
+    const now = this.scene.time.now;
+    const pos = featherLeafPosition(this.x, this.y, now);
+    this.featherLeaf.setPosition(pos.x, pos.y);
+    this.featherLeaf.setFlipX(this.flipX);
+    this.featherLeaf.setTexture(now % 200 < 100 ? 'feather-leaf-a' : 'feather-leaf-b');
+    this.featherLeaf.setVisible(true);
+    this.shadow.setVisible(false);
+
+    const trail = carpetTrailPosition(pos.x, pos.y, this.flipX);
+    this.featherDust.setPosition(trail.x, trail.y);
+    this.featherDust.emitting = visible;
+  }
+
+  private hideFeatherLeaf(): void {
+    this.featherLeaf.setVisible(false);
+    this.featherLeaf.setAlpha(0);
+    this.featherDust.emitting = false;
   }
 }

@@ -61,7 +61,7 @@ export class WorldSpecial {
 
     switch (this.kind) {
       case 'grow':
-        this.growPlatform(player);
+        this.growPlatform(player, direction);
         break;
       case 'frost-path':
         this.frostPath(player, direction);
@@ -86,9 +86,10 @@ export class WorldSpecial {
     return true;
   }
 
-  private growPlatform(player: Player): void {
+  private growPlatform(player: Player, direction: number): void {
     this.affectPuzzleTargets(player.x, 'vine-bed', 220);
-    const x = Phaser.Math.Clamp(player.x, TILE, this.built.widthPx - TILE);
+    const ahead = TILE * 0.75;
+    const x = Phaser.Math.Clamp(player.x + direction * ahead, TILE, this.built.widthPx - TILE);
     const y = Phaser.Math.Clamp(player.y + 70, TILE * 2, this.built.heightPx - TILE * 2);
     const platform = this.built.oneways.create(x - TILE, y, onewayTileKey(this.theme)) as Phaser.Physics.Arcade.Sprite;
     platform.setOrigin(0, 0);

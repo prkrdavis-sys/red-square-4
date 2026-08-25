@@ -21,6 +21,8 @@ export const UI = {
   gold: '#ffe9a8',
 } as const;
 
+export type MenuButtonTone = 'default' | 'gold' | 'muted';
+
 const WORLD_ACCENTS = THEMES.map((theme) => themeSky(theme));
 
 export async function waitForUiFont(): Promise<void> {
@@ -161,6 +163,30 @@ export class MenuButton extends Phaser.GameObjects.Container {
 
   setLabel(label: string): void {
     this.labelText.setText(label);
+  }
+
+  setTone(tone: MenuButtonTone): void {
+    switch (tone) {
+      case 'default':
+        this.bg.setFillStyle(UI.buttonFill, 1);
+        this.border.setStrokeStyle(3, UI.buttonStroke, 1);
+        this.labelText.setColor(UI.text);
+        return;
+      case 'gold':
+        this.bg.setFillStyle(0x3a2a0c, 1);
+        this.border.setStrokeStyle(3, 0xd4a84a, 1);
+        this.labelText.setColor(UI.gold);
+        return;
+      case 'muted':
+        this.bg.setFillStyle(0x1a1014, 1);
+        this.border.setStrokeStyle(3, 0x4a3038, 1);
+        this.labelText.setColor(UI.muted);
+        return;
+      default: {
+        const neverTone: never = tone;
+        return neverTone;
+      }
+    }
   }
 
   setFocused(focused: boolean): void {

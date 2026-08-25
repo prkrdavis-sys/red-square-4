@@ -3,7 +3,7 @@ import { THEMES, specialForTheme, type SpecialKind } from '../config';
 import { specialDescription, specialLabel } from './special-copy';
 
 const COPY: Record<SpecialKind, { label: string; description: string }> = {
-  grow: { label: 'Grow', description: 'Sprout a short-lived platform under you.' },
+  grow: { label: 'Grow', description: 'Sprout a short-lived platform ahead of you.' },
   'frost-path': { label: 'Frost', description: 'Dash forward and lay a trail of ice.' },
   'sand-surge': { label: 'Surge', description: 'Burst up and forward on a dune.' },
   'bubble-pulse': { label: 'Bubble', description: 'Launch yourself on a rising bubble.' },

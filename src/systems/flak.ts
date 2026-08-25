@@ -1,10 +1,9 @@
 import Phaser from 'phaser';
-import { FlakFragment, type FlakKind, type FlakSnapshot } from '../entities/FlakFragment';
+import { FlakFragment, type FlakSnapshot } from '../entities/FlakFragment';
 import type { LevelId } from '../config';
+import { FLAK_PIECE_INDEXES, HERO_FLAK_SIZE, flakPieceCentroid, isFlakPieceIndex } from './flak-pieces';
 
 const FLAK_DATA_KEY = 'flak';
-const FLAK_BURST_COUNT = 22;
-const FLAK_KINDS: FlakKind[] = ['chunk', 'shard', 'sliver', 'char', 'gold'];
 
 interface RememberedFlak {
   levelId: LevelId;
@@ -49,61 +48,32 @@ export function restoreFlak(
     return;
   }
   for (const piece of remembered.pieces) {
-    const frag = new FlakFragment(scene, piece.x, piece.y, piece.kind, piece.scale);
+    if (!isFlakPieceIndex(piece.piece)) {
+      continue;
+    }
+    const frag = new FlakFragment(scene, piece.x, piece.y, piece.piece, piece.scale, piece.flipX);
     group.add(frag);
     frag.applyMotion(piece.vx, piece.vy, piece.angle, piece.angularVelocity);
   }
 }
 
-function pickKind(index: number): FlakKind {
-  if (index < 4) {
-    return 'chunk';
-  }
-  return FLAK_KINDS[index % FLAK_KINDS.length] ?? 'shard';
-}
-
-function pickScale(kind: FlakKind): number {
-  switch (kind) {
-    case 'chunk':
-      return 1.15 + Math.random() * 0.7;
-    case 'shard':
-      return 0.95 + Math.random() * 0.55;
-    case 'sliver':
-      return 0.8 + Math.random() * 0.55;
-    case 'char':
-      return 0.9 + Math.random() * 0.5;
-    case 'gold':
-      return 0.85 + Math.random() * 0.4;
-    default: {
-      const neverKind: never = kind;
-      return neverKind;
-    }
-  }
-}
-
-export function spawnFlakBurst(scene: Phaser.Scene, x: number, y: number): void {
+export function spawnFlakBurst(scene: Phaser.Scene, x: number, y: number, flipX = false): void {
   const group = getFlakGroup(scene);
   if (!group) {
     return;
   }
-  for (let i = 0; i < FLAK_BURST_COUNT; i += 1) {
-    const kind = pickKind(i);
-    const frag = new FlakFragment(
-      scene,
-      x + (Math.random() - 0.5) * 18,
-      y + (Math.random() - 0.5) * 14,
-      kind,
-      pickScale(kind),
-    );
+  for (const piece of FLAK_PIECE_INDEXES) {
+    const center = flakPieceCentroid(piece);
+    const dx = (flipX ? HERO_FLAK_SIZE - center.x : center.x) - HERO_FLAK_SIZE / 2;
+    const dy = center.y - HERO_FLAK_SIZE / 2;
+    const len = Math.hypot(dx, dy) || 1;
+    const nx = dx / len;
+    const ny = dy / len;
+    const frag = new FlakFragment(scene, x + nx * 10, y + ny * 10, piece, 1, flipX);
     group.add(frag);
-    const angle = (Math.PI * 2 * i) / FLAK_BURST_COUNT + (Math.random() - 0.5) * 0.62;
-    const near = i % 5 === 0;
-    const speed = near ? 140 + Math.random() * 220 : 260 + Math.random() * 680;
-    frag.arcadeBody.setVelocity(
-      Math.cos(angle) * speed,
-      Math.sin(angle) * speed - (near ? 80 : 240) - Math.random() * 240,
-    );
-    frag.arcadeBody.setAngularVelocity((Math.random() - 0.5) * 980);
-    frag.setAngle(Math.random() * 360);
+    const speed = 240 + Math.random() * 130;
+    frag.arcadeBody.setVelocity(nx * speed, ny * speed - 180);
+    frag.arcadeBody.setAngularVelocity((Math.random() - 0.5) * 200);
+    frag.setAngle(nx * 6 + (Math.random() - 0.5) * 8);
   }
 }

@@ -10,7 +10,7 @@ const LABELS: Record<SpecialKind, string> = {
 };
 
 const DESCRIPTIONS: Record<SpecialKind, string> = {
-  grow: 'Sprout a short-lived platform under you.',
+  grow: 'Sprout a short-lived platform ahead of you.',
   'frost-path': 'Dash forward and lay a trail of ice.',
   'sand-surge': 'Burst up and forward on a dune.',
   'bubble-pulse': 'Launch yourself on a rising bubble.',

@@ -13,6 +13,12 @@ import {
   type SkinDef,
 } from '../data/skins';
 import { createEnemyTextures } from './enemies';
+import {
+  FLAK_PIECE_INDEXES,
+  HERO_FLAK_SIZE,
+  flakHeroTextureKey,
+  flakPiecePoly,
+} from './flak-pieces';
 import { createForegroundTextures } from './foreground';
 import { createLandscapeTextures } from './landscapes';
 import { createMiniBossTextures } from './mini-bosses';
@@ -561,7 +567,7 @@ function stampSkinThumbs(scene: Phaser.Scene): void {
 export function applySkin(scene: Phaser.Scene, skinId: string): void {
   const skin = skinById(skinId) ?? defaultSkin();
   drawPlayer(scene, skin);
-  drawHeroShard(scene, skin.palette);
+  stampFlakHeroPieces(scene, skin);
   drawMapToken(scene, skin.palette);
 }
 
@@ -1242,6 +1248,179 @@ function drawFlyingCarpets(scene: Phaser.Scene): void {
   drawFlyingCarpetFrame(scene, 'flying-carpet-b', 1);
 }
 
+function drawAirJumpProps(scene: Phaser.Scene): void {
+  drawFlowerSpringFrame(scene, 'flower-spring-a', 0);
+  drawFlowerSpringFrame(scene, 'flower-spring-b', 1);
+  drawIceSkateFrame(scene, 'ice-skate-a', 0);
+  drawIceSkateFrame(scene, 'ice-skate-b', 1);
+  drawIceCrystalFrame(scene, 'ice-crystal-a', 0);
+  drawIceCrystalFrame(scene, 'ice-crystal-b', 1);
+  drawSnowSwirlFrame(scene, 'snow-swirl-a', 0);
+  drawSnowSwirlFrame(scene, 'snow-swirl-b', 1);
+  drawGhostShroudFrame(scene, 'ghost-shroud-a', 0);
+  drawGhostShroudFrame(scene, 'ghost-shroud-b', 1);
+  drawFeatherLeafFrame(scene, 'feather-leaf-a', 0);
+  drawFeatherLeafFrame(scene, 'feather-leaf-b', 1);
+}
+
+function drawFlowerSpringFrame(scene: Phaser.Scene, key: string, frame: 0 | 1): void {
+  const g = gfx(scene);
+  const bloom = frame === 1;
+  const stemTop = bloom ? 18 : 26;
+  g.fillStyle(0x2a4a18, 0.4);
+  g.fillEllipse(30, 52, 36, 9);
+  g.fillStyle(0x2f6a1c, 1);
+  g.fillRoundedRect(26, stemTop, 8, 54 - stemTop, 3);
+  g.fillStyle(0x6fbe44, 1);
+  g.fillTriangle(30, 34, 8, 42, 28, 38);
+  g.fillTriangle(32, 36, 52, 44, 34, 40);
+  g.fillStyle(0x1e4a14, 1);
+  g.fillEllipse(30, 54, 22, 6);
+  if (bloom) {
+    g.fillStyle(0xff2f78, 1);
+    for (const angle of [0, 72, 144, 216, 288]) {
+      const rad = (angle * Math.PI) / 180;
+      g.fillEllipse(30 + Math.cos(rad) * 12, 16 + Math.sin(rad) * 9, 16, 11);
+    }
+    g.fillStyle(0xff8ab8, 1);
+    for (const angle of [36, 108, 180, 252, 324]) {
+      const rad = (angle * Math.PI) / 180;
+      g.fillEllipse(30 + Math.cos(rad) * 8, 16 + Math.sin(rad) * 6, 11, 8);
+    }
+    g.fillStyle(0xffe56a, 1);
+    g.fillCircle(30, 16, 7);
+    g.fillStyle(0xfff4c0, 1);
+    g.fillCircle(28, 14, 3);
+  } else {
+    g.fillStyle(0xc42860, 1);
+    g.fillEllipse(30, 22, 22, 16);
+    g.fillStyle(0xff6e9b, 1);
+    g.fillEllipse(30, 20, 16, 11);
+    g.fillStyle(0xffe56a, 1);
+    g.fillCircle(30, 20, 4);
+  }
+  commit(g, key, 60, 58);
+}
+
+function drawIceSkateFrame(scene: Phaser.Scene, key: string, frame: 0 | 1): void {
+  const g = gfx(scene);
+  const spark = frame === 1 ? 2 : 0;
+  g.fillStyle(0x7ec8e8, 0.3);
+  g.fillEllipse(32, 16, 54, 6);
+  g.fillStyle(0xd8f4ff, 1);
+  g.fillRoundedRect(6, 8, 22, 5, 2);
+  g.fillRoundedRect(30, 8, 22, 5, 2);
+  g.fillStyle(0x8fd4f2, 1);
+  g.fillRoundedRect(5, 12, 24, 3, 1.5);
+  g.fillRoundedRect(29, 12, 24, 3, 1.5);
+  g.fillStyle(0xffffff, 1);
+  g.fillTriangle(5, 13, 1, 13, 5, 10);
+  g.fillTriangle(53, 13, 57, 13, 53, 10);
+  g.fillStyle(0xf2cf72, 1);
+  g.fillRect(12, 6, 3, 4);
+  g.fillRect(40, 6, 3, 4);
+  g.fillStyle(0xffffff, 0.9);
+  g.fillCircle(16 + spark, 5, 1.6);
+  g.fillCircle(44 - spark, 4, 1.4);
+  g.fillCircle(28, 3 + spark, 1.2);
+  commit(g, key, 60, 20);
+}
+
+function drawIceCrystalFrame(scene: Phaser.Scene, key: string, frame: 0 | 1): void {
+  const g = gfx(scene);
+  const grow = frame === 1 ? 4 : 0;
+  g.fillStyle(0xb8e8ff, 0.35);
+  g.fillCircle(24, 24, 16 + grow);
+  const shards: Array<[number, number, number]> = [
+    [24, 8, 0],
+    [12, 18, 1],
+    [36, 18, 1],
+    [16, 32, 2],
+    [32, 32, 2],
+  ];
+  for (const [x, y, size] of shards) {
+    const s = 7 + size * 2 + grow * 0.4;
+    g.fillStyle(0xe8f8ff, 1);
+    g.fillTriangle(x, y - s, x + s * 0.55, y + s * 0.4, x - s * 0.55, y + s * 0.4);
+    g.fillStyle(0x8fd4f2, 1);
+    g.fillTriangle(x, y - s * 0.2, x + s * 0.3, y + s * 0.35, x - s * 0.15, y + s * 0.15);
+  }
+  g.fillStyle(0xffffff, 0.95);
+  g.fillCircle(24, 22, 3.2);
+  commit(g, key, 48, 48);
+}
+
+function drawSnowSwirlFrame(scene: Phaser.Scene, key: string, frame: 0 | 1): void {
+  const g = gfx(scene);
+  const spin = frame === 1 ? 8 : 0;
+  g.fillStyle(0x6aa8c8, 0.28);
+  g.fillEllipse(36, 20, 64, 14);
+  g.fillStyle(0xd8f0ff, 1);
+  g.fillEllipse(36, 14, 58, 12);
+  g.fillStyle(0xb4e0f6, 1);
+  g.fillEllipse(36, 14, 46, 8);
+  g.lineStyle(2, 0xffffff, 0.9);
+  g.strokeEllipse(36, 14, 50, 9);
+  g.lineStyle(1.4, 0xe8f8ff, 1);
+  g.beginPath();
+  g.arc(36 + spin * 0.15, 14, 16, spin * 0.1, Math.PI + spin * 0.1, false);
+  g.strokePath();
+  g.fillStyle(0xffffff, 1);
+  for (const x of [14, 28, 44, 56]) {
+    g.fillCircle(x + (frame === 1 ? 2 : 0), 8 + ((x + spin) % 5), 1.6);
+  }
+  g.fillStyle(0x9ad4ee, 1);
+  g.fillTriangle(10, 14, 4, 18, 12, 17);
+  g.fillTriangle(62, 14, 68, 18, 60, 17);
+  commit(g, key, 72, 28);
+}
+
+function drawGhostShroudFrame(scene: Phaser.Scene, key: string, frame: 0 | 1): void {
+  const g = gfx(scene);
+  const flutter = frame === 1 ? 5 : 0;
+  g.fillStyle(0x4a2878, 0.35);
+  g.fillEllipse(40, 78, 62, 12);
+  g.fillStyle(0xc8a8ff, 1);
+  g.fillEllipse(40, 28, 46, 36);
+  g.fillStyle(0xe8d8ff, 1);
+  g.fillTriangle(16, 34, 6, 74 + flutter, 28, 62);
+  g.fillTriangle(64, 34, 74, 74 - flutter, 52, 62);
+  g.fillTriangle(28, 50, 22, 80 - flutter, 40, 68);
+  g.fillTriangle(52, 50, 58, 80 + flutter, 40, 68);
+  g.fillStyle(0xa070e0, 1);
+  g.fillEllipse(40, 24, 34, 26);
+  g.fillStyle(0xffffff, 0.7);
+  g.fillEllipse(30, 18, 14, 9);
+  g.fillStyle(0xf4eeff, 1);
+  g.fillCircle(20, 44 + flutter * 0.3, 4);
+  g.fillCircle(60, 48 - flutter * 0.3, 3.2);
+  commit(g, key, 80, 86);
+}
+
+function drawFeatherLeafFrame(scene: Phaser.Scene, key: string, frame: 0 | 1): void {
+  const g = gfx(scene);
+  const beat = frame === 1 ? 8 : 0;
+  g.fillStyle(0x1e4a18, 0.35);
+  g.fillEllipse(40, 26, 68, 10);
+  g.fillStyle(0x2f7a22, 1);
+  g.fillEllipse(16, 16 + beat * 0.2, 36, 18);
+  g.fillEllipse(64, 16 - beat * 0.2, 36, 18);
+  g.fillStyle(0x7ed85a, 1);
+  g.fillEllipse(16, 15 + beat * 0.2, 28, 13);
+  g.fillEllipse(64, 15 - beat * 0.2, 28, 13);
+  g.fillStyle(0x245818, 1);
+  g.fillTriangle(38, 14, 4, 8 + beat, 8, 22 + beat);
+  g.fillTriangle(42, 14, 76, 8 - beat, 72, 22 - beat);
+  g.lineStyle(2, 0xe8ffb8, 0.95);
+  g.lineBetween(16, 15, 2, 10 + beat);
+  g.lineBetween(64, 15, 78, 10 - beat);
+  g.fillStyle(0xd4ff8a, 1);
+  g.fillEllipse(40, 18, 20, 9);
+  g.fillStyle(0x8ee36d, 1);
+  g.fillEllipse(40, 18, 12, 5);
+  commit(g, key, 80, 34);
+}
+
 function drawFlyingCarpetFrame(scene: Phaser.Scene, key: string, frame: 0 | 1): void {
   const g = gfx(scene);
   const sweep = frame === 0 ? 0 : 3;
@@ -1740,20 +1919,6 @@ function drawBlastSpark(scene: Phaser.Scene): void {
   commit(g, 'blast-spark', 12, 28);
 }
 
-function drawHeroShard(scene: Phaser.Scene, skin: HeroPalette): void {
-  clearCanvasTexture(scene, 'hero-shard');
-  const g = gfx(scene);
-  g.fillStyle(skin.ink, 1);
-  g.fillRoundedRect(0, 0, 16, 16, 3);
-  g.fillStyle(skin.body, 1);
-  g.fillRoundedRect(2, 2, 12, 12, 2);
-  g.fillStyle(skin.shade, 1);
-  g.fillRoundedRect(2, 9, 12, 5, { tl: 0, tr: 0, bl: 2, br: 2 });
-  g.fillStyle(skin.gloss, 1);
-  g.fillRect(3, 3, 6, 3);
-  commit(g, 'hero-shard', 16, 16);
-}
-
 function drawHeldShield(scene: Phaser.Scene): void {
   const g = gfx(scene);
   const sx = 22;
@@ -1840,163 +2005,101 @@ function fillPoly(g: Phaser.GameObjects.Graphics, points: Array<{ x: number; y: 
   g.fillPath();
 }
 
-function drawFlakChunk(scene: Phaser.Scene): void {
-  const g = gfx(scene);
-  g.fillStyle(0x3a070a, 1);
-  fillPoly(g, [
-    { x: 2, y: 7 },
-    { x: 9, y: 1 },
-    { x: 23, y: 3 },
-    { x: 26, y: 16 },
-    { x: 18, y: 25 },
-    { x: 4, y: 22 },
-  ]);
-  g.fillStyle(0xa61a22, 1);
-  fillPoly(g, [
-    { x: 4, y: 8 },
-    { x: 10, y: 3 },
-    { x: 21, y: 5 },
-    { x: 24, y: 15 },
-    { x: 17, y: 23 },
-    { x: 5, y: 20 },
-  ]);
-  g.fillStyle(0xe23b3b, 1);
-  fillPoly(g, [
-    { x: 6, y: 9 },
-    { x: 11, y: 5 },
-    { x: 20, y: 7 },
-    { x: 22, y: 15 },
-    { x: 16, y: 21 },
-    { x: 7, y: 18 },
-  ]);
-  g.fillStyle(0xffc2c4, 0.92);
-  fillPoly(g, [
-    { x: 8, y: 8 },
-    { x: 14, y: 6 },
-    { x: 16, y: 11 },
-    { x: 10, y: 12 },
-  ]);
-  g.fillStyle(0xf0c75a, 1);
-  g.fillCircle(9, 10, 2.2);
-  g.fillStyle(0xfff6e8, 0.9);
-  g.fillCircle(8.3, 9.3, 0.8);
-  commit(g, 'flak-chunk', 28, 26);
+function cssColor(color: number, alpha = 1): string {
+  const r = (color >> 16) & 0xff;
+  const g = (color >> 8) & 0xff;
+  const b = color & 0xff;
+  return `rgba(${r},${g},${b},${alpha})`;
 }
 
-function drawFlakShard(scene: Phaser.Scene): void {
-  const g = gfx(scene);
-  g.fillStyle(0x3a070a, 1);
-  fillPoly(g, [
-    { x: 10, y: 1 },
-    { x: 21, y: 14 },
-    { x: 12, y: 23 },
-    { x: 1, y: 16 },
-  ]);
-  g.fillStyle(0xc42c32, 1);
-  fillPoly(g, [
-    { x: 10, y: 3 },
-    { x: 19, y: 14 },
-    { x: 12, y: 21 },
-    { x: 3, y: 16 },
-  ]);
-  g.fillStyle(0xe23b3b, 1);
-  fillPoly(g, [
-    { x: 10, y: 5 },
-    { x: 17, y: 14 },
-    { x: 12, y: 19 },
-    { x: 5, y: 15 },
-  ]);
-  g.fillStyle(0xff8a90, 0.9);
-  fillPoly(g, [
-    { x: 10, y: 6 },
-    { x: 14, y: 12 },
-    { x: 9, y: 13 },
-  ]);
-  commit(g, 'flak-shard', 22, 24);
+function pathPoly(ctx: CanvasRenderingContext2D, poly: readonly { x: number; y: number }[]): void {
+  const first = poly[0];
+  if (!first) {
+    return;
+  }
+  ctx.beginPath();
+  ctx.moveTo(first.x, first.y);
+  for (let i = 1; i < poly.length; i += 1) {
+    const point = poly[i];
+    if (!point) {
+      continue;
+    }
+    ctx.lineTo(point.x, point.y);
+  }
+  ctx.closePath();
 }
 
-function drawFlakSliver(scene: Phaser.Scene): void {
-  const g = gfx(scene);
-  g.fillStyle(0x3a070a, 1);
-  fillPoly(g, [
-    { x: 5, y: 1 },
-    { x: 11, y: 3 },
-    { x: 8, y: 27 },
-    { x: 2, y: 24 },
-  ]);
-  g.fillStyle(0xa61a22, 1);
-  fillPoly(g, [
-    { x: 6, y: 2 },
-    { x: 10, y: 4 },
-    { x: 7, y: 25 },
-    { x: 3, y: 23 },
-  ]);
-  g.fillStyle(0xe23b3b, 1);
-  fillPoly(g, [
-    { x: 6.5, y: 4 },
-    { x: 9, y: 6 },
-    { x: 7, y: 23 },
-    { x: 4.5, y: 21 },
-  ]);
-  g.fillStyle(0xffc2c4, 0.85);
-  g.fillRect(6, 5, 3, 6);
-  commit(g, 'flak-sliver', 12, 28);
+function paintReusableCanvas(
+  scene: Phaser.Scene,
+  key: string,
+  w: number,
+  h: number,
+  paint: (ctx: CanvasRenderingContext2D) => void,
+): void {
+  let texture: Phaser.Textures.CanvasTexture | null = null;
+  if (scene.textures.exists(key)) {
+    const existing = scene.textures.get(key) as Partial<Phaser.Textures.CanvasTexture>;
+    if (typeof existing.clear === 'function' && typeof existing.getContext === 'function') {
+      existing.clear();
+      texture = existing as Phaser.Textures.CanvasTexture;
+    } else {
+      scene.textures.remove(key);
+    }
+  }
+  if (!texture) {
+    texture = scene.textures.createCanvas(key, w, h);
+  }
+  if (!texture) {
+    return;
+  }
+  paint(texture.getContext());
+  texture.refresh();
 }
 
-function drawFlakChar(scene: Phaser.Scene): void {
-  const g = gfx(scene);
-  g.fillStyle(0x140808, 1);
-  fillPoly(g, [
-    { x: 2, y: 6 },
-    { x: 12, y: 1 },
-    { x: 21, y: 8 },
-    { x: 18, y: 18 },
-    { x: 4, y: 17 },
-  ]);
-  g.fillStyle(0x4a1014, 1);
-  fillPoly(g, [
-    { x: 4, y: 7 },
-    { x: 12, y: 3 },
-    { x: 19, y: 9 },
-    { x: 16, y: 16 },
-    { x: 5, y: 15 },
-  ]);
-  g.fillStyle(0x8e1a20, 1);
-  fillPoly(g, [
-    { x: 6, y: 8 },
-    { x: 12, y: 5 },
-    { x: 17, y: 10 },
-    { x: 14, y: 14 },
-    { x: 7, y: 13 },
-  ]);
-  g.fillStyle(0x2a0c10, 0.8);
-  g.fillCircle(9, 11, 2.4);
-  g.fillCircle(14, 8, 1.6);
-  commit(g, 'flak-char', 22, 20);
+function heroSourceImage(scene: Phaser.Scene): CanvasImageSource | undefined {
+  if (!scene.textures.exists('player')) {
+    return undefined;
+  }
+  const src = scene.textures.get('player').getSourceImage();
+  if (src instanceof HTMLCanvasElement || src instanceof HTMLImageElement) {
+    return src;
+  }
+  return undefined;
 }
 
-function drawFlakGold(scene: Phaser.Scene): void {
-  const g = gfx(scene);
-  g.fillStyle(0x3a070a, 1);
-  g.fillCircle(8, 8, 7.5);
-  g.fillStyle(0xb07a22, 1);
-  g.fillCircle(8, 8, 6.2);
-  g.fillStyle(0xf0c75a, 1);
-  g.fillCircle(8, 8, 4.6);
-  g.fillStyle(0xfff6e8, 0.95);
-  g.fillCircle(6.4, 6.2, 1.6);
-  g.fillStyle(0x5a0c12, 1);
-  g.fillRect(7, 6, 2, 4);
-  g.fillRect(6, 8, 4, 1);
-  commit(g, 'flak-gold', 16, 16);
-}
-
-function drawFlakPieces(scene: Phaser.Scene): void {
-  drawFlakChunk(scene);
-  drawFlakShard(scene);
-  drawFlakSliver(scene);
-  drawFlakChar(scene);
-  drawFlakGold(scene);
+/** Clips the equipped idle hero into five cracked shards that still read as that skin. */
+function stampFlakHeroPieces(scene: Phaser.Scene, skin: SkinDef): void {
+  if (HERO_SIZE !== HERO_FLAK_SIZE) {
+    throw new Error('Hero flak shatter must match the hero texture size');
+  }
+  const src = heroSourceImage(scene);
+  if (!src) {
+    return;
+  }
+  const ink = cssColor(skin.palette.ink);
+  const shade = cssColor(skin.palette.shade, 0.9);
+  for (const index of FLAK_PIECE_INDEXES) {
+    const poly = flakPiecePoly(index);
+    paintReusableCanvas(scene, flakHeroTextureKey(index), HERO_FLAK_SIZE, HERO_FLAK_SIZE, (ctx) => {
+      ctx.clearRect(0, 0, HERO_FLAK_SIZE, HERO_FLAK_SIZE);
+      ctx.imageSmoothingEnabled = false;
+      ctx.save();
+      pathPoly(ctx, poly);
+      ctx.clip();
+      ctx.drawImage(src, 0, 0, HERO_FLAK_SIZE, HERO_FLAK_SIZE);
+      ctx.lineJoin = 'round';
+      ctx.lineCap = 'round';
+      ctx.strokeStyle = ink;
+      ctx.lineWidth = 2.6;
+      pathPoly(ctx, poly);
+      ctx.stroke();
+      ctx.strokeStyle = shade;
+      ctx.lineWidth = 1.1;
+      pathPoly(ctx, poly);
+      ctx.stroke();
+      ctx.restore();
+    });
+  }
 }
 
 function drawCartoonStar(scene: Phaser.Scene): void {
@@ -2078,10 +2181,10 @@ export function createGameTextures(scene: Phaser.Scene): void {
   drawBlastRing(scene);
   drawBlastSmoke(scene);
   drawBlastSpark(scene);
-  drawFlakPieces(scene);
   drawCartoonStar(scene);
   drawSpecialBubble(scene);
   drawFlyingCarpets(scene);
+  drawAirJumpProps(scene);
   createLandscapeTextures(scene);
   createForegroundTextures(scene);
   drawNode(scene);

@@ -28,7 +28,7 @@ function burst(
   emitter.explode(count);
 }
 
-export function spawnDeathBlast(scene: Phaser.Scene, x: number, y: number): void {
+export function spawnDeathBlast(scene: Phaser.Scene, x: number, y: number, flipX = false): void {
   const bits: Phaser.GameObjects.GameObject[] = [];
   const cleanup = (): void => {
     for (const bit of bits) {
@@ -202,22 +202,6 @@ export function spawnDeathBlast(scene: Phaser.Scene, x: number, y: number): void
     });
   }
 
-  for (let i = 0; i < 10; i += 1) {
-    const angle = (Math.PI * 2 * i) / 10 + 0.2;
-    const shard = track(bits, scene.add.image(x, y, 'hero-shard').setDepth(47).setScale(1.4));
-    const dist = 240 + (i % 5) * 70;
-    scene.tweens.add({
-      targets: shard,
-      x: x + Math.cos(angle) * dist,
-      y: y + Math.sin(angle) * dist - 90,
-      angle: 220 + i * 80,
-      scale: 0.15,
-      alpha: 0,
-      duration: 980 + (i % 4) * 90,
-      ease: 'Cubic.easeOut',
-    });
-  }
-
   burst(
     scene,
     bits,
@@ -267,23 +251,7 @@ export function spawnDeathBlast(scene: Phaser.Scene, x: number, y: number): void
     },
     40,
   );
-  burst(
-    scene,
-    bits,
-    x,
-    y,
-    'hero-shard',
-    {
-      speed: { min: 220, max: 780 },
-      scale: { start: 1.1, end: 0.3 },
-      lifespan: 1100,
-      gravityY: 980,
-      rotate: { min: 0, max: 360 },
-    },
-    22,
-  );
-
-  spawnFlakBurst(scene, x, y);
+  spawnFlakBurst(scene, x, y, flipX);
 
   scene.time.delayedCall(90, () => maybeShake(scene, 420, 0.018));
   scene.time.delayedCall(DEATH_BLAST_MS + 80, cleanup);
