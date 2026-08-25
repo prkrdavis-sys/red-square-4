@@ -71,7 +71,8 @@ import { getTouchState, hideTouchControls, showTouchControls } from '../systems/
 import { skinThumbKey } from '../systems/textures';
 import { showBossFightBanner } from '../ui/boss-fight';
 import { showControlsHint } from '../ui/controls-hint';
-import { addPanel, dismissOnOutside, launchOverlay, MenuButton, MenuNav, textStyle } from '../ui/menu';
+import { coinCounterLabel } from '../ui/coin-counter';
+import { addPanel, dismissOnOutside, launchOverlay, MenuButton, MenuNav, textStyle, UI } from '../ui/menu';
 import { WorldSpecial } from '../systems/world-special';
 
 interface PlayData {
@@ -176,6 +177,8 @@ export class PlayScene extends Phaser.Scene {
   private hudBoss!: Phaser.GameObjects.Text;
   private specialMeter!: SpecialMeter;
   private hudCollectibles!: Phaser.GameObjects.Text;
+  private hudCoins!: Phaser.GameObjects.Container;
+  private hudCoinLabel!: Phaser.GameObjects.Text;
   private hudShield!: Phaser.GameObjects.Text;
   private pauseOverlay!: Phaser.GameObjects.Container;
   private pauseNav!: MenuNav;
@@ -529,6 +532,7 @@ export class PlayScene extends Phaser.Scene {
     });
     this.syncSpecialCharge();
     this.hudCollectibles.setText(`STARS  ${levelCollectibleCount(this.levelId)}/3`);
+    this.syncHudCoins();
     this.hudShield.setText(player.shielded ? 'SHIELD  READY' : 'SHIELD  —');
     const boss = worldBoss?.active ? worldBoss : miniBoss?.active ? miniBoss : undefined;
     if (boss && !boss.dying && boss.engaged) {
@@ -876,8 +880,9 @@ export class PlayScene extends Phaser.Scene {
       return;
     }
     coin.beginCollect();
-    addCoins(1);
-    audio.play(this, 'collect');
+    this.syncHudCoins(addCoins(1).coins);
+    this.punchHudCoins();
+    audio.play(this, 'coin');
     this.tweens.add({
       targets: coin.fadeTargets(),
       y: coin.y - 28,
@@ -986,6 +991,15 @@ export class PlayScene extends Phaser.Scene {
           .setDepth(50),
       );
     }
+    this.hudCoinLabel = this.add
+      .text(18, 0, '', { ...style, color: UI.gold, fontSize: '22px' })
+      .setResolution(2);
+    const coinIcon = this.add.image(0, 12, 'coin').setScale(0.5);
+    this.hudCoins = this.add
+      .container(214, 44, [coinIcon, this.hudCoinLabel])
+      .setScrollFactor(0)
+      .setDepth(50);
+    this.syncHudCoins();
     this.hudBoss = this.add
       .text(GAME_WIDTH - HUD_PAUSE.width - 28, 16, '', { ...style, color: '#ffd0d0' })
       .setOrigin(1, 0)
@@ -1017,6 +1031,22 @@ export class PlayScene extends Phaser.Scene {
     );
     this.pauseBtn.setDepth(50);
     this.pauseBtn.enablePointer(28);
+  }
+
+  private syncHudCoins(coins = loadSave().coins): void {
+    this.hudCoinLabel.setText(coinCounterLabel(coins));
+  }
+
+  private punchHudCoins(): void {
+    this.tweens.killTweensOf(this.hudCoins);
+    this.hudCoins.setScale(1);
+    this.tweens.add({
+      targets: this.hudCoins,
+      scale: 1.14,
+      duration: 90,
+      yoyo: true,
+      ease: 'Quad.easeOut',
+    });
   }
 
   private createPauseOverlay(): void {

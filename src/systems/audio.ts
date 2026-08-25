@@ -19,6 +19,7 @@ type SfxName =
   | 'explode'
   | 'special'
   | 'collect'
+  | 'coin'
   | 'phase'
   | 'enemy-shot'
   | 'firework'
@@ -196,6 +197,15 @@ function synth(name: SfxName): void {
     case 'collect':
       beep(740, 0.08, 'square', 0.08, 130);
       window.setTimeout(() => beep(1040, 0.12, 'triangle', 0.07, 100), 80);
+      break;
+    case 'coin':
+      noiseBurst(0.05, 0.08, 1700);
+      beep(196, 0.05, 'square', 0.05, -60);
+      window.setTimeout(() => {
+        beep(1318.51, 0.18, 'triangle', 0.11);
+        beep(1975.53, 0.28, 'sine', 0.09);
+      }, 46);
+      window.setTimeout(() => beep(2637.02, 0.2, 'sine', 0.06), 90);
       break;
     case 'phase':
       noiseBurst(0.15, 0.1, 800);

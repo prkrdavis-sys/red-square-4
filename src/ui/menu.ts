@@ -1,11 +1,12 @@
 import Phaser from 'phaser';
 import { GAME_HEIGHT, GAME_WIDTH, THEMES, themeSky } from '../config';
 import { audio } from '../systems/audio';
+import { coinCounterLabel } from './coin-counter';
 import { MENU_OPEN_GUARD_MS, menuDismissIsArmed, shouldAcceptTap } from './menu-tap';
 
 export { MENU_OPEN_GUARD_MS, MENU_TAP_LOCK_MS, menuDismissIsArmed, shouldAcceptTap } from './menu-tap';
 
-export const GAME_FONT_FAMILY = 'VT323';
+export const GAME_FONT_FAMILY = 'Nunito';
 
 export const UI = {
   font: `${GAME_FONT_FAMILY}, Trebuchet MS, sans-serif`,
@@ -27,7 +28,7 @@ export async function waitForUiFont(): Promise<void> {
     return;
   }
   try {
-    await document.fonts.load(`400 18px "${GAME_FONT_FAMILY}"`);
+    await document.fonts.load(`600 18px "${GAME_FONT_FAMILY}"`);
   } catch {
     return;
   }
@@ -37,6 +38,7 @@ export function textStyle(size: string, color: string = UI.text): Phaser.Types.G
   return {
     fontFamily: UI.font,
     fontSize: size,
+    fontStyle: '600',
     color,
     stroke: '#12080a',
     strokeThickness: 1,
@@ -434,7 +436,7 @@ export function addCoinPurse(
   const bg = scene.add.rectangle(0, 0, width, height, 0x10080c, 0.94).setStrokeStyle(3, 0xd4a84a, 1);
   const inner = scene.add.rectangle(0, 0, width - 8, height - 8, 0x000000, 0).setStrokeStyle(1, 0xffe9a8, 0.4);
   const icon = scene.add.image(-width / 2 + 22, 0, 'coin').setScale(0.62);
-  const label = scene.add.text(10, 0, coinPurseLabel(coins), textStyle('18px', UI.gold)).setOrigin(0, 0.5);
+  const label = scene.add.text(10, 0, coinCounterLabel(coins), textStyle('18px', UI.gold)).setOrigin(0, 0.5);
   const box = scene.add.container(x, y, [bg, inner, icon, label]).setScrollFactor(0).setDepth(90);
   box.setSize(width, height);
   box.setData('coinLabel', label);
@@ -444,10 +446,6 @@ export function addCoinPurse(
 export function setCoinPurseAmount(box: Phaser.GameObjects.Container, coins: number): void {
   const label = box.getData('coinLabel');
   if (label instanceof Phaser.GameObjects.Text) {
-    label.setText(coinPurseLabel(coins));
+    label.setText(coinCounterLabel(coins));
   }
-}
-
-function coinPurseLabel(coins: number): string {
-  return `COINS  ${coins}`;
 }

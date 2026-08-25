@@ -1,4 +1,5 @@
-import '@fontsource/vt323/latin-400.css';
+import '@fontsource/nunito/latin-600.css';
+import '@fontsource/nunito/latin-700.css';
 import Phaser from 'phaser';
 import { registerSW } from 'virtual:pwa-register';
 import './style.css';

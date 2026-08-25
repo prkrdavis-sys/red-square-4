@@ -2,7 +2,7 @@
   color-scheme: dark;
   --touch-btn-size: 104px;
   --touch-btn-gap: 14px;
-  --game-font: 'VT323', 'Trebuchet MS', sans-serif;
+  --game-font: 'Nunito', 'Trebuchet MS', sans-serif;
 }
 
 html {
@@ -35,6 +35,8 @@ body {
   height: var(--vv-height, 100dvh);
   background: #0b0b12;
   overflow: hidden;
+  font-family: var(--game-font);
+  font-weight: 600;
 }
 
 #app {
@@ -73,8 +75,8 @@ body {
   color: #fff8f0;
   font-family: var(--game-font);
   font-size: clamp(16px, 2.8vh, 20px);
-  font-weight: 400;
-  letter-spacing: 0.06em;
+  font-weight: 600;
+  letter-spacing: 0.02em;
   line-height: 1;
   text-shadow: 0 2px 0 #12080a;
   pointer-events: auto;
@@ -479,13 +481,15 @@ body.desktop-pointer #rotate-prompt {
   margin: 0;
   font-family: var(--game-font);
   font-size: 1.35rem;
-  letter-spacing: 0.04em;
+  font-weight: 700;
+  letter-spacing: 0.01em;
 }
 
 .rotate-copy {
   margin: 0;
   font-family: var(--game-font);
-  font-size: 1rem;
+  font-size: 1.05rem;
+  font-weight: 600;
   color: #d0c0b8;
-  line-height: 1.4;
+  line-height: 1.45;
 }
