@@ -23,6 +23,7 @@ const SHELL_PAD = 20;
 
 let booted = false;
 let gameRef: Phaser.Game | undefined;
+let lastSize: { width: number; height: number } | undefined;
 
 function clamp(min: number, value: number, max: number): number {
   return Math.min(max, Math.max(min, value));
@@ -58,11 +59,20 @@ export function touchControlSize(box: Pick<ViewportBox, 'width' | 'height'>): To
 export function applyViewportBox(style: CSSStyleDeclaration, box: ViewportBox): void {
   style.setProperty('--vv-width', `${box.width}px`);
   style.setProperty('--vv-height', `${box.height}px`);
-  style.setProperty('--vv-left', `${box.offsetLeft}px`);
-  style.setProperty('--vv-top', `${box.offsetTop}px`);
   const touch = touchControlSize(box);
   style.setProperty('--touch-btn-size', `${touch.button}px`);
   style.setProperty('--touch-btn-gap', `${touch.gap}px`);
+}
+
+export function isPortraitBox(box: Pick<ViewportBox, 'width' | 'height'>): boolean {
+  return box.height > box.width;
+}
+
+export function viewportSizeChanged(
+  prev: Pick<ViewportBox, 'width' | 'height'> | undefined,
+  next: Pick<ViewportBox, 'width' | 'height'>,
+): boolean {
+  return !prev || prev.width !== next.width || prev.height !== next.height;
 }
 
 export function rectFitsBounds(
@@ -92,7 +102,11 @@ export function applyCurrentViewport(): ViewportBox {
 }
 
 function onViewportChange(): void {
-  applyCurrentViewport();
+  const box = applyCurrentViewport();
+  if (!viewportSizeChanged(lastSize, box)) {
+    return;
+  }
+  lastSize = { width: box.width, height: box.height };
   gameRef?.scale.refresh();
 }
 

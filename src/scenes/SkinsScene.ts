@@ -89,7 +89,17 @@ export class SkinsScene extends Phaser.Scene {
         .setDepth(80)
         .setInteractive({ useHandCursor: true });
       frame.on('pointerover', () => this.select(i, false));
-      frame.on('pointerup', () => {
+      frame.on('pointerdown', (pointer: Phaser.Input.Pointer) => {
+        if (!pointer.wasTouch) {
+          return;
+        }
+        this.select(i, false);
+        this.activate();
+      });
+      frame.on('pointerup', (pointer: Phaser.Input.Pointer) => {
+        if (pointer.wasTouch) {
+          return;
+        }
         this.select(i, false);
         this.activate();
       });

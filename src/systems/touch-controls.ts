@@ -1,4 +1,5 @@
 import type Phaser from 'phaser';
+import { currentViewportBox, isPortraitBox } from './viewport';
 
 export type TouchAction = 'jump' | 'special';
 export type MoveAxis = 'left' | 'right' | null;
@@ -20,8 +21,10 @@ const held: Record<TouchAction, Set<number>> = {
 };
 
 const tracked = new Map<number, 'move' | TouchAction>();
+const captured = new Set<number>();
 
 let moveAxis: MoveAxis = null;
+let moveHeld: Exclude<MoveAxis, null> | null = null;
 let moveOriginX = 0;
 let booted = false;
 let pausedByRotate = false;
@@ -38,6 +41,50 @@ export function moveDirectionFromDelta(deltaX: number, deadzonePx = MOVE_DEADZON
 
 export function sliderThumbOffset(deltaX: number, maxOffset: number): number {
   return Math.min(maxOffset, Math.max(-maxOffset, deltaX));
+}
+
+export type ArrowHit = 'left' | 'right' | null;
+
+export function initialMoveFromPress(
+  arrowHit: ArrowHit,
+  clientX: number,
+  sliderCenterX: number,
+): Exclude<MoveAxis, null> {
+  if (arrowHit === 'left' || arrowHit === 'right') {
+    return arrowHit;
+  }
+  return clientX < sliderCenterX ? 'left' : 'right';
+}
+
+export function steerMoveAxis(
+  deltaX: number,
+  held: Exclude<MoveAxis, null>,
+  deadzonePx = MOVE_DEADZONE_PX,
+): Exclude<MoveAxis, null> {
+  return moveDirectionFromDelta(deltaX, deadzonePx) ?? held;
+}
+
+export function pointHitsRect(
+  x: number,
+  y: number,
+  rect: { left: number; top: number; right: number; bottom: number },
+  pad = 16,
+): boolean {
+  return x >= rect.left - pad && x <= rect.right + pad && y >= rect.top - pad && y <= rect.bottom + pad;
+}
+
+export function isPrimaryPointer(event: {
+  button: number;
+  pointerType: string;
+  isPrimary?: boolean;
+}): boolean {
+  if (event.isPrimary === false) {
+    return false;
+  }
+  if (event.pointerType === 'mouse') {
+    return event.button === 0;
+  }
+  return event.button === 0 || event.button === -1;
 }
 
 function isTouchAction(value: string | undefined): value is TouchAction {
@@ -64,6 +111,7 @@ function capturePointer(target: Element, pointerId: number): void {
   }
   try {
     target.setPointerCapture(pointerId);
+    captured.add(pointerId);
   } catch {
     // iOS can reject capture; window-level pointerup still releases.
   }
@@ -126,8 +174,48 @@ function updateThumb(currentX: number): void {
 }
 
 function applyMoveX(currentX: number): void {
-  setMoveAxis(moveDirectionFromDelta(currentX - moveOriginX));
+  if (!moveHeld) {
+    return;
+  }
+  moveHeld = steerMoveAxis(currentX - moveOriginX, moveHeld);
+  setMoveAxis(moveHeld);
   updateThumb(currentX);
+}
+
+function hitArrow(clientX: number, clientY: number): ArrowHit {
+  const left = document.querySelector('.touch-slider-arrow-left');
+  const right = document.querySelector('.touch-slider-arrow-right');
+  if (left && pointHitsRect(clientX, clientY, left.getBoundingClientRect())) {
+    return 'left';
+  }
+  if (right && pointHitsRect(clientX, clientY, right.getBoundingClientRect())) {
+    return 'right';
+  }
+  const slider = sliderEl();
+  if (!slider) {
+    return null;
+  }
+  const rect = slider.getBoundingClientRect();
+  if (clientX < rect.left || clientX > rect.right || clientY < rect.top || clientY > rect.bottom) {
+    return null;
+  }
+  const t = (clientX - rect.left) / rect.width;
+  if (t <= 0.4) {
+    return 'left';
+  }
+  if (t >= 0.6) {
+    return 'right';
+  }
+  return null;
+}
+
+function sliderCenterX(): number {
+  const slider = sliderEl();
+  if (!slider) {
+    return 0;
+  }
+  const rect = slider.getBoundingClientRect();
+  return rect.left + rect.width / 2;
 }
 
 function hasTrackedMove(): boolean {
@@ -140,6 +228,7 @@ function hasTrackedMove(): boolean {
 }
 
 function releasePointer(pointerId: number): void {
+  captured.delete(pointerId);
   const kind = tracked.get(pointerId);
   if (!kind) {
     return;
@@ -150,6 +239,7 @@ function releasePointer(pointerId: number): void {
       return;
     }
     moveOriginX = 0;
+    moveHeld = null;
     setMoveAxis(null);
     restSlider();
     return;
@@ -160,8 +250,10 @@ function releasePointer(pointerId: number): void {
 }
 
 function releaseAll(): void {
+  captured.clear();
   tracked.clear();
   moveOriginX = 0;
+  moveHeld = null;
   setMoveAxis(null);
   restSlider();
   for (const action of ACTIONS) {
@@ -176,14 +268,20 @@ function press(action: TouchAction, pointerId: number): void {
   syncPressed(action);
 }
 
-function beginMove(event: PointerEvent): void {
-  if (tracked.has(event.pointerId) || hasTrackedMove()) {
+function beginMoveAt(pointerId: number, clientX: number, clientY: number): void {
+  if (tracked.has(pointerId) || hasTrackedMove()) {
     return;
   }
-  tracked.set(event.pointerId, 'move');
-  moveOriginX = event.clientX;
-  placeSlider(event.clientX, event.clientY);
-  applyMoveX(event.clientX);
+  tracked.set(pointerId, 'move');
+  moveOriginX = clientX;
+  moveHeld = initialMoveFromPress(hitArrow(clientX, clientY), clientX, sliderCenterX());
+  placeSlider(clientX, clientY);
+  setMoveAxis(moveHeld);
+  updateThumb(clientX);
+}
+
+function beginMove(event: PointerEvent): void {
+  beginMoveAt(event.pointerId, event.clientX, event.clientY);
 }
 
 function bindButton(button: HTMLButtonElement): void {
@@ -193,7 +291,7 @@ function bindButton(button: HTMLButtonElement): void {
   }
 
   button.addEventListener('pointerdown', (event) => {
-    if (event.button !== 0) {
+    if (!isPrimaryPointer(event) || held[action].size > 0) {
       return;
     }
     event.preventDefault();
@@ -203,6 +301,24 @@ function bindButton(button: HTMLButtonElement): void {
     lockLandscape();
   });
 
+  button.addEventListener(
+    'touchstart',
+    (event) => {
+      if (held[action].size > 0) {
+        return;
+      }
+      const touch = event.changedTouches[0];
+      if (!touch) {
+        return;
+      }
+      event.preventDefault();
+      event.stopPropagation();
+      press(action, touch.identifier);
+      lockLandscape();
+    },
+    { passive: false },
+  );
+
   button.addEventListener('contextmenu', (event) => {
     event.preventDefault();
   });
@@ -210,7 +326,7 @@ function bindButton(button: HTMLButtonElement): void {
 
 function bindMovePad(pad: HTMLElement): void {
   pad.addEventListener('pointerdown', (event) => {
-    if (event.button !== 0) {
+    if (!isPrimaryPointer(event) || hasTrackedMove()) {
       return;
     }
     event.preventDefault();
@@ -218,6 +334,23 @@ function bindMovePad(pad: HTMLElement): void {
     beginMove(event);
     lockLandscape();
   });
+
+  pad.addEventListener(
+    'touchstart',
+    (event) => {
+      if (hasTrackedMove()) {
+        return;
+      }
+      const touch = event.changedTouches[0];
+      if (!touch) {
+        return;
+      }
+      event.preventDefault();
+      beginMoveAt(touch.identifier, touch.clientX, touch.clientY);
+      lockLandscape();
+    },
+    { passive: false },
+  );
 
   pad.addEventListener('contextmenu', (event) => {
     event.preventDefault();
@@ -234,7 +367,7 @@ function bindGlobalPointers(): void {
   window.addEventListener(
     'pointermove',
     (event) => {
-      if (tracked.get(event.pointerId) !== 'move') {
+      if (!hasTrackedMove()) {
         return;
       }
       applyMoveX(event.clientX);
@@ -242,9 +375,22 @@ function bindGlobalPointers(): void {
     true,
   );
   window.addEventListener(
+    'touchmove',
+    (event) => {
+      if (!hasTrackedMove()) {
+        return;
+      }
+      const touch = event.touches[0];
+      if (touch) {
+        applyMoveX(touch.clientX);
+      }
+    },
+    { passive: true, capture: true },
+  );
+  window.addEventListener(
     'lostpointercapture',
     (event) => {
-      if (event.buttons !== 0) {
+      if (!captured.has(event.pointerId) || event.buttons !== 0) {
         return;
       }
       releasePointer(event.pointerId);
@@ -252,13 +398,13 @@ function bindGlobalPointers(): void {
     true,
   );
 
-  const onTouchEnd = (event: TouchEvent) => {
-    for (const touch of Array.from(event.changedTouches)) {
-      releasePointer(touch.identifier);
+  const onTouchesCleared = (event: TouchEvent) => {
+    if (event.touches.length === 0) {
+      releaseAll();
     }
   };
-  window.addEventListener('touchend', onTouchEnd, true);
-  window.addEventListener('touchcancel', onTouchEnd, true);
+  window.addEventListener('touchend', onTouchesCleared, true);
+  window.addEventListener('touchcancel', onTouchesCleared, true);
 
   document.addEventListener('visibilitychange', () => {
     if (document.visibilityState !== 'visible') {
@@ -282,7 +428,7 @@ export function isTouchFirst(): boolean {
 }
 
 function needsLandscapePrompt(): boolean {
-  return isTouchFirst() && window.matchMedia('(orientation: portrait)').matches;
+  return isTouchFirst() && isPortraitBox(currentViewportBox());
 }
 
 export function getTouchState(): TouchState {

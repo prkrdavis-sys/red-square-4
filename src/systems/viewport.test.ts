@@ -1,9 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import {
   applyViewportBox,
+  isPortraitBox,
   readViewportBox,
   rectFitsBounds,
   touchControlSize,
+  viewportSizeChanged,
 } from './viewport';
 
 describe('readViewportBox', () => {
@@ -53,8 +55,23 @@ describe('applyViewportBox', () => {
     });
     expect(style.props.get('--vv-width')).toBe('915px');
     expect(style.props.get('--vv-height')).toBe('412px');
-    expect(style.props.get('--vv-top')).toBe('24px');
     expect(style.props.get('--touch-btn-size')).toMatch(/^\d+px$/);
+  });
+});
+
+describe('isPortraitBox', () => {
+  it('uses the visible box, not the orientation media query', () => {
+    expect(isPortraitBox({ width: 390, height: 844 })).toBe(true);
+    expect(isPortraitBox({ width: 844, height: 390 })).toBe(false);
+  });
+});
+
+describe('viewportSizeChanged', () => {
+  it('ignores URL-bar offset so a tap does not refresh the game scale', () => {
+    const size = { width: 844, height: 390 };
+    expect(viewportSizeChanged(undefined, size)).toBe(true);
+    expect(viewportSizeChanged(size, size)).toBe(false);
+    expect(viewportSizeChanged(size, { width: 844, height: 336 })).toBe(true);
   });
 });
 

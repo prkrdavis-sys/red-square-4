@@ -94,7 +94,7 @@ export function showControlsHint(
       .setScrollFactor(0)
       .setDepth(84),
     scene.add
-      .text(cx, specialY + 118, 'Touch: drag the left half to move, Jump, and the bolt button', textStyle('16px', UI.muted))
+      .text(cx, specialY + 118, 'Touch: tap an arrow or drag the left half to move, Jump, and the bolt button', textStyle('16px', UI.muted))
       .setOrigin(0.5)
       .setScrollFactor(0)
       .setDepth(84),

@@ -110,15 +110,19 @@ export class MenuButton extends Phaser.GameObjects.Container {
     this.setScrollFactor(0);
     this.enablePointer();
     this.on('pointerover', () => this.emit('menu-focus'));
-    this.on('pointerdown', () => {
+    this.on('pointerdown', (pointer: Phaser.Input.Pointer) => {
       this.bg.setScale(0.97);
       this.border.setScale(0.97);
+      if (pointer.wasTouch) {
+        this.commit();
+      }
     });
-    this.on('pointerup', () => {
+    this.on('pointerup', (pointer: Phaser.Input.Pointer) => {
       this.bg.setScale(1);
       this.border.setScale(1);
-      audio.play(this.scene, 'select');
-      this.onActivate();
+      if (!pointer.wasTouch) {
+        this.commit();
+      }
     });
     this.on('pointerout', () => {
       this.bg.setScale(1);
@@ -128,7 +132,15 @@ export class MenuButton extends Phaser.GameObjects.Container {
     this.setDepth(90);
   }
 
-  enablePointer(hitPad = 12): void {
+  private commit(): void {
+    if (!this.active || !this.scene.scene.isActive()) {
+      return;
+    }
+    audio.play(this.scene, 'select');
+    this.onActivate();
+  }
+
+  enablePointer(hitPad = 20): void {
     this.setInteractive({
       hitArea: new Phaser.Geom.Rectangle(-hitPad, -hitPad, this.widthPx + hitPad * 2, this.heightPx + hitPad * 2),
       hitAreaCallback: Phaser.Geom.Rectangle.Contains,

@@ -1,5 +1,5 @@
 import { GAME_HEIGHT, GAME_WIDTH } from '../config';
-import { lockLandscape } from './touch-controls';
+import { isPrimaryPointer, lockLandscape } from './touch-controls';
 
 export const HUD_PAUSE = {
   width: 176,
@@ -71,14 +71,6 @@ export function layoutHudPause(): void {
     return;
   }
   const box = pauseButtonScreenRect(canvas.getBoundingClientRect());
-  const view = window.visualViewport;
-  if (view) {
-    const pad = 8;
-    const maxLeft = view.offsetLeft + view.width - box.width - pad;
-    const maxTop = view.offsetTop + view.height - box.height - pad;
-    box.left = Math.min(Math.max(box.left, view.offsetLeft + pad), maxLeft);
-    box.top = Math.min(Math.max(box.top, view.offsetTop + pad), maxTop);
-  }
   button.style.left = `${box.left}px`;
   button.style.top = `${box.top}px`;
   button.style.width = `${box.width}px`;
@@ -100,14 +92,24 @@ export function bootHudPause(): void {
     return;
   }
 
+  let lastActivate = 0;
+  const activate = () => {
+    const now = performance.now();
+    if (now - lastActivate < 400) {
+      return;
+    }
+    lastActivate = now;
+    pauseHandler?.();
+  };
+
   button.addEventListener('click', (event) => {
     event.preventDefault();
     event.stopPropagation();
-    pauseHandler?.();
+    activate();
   });
   button.addEventListener('pointerdown', (event) => {
     event.stopPropagation();
-    if (event.pointerType === 'mouse' && event.button !== 0) {
+    if (!isPrimaryPointer(event)) {
       return;
     }
     button.classList.add('is-pressed');
@@ -118,9 +120,26 @@ export function bootHudPause(): void {
   const unpress = () => {
     button.classList.remove('is-pressed');
   };
-  button.addEventListener('pointerup', unpress);
+  button.addEventListener('pointerup', (event) => {
+    unpress();
+    if (!isPrimaryPointer(event) || event.pointerType === 'mouse') {
+      return;
+    }
+    event.preventDefault();
+    activate();
+  });
   button.addEventListener('pointercancel', unpress);
   button.addEventListener('lostpointercapture', unpress);
+  button.addEventListener(
+    'touchend',
+    (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      unpress();
+      activate();
+    },
+    { passive: false },
+  );
   button.addEventListener('contextmenu', (event) => {
     event.preventDefault();
   });

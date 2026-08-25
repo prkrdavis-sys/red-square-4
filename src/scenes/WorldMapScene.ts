@@ -116,7 +116,16 @@ export class WorldMapScene extends Phaser.Scene {
       if (unlocked) {
         const hit = this.add.zone(node.x, node.y, 88, 88);
         hit.setInteractive({ useHandCursor: true });
-        hit.on('pointerup', () => this.onNodeTap(index));
+        hit.on('pointerdown', (pointer: Phaser.Input.Pointer) => {
+          if (pointer.wasTouch) {
+            this.onNodeTap(index);
+          }
+        });
+        hit.on('pointerup', (pointer: Phaser.Input.Pointer) => {
+          if (!pointer.wasTouch) {
+            this.onNodeTap(index);
+          }
+        });
       }
     });
 
