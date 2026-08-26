@@ -202,12 +202,12 @@ function hintFor(skin: SkinDef, status: SkinShopStatus, tone: SkinShopTone, coin
         ? 'Wearing this look'
         : skin.level
           ? isBossRewardSkin(skin)
-            ? `Won by beating the World ${parseLevelId(skin.level).world} boss`
-            : `Cleared ${skin.level}  ·  bought for ${skin.cost ?? 0} coins`
-          : 'Available from the start';
+            ? `Won by beating the World ${parseLevelId(skin.level).world} boss  ·  press EQUIP`
+            : `Cleared ${skin.level}  ·  press EQUIP to wear`
+          : 'Available from the start  ·  press EQUIP to wear';
     case 'for-sale':
       return coins >= (skin.cost ?? 0)
-        ? `Cleared ${skin.level}  ·  buy for ${skin.cost ?? 0} coins`
+        ? `Cleared ${skin.level}  ·  press BUY for ${skin.cost ?? 0} coins`
         : `Need ${skin.cost ?? 0} coins  ·  you have ${coins}`;
     case 'locked-course':
       return `Clear ${skin.level} to buy for ${skin.cost ?? 0} coins`;

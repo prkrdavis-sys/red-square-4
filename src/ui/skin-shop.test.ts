@@ -121,4 +121,17 @@ describe('skin shop view', () => {
     expect(skinShopEmptyHint('shop')).toBe('Clear a course to stock the shop.');
     expect(skinShopEmptyHint('locked')).toBe('Every skin is unlocked.');
   });
+
+  it('keeps buy and equip on the action button, not the tile badge', () => {
+    const shop = skinShopCard(scout, mixed);
+    const ready = skinShopCard(sprout, mixed);
+    expect(shop.badge).toBe('10');
+    expect(shop.actionLabel).toBe('BUY  10');
+    expect(shop.actionTone).toBe('buy');
+    expect(shop.hint).toContain('press BUY');
+    expect(ready.badge).toBe('READY');
+    expect(ready.actionLabel).toBe('EQUIP');
+    expect(ready.actionTone).toBe('equip');
+    expect(ready.hint).toContain('press EQUIP');
+  });
 });

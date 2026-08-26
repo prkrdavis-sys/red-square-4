@@ -173,8 +173,8 @@ export class MenuButton extends Phaser.GameObjects.Container {
         this.labelText.setColor(UI.text);
         return;
       case 'gold':
-        this.bg.setFillStyle(0x3a2a0c, 1);
-        this.border.setStrokeStyle(3, 0xd4a84a, 1);
+        this.bg.setFillStyle(0x5a4014, 1);
+        this.border.setStrokeStyle(4, 0xffd060, 1);
         this.labelText.setColor(UI.gold);
         return;
       case 'muted':

@@ -76,6 +76,7 @@ export class SkinsScene extends Phaser.Scene {
   private hintText!: Phaser.GameObjects.Text;
   private emptyText!: Phaser.GameObjects.Text;
   private actionBtn!: MenuButton;
+  private actionCoin!: Phaser.GameObjects.Image;
   private purse!: Phaser.GameObjects.Container;
   private onKey!: (event: KeyboardEvent) => void;
   private lastActivateAt = Number.NEGATIVE_INFINITY;
@@ -130,6 +131,7 @@ export class SkinsScene extends Phaser.Scene {
 
     this.actionBtn = new MenuButton(this, GAME_WIDTH / 2 - 200, infoY + 78, 'EQUIP', () => this.activate(), 320);
     this.actionBtn.setDepth(85);
+    this.actionCoin = this.add.image(GAME_WIDTH / 2 - 318, infoY + 78, 'coin').setScale(0.55).setDepth(86);
     const back = new MenuButton(this, GAME_WIDTH / 2 + 200, infoY + 78, 'BACK', () => this.goBack(), 320);
     back.setDepth(85);
 
@@ -199,15 +201,13 @@ export class SkinsScene extends Phaser.Scene {
       if (!pointer.wasTouch || !this.claimPointer()) {
         return;
       }
-      this.select(index, false);
-      this.activate();
+      this.select(index, true);
     });
     root.on('pointerup', (pointer: Phaser.Input.Pointer) => {
       if (pointer.wasTouch || !this.claimPointer()) {
         return;
       }
-      this.select(index, false);
-      this.activate();
+      this.select(index, true);
     });
     return { skin, root, frame, rail, band, veil, focusRing, thumb, mystery, coin, badge };
   }
@@ -340,6 +340,7 @@ export class SkinsScene extends Phaser.Scene {
       this.nameText.setText('');
       this.hintText.setText('');
       this.actionBtn.setVisible(false);
+      this.actionCoin.setVisible(false);
       return;
     }
 
@@ -351,6 +352,7 @@ export class SkinsScene extends Phaser.Scene {
     this.actionBtn.setVisible(true);
     this.actionBtn.setLabel(card.actionLabel);
     this.actionBtn.setTone(actionButtonTone(card.actionTone));
+    this.actionCoin.setVisible(card.actionTone === 'buy');
   }
 
   private claimPointer(): boolean {
