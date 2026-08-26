@@ -58,6 +58,81 @@ body {
   touch-action: none;
 }
 
+#boot-splash {
+  position: fixed;
+  inset: 0;
+  z-index: 15;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: space-between;
+  box-sizing: border-box;
+  padding: calc(clamp(24px, 7vh, 64px) + env(safe-area-inset-top, 0px))
+    calc(24px + env(safe-area-inset-right, 0px))
+    calc(clamp(28px, 8vh, 72px) + env(safe-area-inset-bottom, 0px))
+    calc(24px + env(safe-area-inset-left, 0px));
+  background: #5c94fc;
+  color: #fff8f0;
+  pointer-events: none;
+  opacity: 1;
+  transition: opacity 280ms ease;
+}
+
+#boot-splash.is-done {
+  opacity: 0;
+}
+
+.boot-splash-title,
+.boot-splash-loading {
+  margin: 0;
+  font-family: var(--game-font);
+  font-weight: 700;
+  text-align: center;
+}
+
+.boot-splash-title {
+  font-size: clamp(32px, 8vw, 64px);
+  letter-spacing: 0.04em;
+  color: #ffffff;
+  -webkit-text-stroke: 4px #7a1212;
+  paint-order: stroke fill;
+  text-shadow: 2px 2px 0 #12080a;
+}
+
+.boot-splash-hero {
+  width: min(220px, 42vmin);
+  height: auto;
+}
+
+.boot-splash-loading {
+  font-size: clamp(18px, 3.6vh, 28px);
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-shadow: 0 2px 0 #12080a;
+  animation: boot-splash-pulse 1s ease-in-out infinite;
+}
+
+@keyframes boot-splash-pulse {
+  0%,
+  100% {
+    opacity: 0.35;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  #boot-splash {
+    transition: none;
+  }
+
+  .boot-splash-loading {
+    animation: none;
+    opacity: 0.85;
+  }
+}
+
 #hud-pause {
   display: none;
   position: fixed;

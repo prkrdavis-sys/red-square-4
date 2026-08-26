@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 import { hydrateSave } from '../data/progress';
 import { applySettings } from '../data/settings';
+import { dismissBootSplash } from '../systems/boot-splash';
 import { CHARACTER_ASSETS } from '../systems/characters';
 import { applySkin, createGameTextures } from '../systems/textures';
 import { waitForUiFont } from '../ui/menu';
@@ -19,8 +20,6 @@ export class BootScene extends Phaser.Scene {
   preload(): void {
     this.load.on('loaderror', () => undefined);
     this.load.json('asset-manifest', 'assets/manifest.json');
-    const { width, height } = this.scale;
-    this.add.rectangle(width / 2, height / 2, 4, 18, 0xe23b3b);
   }
 
   create(): void {
@@ -41,6 +40,7 @@ export class BootScene extends Phaser.Scene {
       void Promise.all([saveReady, waitForUiFont()]).then(([save]) => {
         applySkin(this, save.equippedSkin);
         this.scene.start('TitleScene');
+        dismissBootSplash();
       });
     };
     if (imageKeys.length === 0 && audioKeys.length === 0) {
