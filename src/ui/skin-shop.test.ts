@@ -53,10 +53,7 @@ describe('skin shop view', () => {
     expect(wearing).toMatchObject({
       tone: 'wearing',
       badge: 'ON',
-      fill: SKIN_SHOP_PALETTE.wearing.fill,
-      band: SKIN_SHOP_PALETTE.wearing.band,
       actionLabel: 'WEARING',
-      actionTone: 'muted',
       displayName: 'Red Square',
       hint: 'Wearing this look',
       hidden: false,
@@ -65,18 +62,16 @@ describe('skin shop view', () => {
     expect(ready).toMatchObject({
       tone: 'ready',
       badge: 'READY',
-      fill: SKIN_SHOP_PALETTE.ready.fill,
       actionLabel: 'EQUIP',
-      actionTone: 'equip',
+      hint: 'Cleared 1-1  ·  bought for 10 coins',
       hidden: false,
       showCoin: false,
     });
     expect(shop).toMatchObject({
       tone: 'shop',
       badge: '10',
-      fill: SKIN_SHOP_PALETTE.shop.fill,
       actionLabel: 'BUY  10',
-      actionTone: 'buy',
+      hint: 'Cleared 1-2  ·  buy for 10 coins',
       showCoin: true,
       hidden: false,
       displayName: 'Acorn Scout',
@@ -84,23 +79,28 @@ describe('skin shop view', () => {
     expect(broke).toMatchObject({
       tone: 'broke',
       badge: '14',
-      fill: SKIN_SHOP_PALETTE.broke.fill,
       actionLabel: 'NEED  14',
-      actionTone: 'muted',
+      hint: 'Need 14 coins  ·  you have 12',
       showCoin: true,
     });
     expect(locked).toMatchObject({
       tone: 'locked',
       badge: 'BOSS',
-      fill: SKIN_SHOP_PALETTE.locked.fill,
       actionLabel: 'LOCKED',
-      actionTone: 'muted',
+      hint: 'Beat the World 1 boss to unlock',
       hidden: true,
       showCoin: false,
       displayName: '???',
     });
     expect(skinShopCard(skinForLevel('2-1')!, mixed).badge).toBe('2-1');
-    expect(new Set([wearing.fill, ready.fill, shop.fill, broke.fill, locked.fill]).size).toBe(5);
+    expect(skinShopCard(classic, save({ equippedSkin: 'level-1-1', purchasedSkins: ['level-1-1'] })).hint).toBe(
+      'Available from the start',
+    );
+    expect(
+      new Set(
+        ([wearing, ready, shop, broke, locked] as const).map((card) => SKIN_SHOP_PALETTE[card.tone].fill),
+      ).size,
+    ).toBe(5);
   });
 
   it('filters owned, stocked, and locked racks without mixing them', () => {
@@ -120,18 +120,5 @@ describe('skin shop view', () => {
     expect(skinShopFilterLabel('locked', 21)).toBe('LOCKED  21');
     expect(skinShopEmptyHint('shop')).toBe('Clear a course to stock the shop.');
     expect(skinShopEmptyHint('locked')).toBe('Every skin is unlocked.');
-  });
-
-  it('keeps buy and equip on the action button, not the tile badge', () => {
-    const shop = skinShopCard(scout, mixed);
-    const ready = skinShopCard(sprout, mixed);
-    expect(shop.badge).toBe('10');
-    expect(shop.actionLabel).toBe('BUY  10');
-    expect(shop.actionTone).toBe('buy');
-    expect(shop.hint).toContain('press BUY');
-    expect(ready.badge).toBe('READY');
-    expect(ready.actionLabel).toBe('EQUIP');
-    expect(ready.actionTone).toBe('equip');
-    expect(ready.hint).toContain('press EQUIP');
   });
 });

@@ -1,16 +1,18 @@
 import { parseLevelId } from '../config';
-import { isBossRewardSkin, skinShopStatus, type SkinDef, type SkinShopStatus, type SkinUnlockState } from '../data/skins';
+import {
+  isBossRewardSkin,
+  skinShopStatus,
+  type SkinDef,
+  type SkinShopStatus,
+  type SkinUnlockState,
+} from '../data/skins';
 
 const TEXT = '#fff8f0';
 const MUTED = '#d0c0b8';
-const GOLD = '#ffe9a8';
-const PANEL_STROKE = 0xe23b3b;
 
 export type SkinShopFilter = 'all' | 'ready' | 'shop' | 'locked';
 
 export type SkinShopTone = 'wearing' | 'ready' | 'shop' | 'broke' | 'locked';
-
-export type SkinShopActionTone = 'equip' | 'buy' | 'muted';
 
 export interface SkinShopSave extends SkinUnlockState {
   equippedSkin: string;
@@ -36,7 +38,7 @@ export const SKIN_SHOP_PALETTE: Record<SkinShopTone, SkinShopPalette> = {
 };
 
 export const SKIN_SHOP_FILTER_ACCENT: Record<SkinShopFilter, number> = {
-  all: PANEL_STROKE,
+  all: 0xe23b3b,
   ready: SKIN_SHOP_PALETTE.ready.stroke,
   shop: SKIN_SHOP_PALETTE.shop.stroke,
   locked: 0x6a4048,
@@ -48,16 +50,9 @@ export interface SkinShopCard {
   hidden: boolean;
   showCoin: boolean;
   badge: string;
-  badgeColor: string;
-  fill: number;
-  stroke: number;
-  strokeWidth: number;
-  band: number;
-  nameColor: string;
   displayName: string;
   hint: string;
   actionLabel: string;
-  actionTone: SkinShopActionTone;
 }
 
 export function skinShopTone(skin: SkinDef, save: SkinShopSave): SkinShopTone {
@@ -156,7 +151,6 @@ export function skinShopEmptyHint(filter: SkinShopFilter): string {
 export function skinShopCard(skin: SkinDef, save: SkinShopSave): SkinShopCard {
   const status = skinShopStatus(skin, save);
   const tone = skinShopTone(skin, save);
-  const palette = SKIN_SHOP_PALETTE[tone];
   const hidden = tone === 'locked';
   return {
     status,
@@ -164,16 +158,9 @@ export function skinShopCard(skin: SkinDef, save: SkinShopSave): SkinShopCard {
     hidden,
     showCoin: tone === 'shop' || tone === 'broke',
     badge: badgeText(skin, tone),
-    badgeColor: palette.badge,
-    fill: palette.fill,
-    stroke: palette.stroke,
-    strokeWidth: palette.strokeWidth,
-    band: palette.band,
-    nameColor: tone === 'wearing' ? GOLD : hidden ? MUTED : TEXT,
     displayName: hidden ? '???' : skin.name,
-    hint: hintFor(skin, status, tone, save.coins),
+    hint: hintFor(skin, tone, save.coins),
     actionLabel: actionLabel(skin, tone),
-    actionTone: actionToneFor(tone),
   };
 }
 
@@ -195,31 +182,42 @@ function badgeText(skin: SkinDef, tone: SkinShopTone): string {
   }
 }
 
-function hintFor(skin: SkinDef, status: SkinShopStatus, tone: SkinShopTone, coins: number): string {
-  switch (status) {
-    case 'owned':
-      return tone === 'wearing'
-        ? 'Wearing this look'
-        : skin.level
-          ? isBossRewardSkin(skin)
-            ? `Won by beating the World ${parseLevelId(skin.level).world} boss  ·  press EQUIP`
-            : `Cleared ${skin.level}  ·  press EQUIP to wear`
-          : 'Available from the start  ·  press EQUIP to wear';
-    case 'for-sale':
-      return coins >= (skin.cost ?? 0)
-        ? `Cleared ${skin.level}  ·  press BUY for ${skin.cost ?? 0} coins`
-        : `Need ${skin.cost ?? 0} coins  ·  you have ${coins}`;
-    case 'locked-course':
-      return `Clear ${skin.level} to buy for ${skin.cost ?? 0} coins`;
-    case 'locked-boss':
-      return skin.level
-        ? `Beat the World ${parseLevelId(skin.level).world} boss to unlock`
-        : 'Beat the world boss to unlock';
+function hintFor(skin: SkinDef, tone: SkinShopTone, coins: number): string {
+  switch (tone) {
+    case 'wearing':
+      return 'Wearing this look';
+    case 'ready':
+      return readyHint(skin);
+    case 'shop':
+      return `Cleared ${skin.level}  ·  buy for ${skin.cost ?? 0} coins`;
+    case 'broke':
+      return `Need ${skin.cost ?? 0} coins  ·  you have ${coins}`;
+    case 'locked':
+      return lockedHint(skin);
     default: {
-      const neverStatus: never = status;
-      return neverStatus;
+      const neverTone: never = tone;
+      return neverTone;
     }
   }
+}
+
+function readyHint(skin: SkinDef): string {
+  if (!skin.level) {
+    return 'Available from the start';
+  }
+  if (isBossRewardSkin(skin)) {
+    return `Won by beating the World ${parseLevelId(skin.level).world} boss`;
+  }
+  return `Cleared ${skin.level}  ·  bought for ${skin.cost ?? 0} coins`;
+}
+
+function lockedHint(skin: SkinDef): string {
+  if (isBossRewardSkin(skin)) {
+    return skin.level
+      ? `Beat the World ${parseLevelId(skin.level).world} boss to unlock`
+      : 'Beat the world boss to unlock';
+  }
+  return `Clear ${skin.level} to buy for ${skin.cost ?? 0} coins`;
 }
 
 function actionLabel(skin: SkinDef, tone: SkinShopTone): string {
@@ -234,23 +232,6 @@ function actionLabel(skin: SkinDef, tone: SkinShopTone): string {
       return `NEED  ${skin.cost ?? 0}`;
     case 'locked':
       return 'LOCKED';
-    default: {
-      const neverTone: never = tone;
-      return neverTone;
-    }
-  }
-}
-
-function actionToneFor(tone: SkinShopTone): SkinShopActionTone {
-  switch (tone) {
-    case 'ready':
-      return 'equip';
-    case 'shop':
-      return 'buy';
-    case 'wearing':
-    case 'broke':
-    case 'locked':
-      return 'muted';
     default: {
       const neverTone: never = tone;
       return neverTone;

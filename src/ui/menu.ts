@@ -21,7 +21,7 @@ export const UI = {
   gold: '#ffe9a8',
 } as const;
 
-export type MenuButtonTone = 'default' | 'gold' | 'muted';
+export type MenuButtonTone = 'default' | 'muted';
 
 const WORLD_ACCENTS = THEMES.map((theme) => themeSky(theme));
 
@@ -90,12 +90,14 @@ export class MenuButton extends Phaser.GameObjects.Container {
   onActivate: () => void;
   onAdjust?: (dir: -1 | 1) => void;
   focused = false;
+  playClickSound = true;
   private lastCommitAt = Number.NEGATIVE_INFINITY;
   private readonly bg: Phaser.GameObjects.Rectangle;
   private readonly border: Phaser.GameObjects.Rectangle;
   private readonly labelText: Phaser.GameObjects.Text;
   private readonly widthPx: number;
   private readonly heightPx: number;
+  private icon?: Phaser.GameObjects.Image;
 
   constructor(
     scene: Phaser.Scene,
@@ -149,7 +151,9 @@ export class MenuButton extends Phaser.GameObjects.Container {
       return;
     }
     this.lastCommitAt = now;
-    audio.play(this.scene, 'select');
+    if (this.playClickSound) {
+      audio.play(this.scene, 'select');
+    }
     this.onActivate();
   }
 
@@ -165,22 +169,32 @@ export class MenuButton extends Phaser.GameObjects.Container {
     this.labelText.setText(label);
   }
 
+  setIcon(texture?: string): void {
+    if (!texture) {
+      this.icon?.setVisible(false);
+      return;
+    }
+    if (!this.icon) {
+      this.icon = this.scene.add.image(-this.widthPx / 2 + 42, 0, texture).setScale(0.55);
+      this.add(this.icon);
+    } else {
+      this.icon.setTexture(texture).setVisible(true);
+    }
+  }
+
+  setChrome(chrome: { fill: number; stroke: number; strokeWidth: number; labelColor: string }): void {
+    this.bg.setFillStyle(chrome.fill, 1);
+    this.border.setStrokeStyle(chrome.strokeWidth, chrome.stroke, 1);
+    this.labelText.setColor(chrome.labelColor);
+  }
+
   setTone(tone: MenuButtonTone): void {
     switch (tone) {
       case 'default':
-        this.bg.setFillStyle(UI.buttonFill, 1);
-        this.border.setStrokeStyle(3, UI.buttonStroke, 1);
-        this.labelText.setColor(UI.text);
-        return;
-      case 'gold':
-        this.bg.setFillStyle(0x5a4014, 1);
-        this.border.setStrokeStyle(4, 0xffd060, 1);
-        this.labelText.setColor(UI.gold);
+        this.setChrome({ fill: UI.buttonFill, stroke: UI.buttonStroke, strokeWidth: 3, labelColor: UI.text });
         return;
       case 'muted':
-        this.bg.setFillStyle(0x1a1014, 1);
-        this.border.setStrokeStyle(3, 0x4a3038, 1);
-        this.labelText.setColor(UI.muted);
+        this.setChrome({ fill: 0x1a1014, stroke: 0x4a3038, strokeWidth: 3, labelColor: UI.muted });
         return;
       default: {
         const neverTone: never = tone;

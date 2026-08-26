@@ -17,20 +17,20 @@ import {
   shouldAcceptTap,
   textStyle,
   UI,
-  type MenuButtonTone,
 } from '../ui/menu';
 import {
   SKIN_SHOP_FILTERS,
   SKIN_SHOP_FILTER_ACCENT,
+  SKIN_SHOP_PALETTE,
   skinMatchesFilter,
   skinShopCard,
   skinShopEmptyHint,
   skinShopFilterCounts,
   skinShopFilterLabel,
   skinShopTone,
-  type SkinShopActionTone,
   type SkinShopFilter,
   type SkinShopSave,
+  type SkinShopTone,
 } from '../ui/skin-shop';
 
 interface OverlayData {
@@ -76,7 +76,6 @@ export class SkinsScene extends Phaser.Scene {
   private hintText!: Phaser.GameObjects.Text;
   private emptyText!: Phaser.GameObjects.Text;
   private actionBtn!: MenuButton;
-  private actionCoin!: Phaser.GameObjects.Image;
   private purse!: Phaser.GameObjects.Container;
   private onKey!: (event: KeyboardEvent) => void;
   private lastActivateAt = Number.NEGATIVE_INFINITY;
@@ -130,8 +129,8 @@ export class SkinsScene extends Phaser.Scene {
       .setDepth(82);
 
     this.actionBtn = new MenuButton(this, GAME_WIDTH / 2 - 200, infoY + 78, 'EQUIP', () => this.activate(), 320);
+    this.actionBtn.playClickSound = false;
     this.actionBtn.setDepth(85);
-    this.actionCoin = this.add.image(GAME_WIDTH / 2 - 318, infoY + 78, 'coin').setScale(0.55).setDepth(86);
     const back = new MenuButton(this, GAME_WIDTH / 2 + 200, infoY + 78, 'BACK', () => this.goBack(), 320);
     back.setDepth(85);
 
@@ -232,14 +231,7 @@ export class SkinsScene extends Phaser.Scene {
     }
     audio.play(this, 'map');
     this.filter = filter;
-    const save = this.snapshot();
-    const visible = this.visibleCells(save);
-    const current = this.cells[this.index];
-    const keep = current && visible.includes(current);
-    if (!keep) {
-      const equipped = visible.find((cell) => cell.skin.id === save.equippedSkin);
-      this.index = this.cells.indexOf(equipped ?? visible[0] ?? this.cells[0]!);
-    }
+    this.revealSelection();
     this.refresh();
   }
 
@@ -289,6 +281,7 @@ export class SkinsScene extends Phaser.Scene {
 
     this.cells.forEach((cell) => {
       const card = skinShopCard(cell.skin, save);
+      const palette = SKIN_SHOP_PALETTE[card.tone];
       const shown = skinMatchesFilter(card.tone, this.filter);
       cell.root.setVisible(shown);
       if (shown) {
@@ -300,13 +293,13 @@ export class SkinsScene extends Phaser.Scene {
       } else {
         cell.root.disableInteractive();
       }
-      cell.frame.setFillStyle(card.fill, 1);
-      cell.frame.setStrokeStyle(card.strokeWidth, card.stroke, 1);
-      cell.rail.setFillStyle(card.stroke, 1);
-      cell.band.setFillStyle(card.band, 1);
+      cell.frame.setFillStyle(palette.fill, 1);
+      cell.frame.setStrokeStyle(palette.strokeWidth, palette.stroke, 1);
+      cell.rail.setFillStyle(palette.stroke, 1);
+      cell.band.setFillStyle(palette.band, 1);
       cell.veil.setVisible(card.hidden);
       cell.badge.setText(card.badge);
-      cell.badge.setColor(card.badgeColor);
+      cell.badge.setColor(palette.badge);
       cell.mystery.setVisible(card.hidden);
       cell.coin.setVisible(card.showCoin);
       if (card.hidden) {
@@ -340,19 +333,17 @@ export class SkinsScene extends Phaser.Scene {
       this.nameText.setText('');
       this.hintText.setText('');
       this.actionBtn.setVisible(false);
-      this.actionCoin.setVisible(false);
       return;
     }
 
     const card = skinShopCard(focused.skin, save);
     this.emptyText.setVisible(false);
     this.nameText.setText(card.displayName);
-    this.nameText.setColor(card.nameColor);
+    this.nameText.setColor(card.tone === 'wearing' ? UI.gold : card.hidden ? UI.muted : UI.text);
     this.hintText.setText(card.hint);
     this.actionBtn.setVisible(true);
     this.actionBtn.setLabel(card.actionLabel);
-    this.actionBtn.setTone(actionButtonTone(card.actionTone));
-    this.actionCoin.setVisible(card.actionTone === 'buy');
+    this.paintAction(card.tone);
   }
 
   private claimPointer(): boolean {
@@ -393,7 +384,7 @@ export class SkinsScene extends Phaser.Scene {
           return;
         }
         audio.play(this, 'select');
-        this.keepSelectionVisible();
+        this.revealSelection();
         this.refresh();
         return;
       }
@@ -408,8 +399,7 @@ export class SkinsScene extends Phaser.Scene {
     }
   }
 
-  private keepSelectionVisible(): void {
-    const save = this.snapshot();
+  private revealSelection(save: SkinShopSave = this.snapshot()): void {
     const visible = this.visibleCells(save);
     const current = this.cells[this.index];
     if (current && visible.includes(current)) {
@@ -474,19 +464,34 @@ export class SkinsScene extends Phaser.Scene {
   private goBack(): void {
     closeOverlay(this, this.returnKey);
   }
-}
 
-function actionButtonTone(tone: SkinShopActionTone): MenuButtonTone {
-  switch (tone) {
-    case 'equip':
-      return 'default';
-    case 'buy':
-      return 'gold';
-    case 'muted':
-      return 'muted';
-    default: {
-      const neverTone: never = tone;
-      return neverTone;
+  private paintAction(tone: SkinShopTone): void {
+    switch (tone) {
+      case 'ready':
+        this.actionBtn.setTone('default');
+        this.actionBtn.setIcon();
+        return;
+      case 'shop': {
+        const palette = SKIN_SHOP_PALETTE.shop;
+        this.actionBtn.setChrome({
+          fill: palette.fill,
+          stroke: palette.stroke,
+          strokeWidth: palette.strokeWidth,
+          labelColor: UI.gold,
+        });
+        this.actionBtn.setIcon('coin');
+        return;
+      }
+      case 'wearing':
+      case 'broke':
+      case 'locked':
+        this.actionBtn.setTone('muted');
+        this.actionBtn.setIcon();
+        return;
+      default: {
+        const neverTone: never = tone;
+        return neverTone;
+      }
     }
   }
 }
