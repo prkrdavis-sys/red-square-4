@@ -35,7 +35,14 @@ export const LEDGE = {
   low: JUMP_REACH_TILES,
   mid: JUMP_REACH_TILES * 2,
   high: JUMP_REACH_TILES * 3,
+  /** Hanging slab at row 1. Fly-over still fits in row 0. */
+  cap: GROUND_Y - 1,
+  /** World-top seal at row 0. Combined with `hangs` this closes the sky. */
+  lid: GROUND_Y,
 } as const;
+
+/** Rows filled by `hangs` — the only band that blocks a 36px player at the world top. */
+export const HANG_ROWS = [0, 1] as const;
 
 /** Ocean down-current field size. Run-up tiles on each side stay jumpable. */
 export const NO_JUMP_ZONE_WIDTH = 8;
@@ -125,6 +132,13 @@ export class Grid {
     this.column(x, rowAboveGround(tilesHigh), GROUND_Y - 1, tile);
   }
 
+  /** Two-row ceiling from the top of the map. Too tight to swim over. */
+  hang(x: number, w: number, tile = '#'): void {
+    for (const y of HANG_ROWS) {
+      this.plat(x, y, w, false, tile);
+    }
+  }
+
   column(x: number, fromY: number, toY: number, tile = '#'): void {
     for (let y = fromY; y <= toY; y += 1) {
       this.set(x, y, tile);
@@ -158,8 +172,10 @@ export interface CourseSpec {
   solids?: [number, number, number][];
   /** Raised floor: [x, width, tilesHigh]. Height 2 is jumpable from the ground. */
   hills?: [number, number, number][];
-  /** Solid pillars on the ground: [x, tilesHigh]. Height 3+ blocks a running jump. */
+  /** Solid pillars on the ground: [x, tilesHigh]. Height 3+ blocks a running jump. Height 9 seals the sky. */
   walls?: [number, number][];
+  /** Hanging ceiling: [x, width] fills rows 0–1 so fly-through cannot skip the span. */
+  hangs?: [number, number][];
   stairs?: [number, number, number?][];
   enemies?: number[];
   /** [x, tilesAboveGround] — stands on a ledge of that height. */
@@ -361,6 +377,9 @@ export function buildCourse(spec: CourseSpec, theme: Theme = 'grass'): string[] 
   }
   for (const [x, tilesUp, w] of spec.plats ?? []) {
     grid.plat(x, rowAboveGround(tilesUp), w, true);
+  }
+  for (const [x, w] of spec.hangs ?? []) {
+    grid.hang(x, w);
   }
   for (const x of spec.enemies ?? []) {
     grid.put(x, GROUND_Y - 1, 'e');

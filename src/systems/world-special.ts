@@ -1,11 +1,12 @@
 import Phaser from 'phaser';
-import { GAME_WIDTH, TILE, type PuzzleKind, type SpecialKind, type Theme } from '../config';
+import { GAME_WIDTH, TILE, themePhysics, type PuzzleKind, type SpecialKind, type Theme } from '../config';
 import { Baddie } from '../entities/Baddie';
 import { EnemyProjectile } from '../entities/EnemyProjectile';
 import { Player } from '../entities/Player';
 import { TerrainHazard } from '../entities/TerrainHazard';
 import type { BuiltLevel } from '../levels/builder';
 import { enableOneWayCollision, ONEWAY_HEIGHT } from '../levels/colliders';
+import { sandSurgeDuneAlong } from './sand-surge';
 import { specialChargeRatio } from './special-cooldown';
 import { specialLabel } from './special-copy';
 import { onewayTileKey } from './textures';
@@ -134,8 +135,15 @@ export class WorldSpecial {
     player.burstSpeed(540, 400);
     player.arcadeBody.setVelocity(direction * 520, Math.min(player.arcadeBody.velocity.y, -280));
     player.flashTint(0xe7bd61, 380);
-    const y = Phaser.Math.Clamp(player.arcadeBody.bottom + 8, TILE * 2, this.built.heightPx - TILE);
-    const along = 24;
+    const drop = 8;
+    const y = Phaser.Math.Clamp(player.arcadeBody.bottom + drop, TILE * 2, this.built.heightPx - TILE);
+    const along = sandSurgeDuneAlong(
+      Math.abs(player.arcadeBody.velocity.x),
+      player.arcadeBody.velocity.y,
+      themePhysics(this.theme).gravity,
+      drop,
+      TILE * 2,
+    );
     this.spawnTempOneway(
       Phaser.Math.Clamp(
         player.x + (direction > 0 ? along : -along - TILE * 2),

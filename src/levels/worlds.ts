@@ -1,9 +1,9 @@
 import { parseLevelId, type LevelId, type Theme, worldBossKind } from '../config';
 import { compileCourse, LEDGE, type CompiledCourse, type CourseSpec } from './grid';
 
-const { hop, low, mid, high } = LEDGE;
+const { hop, low, mid, high, lid } = LEDGE;
 
-/** Ledge values are tiles above the floor. A full jump reaches `low`; `mid`/`high` need steps. */
+/** Ledge values are tiles above the floor. A full jump reaches `low`; `mid`/`high` need steps. `lid` is a full-height sky pillar. */
 
 export interface LevelDef {
   id: LevelId;
@@ -58,6 +58,7 @@ const COURSES: Record<LevelId, CompiledCourse> = {
       [130, low, 3],
     ],
     stairs: [[70, 3]],
+    hangs: [[120, 4]],
     enemies: [12, 42, 90, 108, 148],
     mini: 164,
   }),
@@ -70,7 +71,11 @@ const COURSES: Record<LevelId, CompiledCourse> = {
       [140, 10],
     ],
     hills: [[34, 8, hop]],
-    walls: [[90, 4]],
+    walls: [[90, lid]],
+    hangs: [
+      [50, 4],
+      [142, 5],
+    ],
     plats: [
       [18, low, 3],
       [48, low, 3],
@@ -107,7 +112,15 @@ const COURSES: Record<LevelId, CompiledCourse> = {
       [236, 14],
       [266, 4],
     ],
-    walls: [[88, 4]],
+    walls: [
+      [88, lid],
+      [190, lid],
+    ],
+    hangs: [
+      [50, 5],
+      [134, 5],
+      [242, 5],
+    ],
     plats: [
       [20, low, 3],
       [46, low, 3],
@@ -126,6 +139,7 @@ const COURSES: Record<LevelId, CompiledCourse> = {
       [160, low, 4],
       [172, low, 3],
       [178, low, 3],
+      [186, mid, 3],
       [208, low, 3],
       [214, low, 3],
       [236, low, 3],
@@ -175,6 +189,10 @@ const COURSES: Record<LevelId, CompiledCourse> = {
       [56, 6, hop],
       [112, 6, hop],
     ],
+    hangs: [
+      [90, 4],
+      [132, 5],
+    ],
     enemies: [10, 34, 70, 82, 118, 158],
     traps: [28, 50, 86, 126],
     boss: 196,
@@ -188,10 +206,16 @@ const COURSES: Record<LevelId, CompiledCourse> = {
       [122, 10],
     ],
     hills: [[72, 8, hop]],
+    walls: [[66, lid]],
+    hangs: [
+      [46, 4],
+      [124, 5],
+    ],
     plats: [
       [28, low, 5],
       [44, low, 4],
       [51, low, 4],
+      [60, mid, 4],
       [84, low, 6],
       [122, low, 4],
       [129, low, 4],
@@ -210,7 +234,11 @@ const COURSES: Record<LevelId, CompiledCourse> = {
       [126, 5],
       [152, 8],
     ],
-    walls: [[67, 4]],
+    walls: [[67, lid]],
+    hangs: [
+      [80, 5],
+      [154, 4],
+    ],
     plats: [
       [16, low, 4],
       [40, low, 4],
@@ -226,7 +254,10 @@ const COURSES: Record<LevelId, CompiledCourse> = {
     ],
     stairs: [[108, 4]],
     enemies: [12, 32, 58, 118, 142, 178],
-    airEnemies: [[72, mid]],
+    airEnemies: [
+      [72, mid],
+      [160, mid],
+    ],
     mini: 188,
   }),
   '2-3': course(2, 3, {
@@ -246,8 +277,14 @@ const COURSES: Record<LevelId, CompiledCourse> = {
     ],
     stairs: [[84, 4]],
     walls: [
-      [144, 4],
-      [218, 4],
+      [144, lid],
+      [180, lid],
+      [218, lid],
+    ],
+    hangs: [
+      [104, 6],
+      [198, 4],
+      [232, 5],
     ],
     plats: [
       [22, low, 4],
@@ -263,6 +300,7 @@ const COURSES: Record<LevelId, CompiledCourse> = {
       [145, mid, 4],
       [150, low, 5],
       [162, low, 4],
+      [176, mid, 3],
       [196, low, 4],
       [204, mid, 4],
       [228, low, 4],
@@ -305,6 +343,10 @@ const COURSES: Record<LevelId, CompiledCourse> = {
       [162, low, 4],
       [170, mid, 4],
     ],
+    hangs: [
+      [92, 5],
+      [132, 4],
+    ],
     enemies: [12, 36, 72, 84, 120, 154],
     traps: [32, 68, 88, 128],
     boss: 196,
@@ -319,8 +361,12 @@ const COURSES: Record<LevelId, CompiledCourse> = {
     ],
     hills: [[38, 10, hop]],
     walls: [
-      [88, 4],
-      [152, 4],
+      [88, lid],
+      [152, lid],
+    ],
+    hangs: [
+      [56, 4],
+      [132, 5],
     ],
     stairs: [[12, 3]],
     plats: [
@@ -352,7 +398,11 @@ const COURSES: Record<LevelId, CompiledCourse> = {
       [164, 4],
     ],
     hills: [[66, 10, low]],
-    walls: [[102, 4]],
+    walls: [[102, lid]],
+    hangs: [
+      [40, 5],
+      [120, 6],
+    ],
     solids: [
       [96, low, 3],
       [102, mid, 3],
@@ -376,6 +426,7 @@ const COURSES: Record<LevelId, CompiledCourse> = {
     enemies: [12, 30, 78, 90, 154, 178],
     airEnemies: [
       [46, mid],
+      [100, mid],
       [130, high],
     ],
     mini: 190,
@@ -395,8 +446,14 @@ const COURSES: Record<LevelId, CompiledCourse> = {
     stairs: [[70, 4]],
     hills: [[74, 14, mid]],
     walls: [
-      [148, 4],
-      [230, 4],
+      [148, lid],
+      [194, lid],
+      [230, lid],
+    ],
+    hangs: [
+      [112, 6],
+      [158, 4],
+      [244, 5],
     ],
     solids: [
       [142, low, 4],
@@ -419,6 +476,7 @@ const COURSES: Record<LevelId, CompiledCourse> = {
       [162, mid, 4],
       [170, low, 4],
       [182, low, 4],
+      [190, mid, 3],
       [210, low, 4],
       [218, mid, 4],
       [240, low, 3],
@@ -469,6 +527,11 @@ const COURSES: Record<LevelId, CompiledCourse> = {
       [168, low, 4],
       [176, mid, 4],
     ],
+    hangs: [
+      [44, 4],
+      [98, 4],
+      [134, 5],
+    ],
     enemies: [10, 34, 74, 88, 124, 160],
     traps: [28, 54, 94, 130],
     boss: 202,
@@ -482,12 +545,21 @@ const COURSES: Record<LevelId, CompiledCourse> = {
       [108, 12],
       [140, 10],
     ],
+    walls: [[62, lid]],
+    hangs: [
+      [20, 5],
+      [44, 5],
+      [74, 6],
+      [110, 5],
+      [142, 5],
+    ],
     plats: [
       [16, low, 3],
       [22, low, 3],
       [28, low, 4],
       [42, low, 4],
       [49, low, 4],
+      [58, mid, 4],
       [70, low, 3],
       [76, low, 3],
       [82, low, 3],
@@ -514,6 +586,17 @@ const COURSES: Record<LevelId, CompiledCourse> = {
       [112, 16],
       [154, 10],
     ],
+    walls: [
+      [70, lid],
+      [150, lid],
+    ],
+    hangs: [
+      [18, 5],
+      [46, 6],
+      [80, 4],
+      [118, 6],
+      [158, 5],
+    ],
     plats: [
       [14, low, 3],
       [20, low, 3],
@@ -523,6 +606,7 @@ const COURSES: Record<LevelId, CompiledCourse> = {
       [52, low, 3],
       [58, mid, 3],
       [64, low, 4],
+      [66, mid, 4],
       [78, low, 4],
       [85, low, 4],
       [112, low, 3],
@@ -530,6 +614,8 @@ const COURSES: Record<LevelId, CompiledCourse> = {
       [124, high, 3],
       [130, mid, 3],
       [136, low, 4],
+      [144, mid, 3],
+      [147, mid, 3],
       [154, low, 3],
       [160, mid, 4],
       [168, low, 4],
@@ -538,6 +624,7 @@ const COURSES: Record<LevelId, CompiledCourse> = {
     airEnemies: [
       [48, mid],
       [126, high],
+      [160, mid],
     ],
     mini: 192,
   }),
@@ -552,6 +639,20 @@ const COURSES: Record<LevelId, CompiledCourse> = {
       [210, 8],
       [248, 12],
     ],
+    walls: [
+      [80, lid],
+      [160, lid],
+      [234, lid],
+    ],
+    hangs: [
+      [24, 5],
+      [56, 5],
+      [96, 6],
+      [144, 5],
+      [178, 4],
+      [212, 4],
+      [252, 5],
+    ],
     plats: [
       [18, low, 3],
       [24, mid, 3],
@@ -560,6 +661,7 @@ const COURSES: Record<LevelId, CompiledCourse> = {
       [52, low, 3],
       [58, mid, 4],
       [66, low, 4],
+      [76, mid, 3],
       [86, low, 3],
       [92, mid, 3],
       [98, high, 4],
@@ -571,20 +673,25 @@ const COURSES: Record<LevelId, CompiledCourse> = {
       [140, low, 3],
       [146, mid, 3],
       [152, low, 4],
+      [156, mid, 3],
       [176, low, 3],
       [182, low, 4],
       [210, low, 3],
       [216, mid, 3],
+      [226, mid, 3],
+      [230, mid, 3],
       [248, low, 3],
       [254, mid, 3],
       [260, low, 4],
     ],
     enemies: [12, 46, 76, 136, 166, 194, 230, 268],
     airEnemies: [
+      [58, mid],
       [100, high],
       [118, high],
       [148, mid],
       [214, mid],
+      [254, mid],
     ],
     traps: [50, 84, 172, 208, 244],
     mini: 282,
@@ -594,9 +701,17 @@ const COURSES: Record<LevelId, CompiledCourse> = {
     pits: [
       [16, 10],
       [44, 12],
-      [92, 14],
+      [92, 10],
       [136, 10],
       [168, 8],
+    ],
+    walls: [[80, lid]],
+    hangs: [
+      [20, 5],
+      [48, 5],
+      [94, 5],
+      [140, 5],
+      [170, 4],
     ],
     plats: [
       [16, low, 3],
@@ -619,6 +734,10 @@ const COURSES: Record<LevelId, CompiledCourse> = {
       [174, mid, 4],
     ],
     enemies: [12, 38, 66, 86, 128, 160],
+    airEnemies: [
+      [50, mid],
+      [110, mid],
+    ],
     traps: [32, 70, 90, 134],
     boss: 204,
   }),
@@ -631,8 +750,12 @@ const COURSES: Record<LevelId, CompiledCourse> = {
       [128, 10],
     ],
     walls: [
-      [40, 4],
-      [84, 4],
+      [40, lid],
+      [84, lid],
+    ],
+    hangs: [
+      [50, 4],
+      [130, 5],
     ],
     solids: [
       [36, low, 3],
@@ -667,7 +790,12 @@ const COURSES: Record<LevelId, CompiledCourse> = {
     ],
     stairs: [[102, 4]],
     hills: [[106, 8, mid]],
-    walls: [[64, 4]],
+    walls: [[64, lid]],
+    hangs: [
+      [74, 6],
+      [124, 4],
+      [160, 5],
+    ],
     plats: [
       [16, low, 3],
       [22, low, 3],
@@ -689,7 +817,11 @@ const COURSES: Record<LevelId, CompiledCourse> = {
       [170, low, 4],
     ],
     enemies: [12, 36, 56, 116, 148, 182],
-    airEnemies: [[82, low]],
+    airEnemies: [
+      [78, mid],
+      [82, low],
+      [162, mid],
+    ],
     mini: 192,
   }),
   '5-3': course(5, 3, {
@@ -704,10 +836,17 @@ const COURSES: Record<LevelId, CompiledCourse> = {
       [240, 14],
     ],
     walls: [
-      [40, 4],
-      [84, 4],
-      [160, 4],
-      [228, 4],
+      [40, lid],
+      [84, lid],
+      [160, lid],
+      [228, lid],
+    ],
+    hangs: [
+      [52, 5],
+      [128, 6],
+      [174, 4],
+      [210, 4],
+      [244, 5],
     ],
     solids: [
       [36, low, 3],
@@ -788,8 +927,14 @@ const COURSES: Record<LevelId, CompiledCourse> = {
       [182, mid, 4],
     ],
     walls: [
-      [64, 3],
-      [128, 3],
+      [64, lid],
+      [128, lid],
+    ],
+    hangs: [
+      [16, 4],
+      [44, 5],
+      [102, 4],
+      [144, 5],
     ],
     solids: [
       [60, low, 3],
@@ -810,9 +955,16 @@ const COURSES: Record<LevelId, CompiledCourse> = {
       [124, 9],
     ],
     hills: [[36, 8, hop]],
+    walls: [[44, lid]],
+    hangs: [
+      [54, 5],
+      [126, 5],
+    ],
     plats: [
       [20, low, 4],
+      [46, mid, 4],
       [52, low, 3],
+      [56, high, 3],
       [58, mid, 4],
       [66, low, 3],
       [86, mid, 6],
@@ -821,7 +973,11 @@ const COURSES: Record<LevelId, CompiledCourse> = {
       [136, mid, 4],
     ],
     stairs: [[82, 3]],
-    enemies: [12, 44, 78, 110, 152],
+    enemies: [12, 40, 78, 110, 152],
+    airEnemies: [
+      [60, mid],
+      [138, mid],
+    ],
     mini: 168,
   }),
   '6-2': course(6, 2, {
@@ -833,7 +989,12 @@ const COURSES: Record<LevelId, CompiledCourse> = {
       [138, 10],
     ],
     hills: [[70, 8, hop]],
-    walls: [[112, 4]],
+    walls: [[112, lid]],
+    hangs: [
+      [48, 5],
+      [88, 5],
+      [140, 5],
+    ],
     plats: [
       [18, low, 3],
       [46, low, 3],
@@ -854,6 +1015,7 @@ const COURSES: Record<LevelId, CompiledCourse> = {
     enemies: [12, 32, 80, 104, 128, 174],
     airEnemies: [
       [56, mid],
+      [94, high],
       [148, mid],
     ],
     mini: 188,
@@ -871,8 +1033,16 @@ const COURSES: Record<LevelId, CompiledCourse> = {
       [272, 4],
     ],
     walls: [
-      [90, 4],
-      [226, 4],
+      [90, lid],
+      [154, lid],
+      [226, lid],
+    ],
+    hangs: [
+      [52, 6],
+      [60, 5],
+      [138, 6],
+      [212, 4],
+      [244, 6],
     ],
     solids: [
       [86, low, 3],
@@ -912,6 +1082,8 @@ const COURSES: Record<LevelId, CompiledCourse> = {
     airEnemies: [
       [62, high],
       [148, high],
+      [184, mid],
+      [216, mid],
       [252, high],
     ],
     traps: [46, 100, 176, 208, 236],
@@ -926,6 +1098,10 @@ const COURSES: Record<LevelId, CompiledCourse> = {
       [96, 8],
       [132, 10],
       [166, 5],
+    ],
+    hangs: [
+      [94, 5],
+      [130, 5],
     ],
     plats: [
       [16, low, 3],

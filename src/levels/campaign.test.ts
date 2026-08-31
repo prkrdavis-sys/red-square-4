@@ -244,6 +244,81 @@ describe('biome campaign compilation', () => {
   });
 });
 
+const WIDE_GAP_MIN = 8;
+const CEILING_BUDGET = [0, 2, 6, 10, 6] as const;
+
+function isWalkableGround(cell: string | undefined): boolean {
+  return cell === '#' || cell === '@' || cell === 'G' || cell === 'W';
+}
+
+function wideGroundGaps(rows: string[]): Array<{ start: number; width: number }> {
+  const ground = rows[GROUND_Y] ?? '';
+  const gaps: Array<{ start: number; width: number }> = [];
+  let start = -1;
+  for (let x = 0; x <= ground.length; x += 1) {
+    const walkable = x < ground.length && isWalkableGround(ground[x]);
+    if (!walkable && x < ground.length) {
+      if (start < 0) {
+        start = x;
+      }
+      continue;
+    }
+    if (start >= 0) {
+      const width = x - start;
+      if (width >= WIDE_GAP_MIN) {
+        gaps.push({ start, width });
+      }
+      start = -1;
+    }
+  }
+  return gaps;
+}
+
+function skySealed(rows: string[], start: number, width: number): boolean {
+  const from = Math.max(0, start - 1);
+  const to = Math.min((rows[0]?.length ?? 0) - 1, start + width);
+  for (let x = from; x <= to; x += 1) {
+    if (rows[0]?.[x] === '#' || rows[1]?.[x] === '#') {
+      return true;
+    }
+  }
+  return false;
+}
+
+function ceilingTiles(rows: string[]): number {
+  let count = 0;
+  for (const y of [0, 1] as const) {
+    const row = rows[y] ?? '';
+    for (const cell of row) {
+      if (cell === '#') {
+        count += 1;
+      }
+    }
+  }
+  return count;
+}
+
+describe('aerial anti-skip geometry', () => {
+  it('interrupts the sky route over every wide pit or lava span', () => {
+    for (const id of ALL_LEVEL_IDS) {
+      const level = getLevel(id);
+      for (const gap of wideGroundGaps(level.rows)) {
+        expect(skySealed(level.rows, gap.start, gap.width), `${id} gap@${gap.start}w${gap.width}`).toBe(
+          true,
+        );
+      }
+    }
+  });
+
+  it('keeps a stage-scaled ceiling budget in rows 0–1', () => {
+    for (const id of ALL_LEVEL_IDS) {
+      const level = getLevel(id);
+      const needed = CEILING_BUDGET[level.stage] ?? 0;
+      expect(ceilingTiles(level.rows), id).toBeGreaterThanOrEqual(needed);
+    }
+  });
+});
+
 describe('no-jump down-current zones', () => {
   function isWalkableFloor(rows: string[], x: number): boolean {
     const ground = rows[GROUND_Y]?.[x];
