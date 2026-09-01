@@ -1454,6 +1454,159 @@ function drawFlyingCarpetFrame(scene: Phaser.Scene, key: string, frame: 0 | 1): 
   commit(g, key, 76, 26);
 }
 
+export const FROST_PATH_WIDTH = TILE * 4;
+export const FROST_PATH_HEIGHT = 60;
+
+function drawHangingIcicle(
+  g: Phaser.GameObjects.Graphics,
+  cx: number,
+  top: number,
+  width: number,
+  length: number,
+): void {
+  const half = width / 2;
+  fillPoly(g.fillStyle(0x1a3a52, 1), [
+    { x: cx - half - 1.8, y: top },
+    { x: cx + half + 1.8, y: top },
+    { x: cx, y: top + length + 2.4 },
+  ]);
+  fillPoly(g.fillStyle(0x4f87a6, 1), [
+    { x: cx - half, y: top },
+    { x: cx + half, y: top },
+    { x: cx, y: top + length },
+  ]);
+  fillPoly(g.fillStyle(0x8fd4f2, 1), [
+    { x: cx - half * 0.62, y: top },
+    { x: cx + half * 0.38, y: top },
+    { x: cx - half * 0.06, y: top + length * 0.88 },
+  ]);
+  fillPoly(g.fillStyle(0xf2fbff, 0.92), [
+    { x: cx - half * 0.28, y: top + 1 },
+    { x: cx - half * 0.04, y: top + 1 },
+    { x: cx - half * 0.12, y: top + length * 0.62 },
+  ]);
+}
+
+function drawSpecialFrostPath(scene: Phaser.Scene): void {
+  const w = FROST_PATH_WIDTH;
+  const h = FROST_PATH_HEIGHT;
+  const g = gfx(scene);
+  const slabTop = 3;
+  const slabBottom = 22;
+
+  g.fillStyle(0x1a3a52, 0.18);
+  g.fillEllipse(w / 2, slabBottom + 4, 228, 14);
+
+  const icicles: Array<{ x: number; width: number; length: number }> = [
+    { x: 20, width: 11, length: 16 },
+    { x: 38, width: 16, length: 30 },
+    { x: 58, width: 9, length: 14 },
+    { x: 78, width: 15, length: 26 },
+    { x: 102, width: 12, length: 18 },
+    { x: 124, width: 17, length: 34 },
+    { x: 148, width: 10, length: 13 },
+    { x: 168, width: 15, length: 28 },
+    { x: 192, width: 11, length: 17 },
+    { x: 214, width: 16, length: 31 },
+    { x: 236, width: 10, length: 15 },
+  ];
+  for (const icicle of icicles) {
+    drawHangingIcicle(g, icicle.x, slabBottom - 6, icicle.width, icicle.length);
+  }
+
+  fillPoly(g.fillStyle(0x1a3a52, 1), [
+    { x: 4, y: 12 },
+    { x: 14, y: slabTop + 1 },
+    { x: 36, y: slabTop + 3 },
+    { x: 68, y: slabTop },
+    { x: 108, y: slabTop + 2 },
+    { x: 150, y: slabTop },
+    { x: 192, y: slabTop + 2 },
+    { x: 228, y: slabTop },
+    { x: 246, y: 8 },
+    { x: 252, y: 14 },
+    { x: 246, y: slabBottom + 1 },
+    { x: 220, y: slabBottom + 3 },
+    { x: 186, y: slabBottom },
+    { x: 152, y: slabBottom + 3 },
+    { x: 118, y: slabBottom + 1 },
+    { x: 84, y: slabBottom + 3 },
+    { x: 50, y: slabBottom + 1 },
+    { x: 22, y: slabBottom + 3 },
+    { x: 6, y: 18 },
+  ]);
+  fillPoly(g.fillStyle(0x4f87a6, 1), [
+    { x: 8, y: 12 },
+    { x: 16, y: slabTop + 3 },
+    { x: 38, y: slabTop + 5 },
+    { x: 70, y: slabTop + 2 },
+    { x: 110, y: slabTop + 4 },
+    { x: 150, y: slabTop + 2 },
+    { x: 192, y: slabTop + 4 },
+    { x: 226, y: slabTop + 2 },
+    { x: 244, y: 9 },
+    { x: 248, y: 14 },
+    { x: 242, y: slabBottom - 1 },
+    { x: 218, y: slabBottom + 1 },
+    { x: 184, y: slabBottom - 2 },
+    { x: 150, y: slabBottom + 1 },
+    { x: 118, y: slabBottom - 1 },
+    { x: 84, y: slabBottom + 1 },
+    { x: 50, y: slabBottom - 1 },
+    { x: 24, y: slabBottom + 1 },
+    { x: 10, y: 17 },
+  ]);
+  fillPoly(g.fillStyle(0x8fd4f2, 1), [
+    { x: 14, y: 11 },
+    { x: 22, y: slabTop + 5 },
+    { x: 62, y: slabTop + 4 },
+    { x: 108, y: slabTop + 6 },
+    { x: 156, y: slabTop + 4 },
+    { x: 204, y: slabTop + 6 },
+    { x: 236, y: slabTop + 5 },
+    { x: 242, y: 13 },
+    { x: 234, y: 18 },
+    { x: 188, y: 19 },
+    { x: 140, y: 18 },
+    { x: 92, y: 19 },
+    { x: 46, y: 18 },
+    { x: 16, y: 16 },
+  ]);
+  fillPoly(g.fillStyle(0xe8f8ff, 1), [
+    { x: 18, y: 8 },
+    { x: 40, y: slabTop + 3 },
+    { x: 86, y: slabTop + 2 },
+    { x: 132, y: slabTop + 4 },
+    { x: 180, y: slabTop + 2 },
+    { x: 222, y: slabTop + 4 },
+    { x: 236, y: 8 },
+    { x: 228, y: 12 },
+    { x: 176, y: 11 },
+    { x: 122, y: 12 },
+    { x: 68, y: 11 },
+    { x: 24, y: 12 },
+  ]);
+
+  g.fillStyle(0xffffff, 0.88);
+  g.fillEllipse(78, 8, 86, 4.6);
+  g.fillEllipse(176, 7.5, 52, 3.4);
+  g.fillStyle(0xffffff, 0.4);
+  g.fillEllipse(128, 14, 40, 3);
+
+  g.lineStyle(1.3, 0x3d7fa0, 0.42);
+  g.lineBetween(48, 10, 62, 18);
+  g.lineBetween(118, 8, 128, 17);
+  g.lineBetween(198, 9, 210, 17);
+
+  g.fillStyle(0xffffff, 0.95);
+  g.fillCircle(34, 7, 1.5);
+  g.fillCircle(96, 6, 1.8);
+  g.fillCircle(154, 8, 1.3);
+  g.fillCircle(214, 6, 1.6);
+
+  commit(g, 'special-frost-path', w, h);
+}
+
 function drawSpecialBubble(scene: Phaser.Scene): void {
   const g = gfx(scene);
   const cx = 64;
@@ -2183,6 +2336,7 @@ export function createGameTextures(scene: Phaser.Scene): void {
   drawBlastSpark(scene);
   drawCartoonStar(scene);
   drawSpecialBubble(scene);
+  drawSpecialFrostPath(scene);
   drawFlyingCarpets(scene);
   drawAirJumpProps(scene);
   createLandscapeTextures(scene);

@@ -9,7 +9,7 @@ import { enableOneWayCollision, ONEWAY_HEIGHT } from '../levels/colliders';
 import { sandSurgeDuneAlong } from './sand-surge';
 import { specialChargeRatio } from './special-cooldown';
 import { specialLabel } from './special-copy';
-import { onewayTileKey } from './textures';
+import { FROST_PATH_WIDTH, onewayTileKey } from './textures';
 
 const COOLDOWNS: Record<SpecialKind, number> = {
   grow: 1100,
@@ -116,16 +116,14 @@ export class WorldSpecial {
     player.arcadeBody.setVelocityX(direction * 500);
     player.arcadeBody.setVelocityY(Math.min(player.arcadeBody.velocity.y, -60));
     player.flashTint(0xbcecff, 400);
+    const along = 28;
     const y = Phaser.Math.Clamp(player.arcadeBody.bottom - 4, TILE * 2, this.built.heightPx - TILE);
-    for (let i = 0; i < 4; i += 1) {
-      const along = 28 + i * TILE;
-      const x = Phaser.Math.Clamp(
-        player.x + (direction > 0 ? along : -along - TILE),
-        TILE,
-        this.built.widthPx - TILE * 2,
-      );
-      this.spawnTempOneway(x, y, TILE, 0xbcecff, 1600 + i * 80);
-    }
+    const x = Phaser.Math.Clamp(
+      player.x + (direction > 0 ? along : -along - FROST_PATH_WIDTH),
+      TILE,
+      this.built.widthPx - TILE * 2,
+    );
+    this.spawnFrostSlide(x, y, 1760);
     this.neutralizeProjectiles(player.x, player.y, 200, direction);
   }
 
@@ -279,6 +277,30 @@ export class WorldSpecial {
       ease: 'Sine.easeIn',
       onUpdate: () => place(swing.t),
       onComplete: () => settle(true),
+    });
+  }
+
+  private spawnFrostSlide(x: number, y: number, life: number): void {
+    const platform = this.built.oneways.create(x, y, onewayTileKey(this.theme)) as Phaser.Physics.Arcade.Sprite;
+    platform.setOrigin(0, 0);
+    platform.setDisplaySize(FROST_PATH_WIDTH, ONEWAY_HEIGHT);
+    platform.setVisible(false);
+    const body = platform.body as Phaser.Physics.Arcade.StaticBody;
+    body.setSize(FROST_PATH_WIDTH, ONEWAY_HEIGHT);
+    body.updateFromGameObject();
+    enableOneWayCollision(body);
+    const slide = this.scene.add.image(x, y, 'special-frost-path');
+    slide.setOrigin(0, 0);
+    slide.setDepth(12);
+    this.scene.tweens.add({
+      targets: [platform, slide],
+      alpha: 0,
+      delay: life,
+      duration: 280,
+      onComplete: () => {
+        platform.destroy();
+        slide.destroy();
+      },
     });
   }
 
