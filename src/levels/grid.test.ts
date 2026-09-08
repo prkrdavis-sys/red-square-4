@@ -1,6 +1,15 @@
 import { describe, expect, it } from 'vitest';
 import { GROUND_Y } from '../config';
-import { buildCourse, checkpointFractionsForStage, HANG_ROWS, LEDGE } from './grid';
+import {
+  airColumnSealed,
+  buildCourse,
+  checkpointFractionsForStage,
+  HANG_ROWS,
+  LEDGE,
+  rowAboveGround,
+  WALL_PASS_TILES,
+  WALL_PASS_UP,
+} from './grid';
 
 describe('checkpoint fractions', () => {
   it('keeps one mid-course flag on early stages and two on late stages', () => {
@@ -23,5 +32,25 @@ describe('sky ledges', () => {
     expect(rows[0]?.slice(10, 14)).toBe('####');
     expect(rows[1]?.slice(10, 14)).toBe('####');
     expect(rows[2]?.slice(10, 14)).toBe('....');
+  });
+
+  it('punches a jump window in a full-height wall and leaves short walls intact', () => {
+    const rows = buildCourse({
+      width: 40,
+      walls: [
+        [12, LEDGE.lid],
+        [24, 4],
+      ],
+    });
+    expect(airColumnSealed(rows, 12)).toBe(false);
+    const passFrom = rowAboveGround(WALL_PASS_UP + WALL_PASS_TILES - 1);
+    const passTo = rowAboveGround(WALL_PASS_UP);
+    for (let y = passFrom; y <= passTo; y += 1) {
+      expect(rows[y]?.[12]).toBe('.');
+    }
+    expect(rows[0]?.[12]).toBe('#');
+    expect(rows[GROUND_Y - 1]?.[12]).toBe('#');
+    expect(rows[rowAboveGround(4)]?.[24]).toBe('#');
+    expect(rows[0]?.[24]).toBe('.');
   });
 });

@@ -9,7 +9,7 @@ import { enableOneWayCollision, ONEWAY_HEIGHT } from '../levels/colliders';
 import { sandSurgeDuneAlong } from './sand-surge';
 import { specialChargeRatio } from './special-cooldown';
 import { specialLabel } from './special-copy';
-import { FROST_PATH_WIDTH, onewayTileKey } from './textures';
+import { FROST_PATH_WIDTH, GROW_LEDGE_WIDTH, SAND_DUNE_WIDTH, onewayTileKey } from './textures';
 
 const COOLDOWNS: Record<SpecialKind, number> = {
   grow: 1100,
@@ -92,21 +92,7 @@ export class WorldSpecial {
     const ahead = TILE * 0.75;
     const x = Phaser.Math.Clamp(player.x + direction * ahead, TILE, this.built.widthPx - TILE);
     const y = Phaser.Math.Clamp(player.y + 70, TILE * 2, this.built.heightPx - TILE * 2);
-    const platform = this.built.oneways.create(x - TILE, y, onewayTileKey(this.theme)) as Phaser.Physics.Arcade.Sprite;
-    platform.setOrigin(0, 0);
-    platform.setDisplaySize(TILE * 2, ONEWAY_HEIGHT);
-    platform.setTint(0x8ee36d);
-    const body = platform.body as Phaser.Physics.Arcade.StaticBody;
-    body.setSize(TILE * 2, ONEWAY_HEIGHT);
-    body.updateFromGameObject();
-    enableOneWayCollision(body);
-    this.scene.tweens.add({
-      targets: platform,
-      alpha: 0,
-      delay: 2200,
-      duration: 350,
-      onComplete: () => platform.destroy(),
-    });
+    this.spawnThemedPlatform(x - GROW_LEDGE_WIDTH / 2, y, GROW_LEDGE_WIDTH, 'special-grow-ledge', 2200, 350);
   }
 
   private frostPath(player: Player, direction: number): void {
@@ -123,7 +109,7 @@ export class WorldSpecial {
       TILE,
       this.built.widthPx - TILE * 2,
     );
-    this.spawnFrostSlide(x, y, 1760);
+    this.spawnThemedPlatform(x, y, FROST_PATH_WIDTH, 'special-frost-path', 1760);
     this.neutralizeProjectiles(player.x, player.y, 200, direction);
   }
 
@@ -142,15 +128,15 @@ export class WorldSpecial {
       drop,
       TILE * 2,
     );
-    this.spawnTempOneway(
+    this.spawnThemedPlatform(
       Phaser.Math.Clamp(
-        player.x + (direction > 0 ? along : -along - TILE * 2),
+        player.x + (direction > 0 ? along : -along - SAND_DUNE_WIDTH),
         TILE,
         this.built.widthPx - TILE * 3,
       ),
       y,
-      TILE * 2,
-      0xe7bd61,
+      SAND_DUNE_WIDTH,
+      'special-sand-dune',
       1500,
     );
     this.neutralizeProjectiles(player.x, player.y, 200, direction);
@@ -280,45 +266,34 @@ export class WorldSpecial {
     });
   }
 
-  private spawnFrostSlide(x: number, y: number, life: number): void {
-    const platform = this.built.oneways.create(x, y, onewayTileKey(this.theme)) as Phaser.Physics.Arcade.Sprite;
-    platform.setOrigin(0, 0);
-    platform.setDisplaySize(FROST_PATH_WIDTH, ONEWAY_HEIGHT);
-    platform.setVisible(false);
-    const body = platform.body as Phaser.Physics.Arcade.StaticBody;
-    body.setSize(FROST_PATH_WIDTH, ONEWAY_HEIGHT);
-    body.updateFromGameObject();
-    enableOneWayCollision(body);
-    const slide = this.scene.add.image(x, y, 'special-frost-path');
-    slide.setOrigin(0, 0);
-    slide.setDepth(12);
-    this.scene.tweens.add({
-      targets: [platform, slide],
-      alpha: 0,
-      delay: life,
-      duration: 280,
-      onComplete: () => {
-        platform.destroy();
-        slide.destroy();
-      },
-    });
-  }
-
-  private spawnTempOneway(x: number, y: number, width: number, tint: number, life: number): void {
+  private spawnThemedPlatform(
+    x: number,
+    y: number,
+    width: number,
+    texture: string,
+    life: number,
+    fade = 280,
+  ): void {
     const platform = this.built.oneways.create(x, y, onewayTileKey(this.theme)) as Phaser.Physics.Arcade.Sprite;
     platform.setOrigin(0, 0);
     platform.setDisplaySize(width, ONEWAY_HEIGHT);
-    platform.setTint(tint);
+    platform.setVisible(false);
     const body = platform.body as Phaser.Physics.Arcade.StaticBody;
     body.setSize(width, ONEWAY_HEIGHT);
     body.updateFromGameObject();
     enableOneWayCollision(body);
+    const art = this.scene.add.image(x, y, texture);
+    art.setOrigin(0, 0);
+    art.setDepth(12);
     this.scene.tweens.add({
-      targets: platform,
+      targets: [platform, art],
       alpha: 0,
       delay: life,
-      duration: 280,
-      onComplete: () => platform.destroy(),
+      duration: fade,
+      onComplete: () => {
+        platform.destroy();
+        art.destroy();
+      },
     });
   }
 

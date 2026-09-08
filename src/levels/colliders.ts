@@ -4,6 +4,18 @@ export const ONEWAY_HEIGHT = 18;
 
 const SOLID_CELLS = new Set(['#', '@', 'G', 'W']);
 
+export function isSolidCell(cell: string | undefined): boolean {
+  return SOLID_CELLS.has(cell ?? '');
+}
+
+/** True when the tile's top face is open to air, so it should keep a grass/snow cap. */
+export function isExposedTileTop(rows: readonly string[], x: number, y: number): boolean {
+  if (y <= 0) {
+    return true;
+  }
+  return !isSolidCell(rows[y - 1]?.[x]);
+}
+
 export interface ColliderRun {
   tileX: number;
   tileY: number;
@@ -68,7 +80,7 @@ export function colliderBox(run: ColliderRun): ColliderBox {
 }
 
 function cellKind(cell: string): ColliderRun['kind'] | undefined {
-  if (SOLID_CELLS.has(cell)) {
+  if (isSolidCell(cell)) {
     return 'solid';
   }
   if (cell === '=') {

@@ -9,13 +9,21 @@ import {
   arenaGateTileKey,
   arenaTileKey,
   arenaWallTileKey,
+  fillTileKey,
   kenneyArenaGateKey,
   kenneyArenaWallKey,
   onewayTileKey,
   solidTileKey,
 } from '../systems/textures';
 import { arenaKeepBounds, decorateArena, getArenaLayout, type ArenaKeep } from './arena';
-import { colliderBox, colliderRuns, enableOneWayCollision, ONEWAY_HEIGHT, type ColliderRun } from './colliders';
+import {
+  colliderBox,
+  colliderRuns,
+  enableOneWayCollision,
+  isExposedTileTop,
+  ONEWAY_HEIGHT,
+  type ColliderRun,
+} from './colliders';
 import type { CompiledCourse, PuzzleFeature } from './grid';
 import { getWorldBossKind } from './worlds';
 
@@ -103,7 +111,7 @@ export function buildLevel(
       const py = y * TILE;
       switch (cell) {
         case '#':
-          addTileImage(scene, px, py, pickTile(scene, solidTileKey(theme), `kenney-${theme}-solid`));
+          addTileImage(scene, px, py, lookTile(scene, theme, rows, x, y));
           break;
         case '@':
           addTileImage(scene, px, py, arenaTileKey(theme));
@@ -358,6 +366,13 @@ function physicsKey(scene: Phaser.Scene, theme: Theme, cell: string, kind: 'soli
     default:
       return pickTile(scene, solidTileKey(theme), `kenney-${theme}-solid`);
   }
+}
+
+function lookTile(scene: Phaser.Scene, theme: Theme, rows: string[], x: number, y: number): string {
+  if (!isExposedTileTop(rows, x, y)) {
+    return fillTileKey(theme);
+  }
+  return pickTile(scene, solidTileKey(theme), `kenney-${theme}-solid`);
 }
 
 function pickTile(scene: Phaser.Scene, generated: string, kenney: string): string {

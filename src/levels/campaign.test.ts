@@ -27,6 +27,7 @@ import { getLevel } from './worlds';
 import { bossSafeLandingX, getArenaLayout, type ArenaKeep } from './arena';
 import { colliderBox, colliderRuns, enableOneWayCollision, liftOntoFloor, ONEWAY_HEIGHT } from './colliders';
 import {
+  airColumnSealed,
   buildCourse,
   lateStageEnemyQuota,
   NO_JUMP_ZONE_RUNUP,
@@ -315,6 +316,18 @@ describe('aerial anti-skip geometry', () => {
       const level = getLevel(id);
       const needed = CEILING_BUDGET[level.stage] ?? 0;
       expect(ceilingTiles(level.rows), id).toBeGreaterThanOrEqual(needed);
+    }
+  });
+
+  it('never seals a playable air column before the arena gate', () => {
+    for (const id of ALL_LEVEL_IDS) {
+      const level = getLevel(id);
+      const bossCh = level.stage < 4 ? 'm' : 'B';
+      const bossX = level.rows[GROUND_Y - 1]?.indexOf(bossCh) ?? -1;
+      const layout = getArenaLayout(bossX, level.theme, level.stage === 4, level.rows[0]?.length ?? 0);
+      for (let x = 0; x < layout.gateX; x += 1) {
+        expect(airColumnSealed(level.rows, x), `${id} sealed column @${x}`).toBe(false);
+      }
     }
   });
 });

@@ -29,6 +29,20 @@ export function rowAboveGround(tilesUp: number): number {
   return GROUND_Y - tilesUp;
 }
 
+function isSolidAirCell(ch: string | undefined): boolean {
+  return ch === '#' || ch === 'W' || ch === 'G' || ch === '@';
+}
+
+/** True when every air row in the column is a solid, so the player cannot pass. */
+export function airColumnSealed(rows: readonly string[], x: number): boolean {
+  for (let y = 0; y < GROUND_Y; y += 1) {
+    if (!isSolidAirCell(rows[y]?.[x])) {
+      return false;
+    }
+  }
+  return true;
+}
+
 /** Jumpable ledge heights in tiles above the floor. */
 export const LEDGE = {
   hop: 1,
@@ -43,6 +57,10 @@ export const LEDGE = {
 
 /** Rows filled by `hangs` — the only band that blocks a 36px player at the world top. */
 export const HANG_ROWS = [0, 1] as const;
+
+/** Jump window punched in a fully sealed pillar: 2 tiles starting at `low`. */
+export const WALL_PASS_UP = JUMP_REACH_TILES;
+export const WALL_PASS_TILES = 2;
 
 /** Ocean down-current field size. Run-up tiles on each side stay jumpable. */
 export const NO_JUMP_ZONE_WIDTH = 8;
@@ -137,6 +155,29 @@ export class Grid {
     for (const y of HANG_ROWS) {
       this.plat(x, y, w, false, tile);
     }
+  }
+
+  /** Open a jump gap in any air column that is solid from the sky to the floor. */
+  openSealedColumns(): void {
+    const fromY = rowAboveGround(WALL_PASS_UP + WALL_PASS_TILES - 1);
+    const toY = rowAboveGround(WALL_PASS_UP);
+    for (let x = 0; x < this.width; x += 1) {
+      if (!this.airColumnSealed(x)) {
+        continue;
+      }
+      for (let y = fromY; y <= toY; y += 1) {
+        this.set(x, y, '.');
+      }
+    }
+  }
+
+  private airColumnSealed(x: number): boolean {
+    for (let y = 0; y < GROUND_Y; y += 1) {
+      if (!isSolidAirCell(this.cells[y]?.[x])) {
+        return false;
+      }
+    }
+    return true;
   }
 
   column(x: number, fromY: number, toY: number, tile = '#'): void {
@@ -381,6 +422,7 @@ export function buildCourse(spec: CourseSpec, theme: Theme = 'grass'): string[] 
   for (const [x, w] of spec.hangs ?? []) {
     grid.hang(x, w);
   }
+  grid.openSealedColumns();
   for (const x of spec.enemies ?? []) {
     grid.put(x, GROUND_Y - 1, 'e');
   }

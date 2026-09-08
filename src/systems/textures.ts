@@ -655,6 +655,25 @@ function drawSolidTile(scene: Phaser.Scene, theme: Theme): void {
   commit(g, `tile-${theme}-solid`, TILE, TILE);
 }
 
+function drawFillTile(scene: Phaser.Scene, theme: Theme): void {
+  const c = tileColors(theme);
+  const g = gfx(scene);
+  g.fillStyle(c.dirt, 1);
+  g.fillRect(0, 0, TILE, TILE);
+  g.fillStyle(c.dark, 0.18);
+  g.fillRect(0, TILE - 8, TILE, 8);
+  g.fillStyle(c.speck, 0.28);
+  g.fillRect(12, 14, 6, 4);
+  g.fillRect(36, 28, 8, 5);
+  g.fillRect(20, 44, 5, 5);
+  if (theme === 'castle') {
+    g.lineStyle(2, 0x1a0c20, 0.55);
+    g.lineBetween(0, 32, TILE, 32);
+    g.lineBetween(TILE / 2, 0, TILE / 2, TILE);
+  }
+  commit(g, `tile-${theme}-fill`, TILE, TILE);
+}
+
 function arenaPalette(theme: Theme): { floor: number; inlay: number; line: number; flag: number; pole: number } {
   switch (theme) {
     case 'grass':
@@ -1607,6 +1626,363 @@ function drawSpecialFrostPath(scene: Phaser.Scene): void {
   commit(g, 'special-frost-path', w, h);
 }
 
+export const GROW_LEDGE_WIDTH = TILE * 2;
+export const GROW_LEDGE_HEIGHT = 64;
+
+function drawHangingLeaf(
+  g: Phaser.GameObjects.Graphics,
+  cx: number,
+  top: number,
+  length: number,
+  lean: number,
+  dark: number,
+  mid: number,
+  bright: number,
+): void {
+  const tipX = cx + lean;
+  const tipY = top + length;
+  const wx = length * 0.42;
+  fillPoly(g.fillStyle(0x1a3010, 1), [
+    { x: cx - 3, y: top },
+    { x: cx + 3, y: top },
+    { x: tipX + wx + 2, y: tipY - length * 0.28 },
+    { x: tipX, y: tipY + 2.5 },
+    { x: tipX - wx - 2, y: tipY - length * 0.28 },
+  ]);
+  fillPoly(g.fillStyle(dark, 1), [
+    { x: cx - 2, y: top },
+    { x: cx + 2, y: top },
+    { x: tipX + wx, y: tipY - length * 0.3 },
+    { x: tipX, y: tipY },
+    { x: tipX - wx, y: tipY - length * 0.3 },
+  ]);
+  fillPoly(g.fillStyle(mid, 1), [
+    { x: cx - 0.6, y: top + 1 },
+    { x: cx + 1.6, y: top + 1 },
+    { x: tipX + wx * 0.42, y: tipY - length * 0.38 },
+    { x: tipX + lean * 0.1, y: tipY - 5 },
+  ]);
+  g.fillStyle(bright, 0.75);
+  g.fillEllipse(cx + lean * 0.22, top + length * 0.34, 4.2, 6.5);
+}
+
+function drawHangingRoot(
+  g: Phaser.GameObjects.Graphics,
+  cx: number,
+  top: number,
+  length: number,
+  lean: number,
+): void {
+  fillPoly(g.fillStyle(0x3a2418, 1), [
+    { x: cx - 4.2, y: top },
+    { x: cx + 4.2, y: top },
+    { x: cx + lean + 1.8, y: top + length },
+    { x: cx + lean - 1.8, y: top + length },
+  ]);
+  fillPoly(g.fillStyle(0x8a5a2c, 1), [
+    { x: cx - 2.6, y: top },
+    { x: cx + 2.2, y: top },
+    { x: cx + lean + 0.6, y: top + length - 1.5 },
+    { x: cx + lean - 0.8, y: top + length - 1.5 },
+  ]);
+  fillPoly(g.fillStyle(0xc68642, 0.9), [
+    { x: cx - 1.2, y: top + 1 },
+    { x: cx + 0.8, y: top + 1 },
+    { x: cx + lean * 0.6, y: top + length * 0.62 },
+  ]);
+}
+
+function drawSpecialGrowLedge(scene: Phaser.Scene): void {
+  const w = GROW_LEDGE_WIDTH;
+  const h = GROW_LEDGE_HEIGHT;
+  const g = gfx(scene);
+  const sod = 26;
+
+  g.fillStyle(0x1a3010, 0.16);
+  g.fillEllipse(w / 2, sod + 8, 114, 14);
+
+  drawHangingRoot(g, 18, sod - 8, 24, -3);
+  drawHangingRoot(g, 50, sod - 6, 30, 2);
+  drawHangingRoot(g, 86, sod - 7, 22, -2);
+  drawHangingRoot(g, 112, sod - 8, 18, 3);
+  drawHangingLeaf(g, 32, sod - 8, 30, -8, 0x1e5a28, 0x3d8a32, 0x8ee36d);
+  drawHangingLeaf(g, 68, sod - 6, 34, 7, 0x2a6b28, 0x4aa028, 0x8ab05a);
+  drawHangingLeaf(g, 100, sod - 8, 28, 6, 0x2a7028, 0x6bcc3a, 0xc8e8d8);
+
+  fillPoly(g.fillStyle(0x3a2418, 1), [
+    { x: 3, y: 12 },
+    { x: 16, y: 4 },
+    { x: 42, y: 1 },
+    { x: 72, y: 3 },
+    { x: 104, y: 2 },
+    { x: 124, y: 10 },
+    { x: 127, y: 18 },
+    { x: 120, y: sod + 2 },
+    { x: 98, y: sod + 8 },
+    { x: 72, y: sod + 4 },
+    { x: 46, y: sod + 8 },
+    { x: 22, y: sod + 4 },
+    { x: 4, y: 18 },
+  ]);
+  fillPoly(g.fillStyle(0x6b4423, 1), [
+    { x: 7, y: 12 },
+    { x: 18, y: 6 },
+    { x: 44, y: 3 },
+    { x: 74, y: 5 },
+    { x: 102, y: 4 },
+    { x: 120, y: 11 },
+    { x: 123, y: 18 },
+    { x: 116, y: sod },
+    { x: 96, y: sod + 5 },
+    { x: 70, y: sod + 2 },
+    { x: 46, y: sod + 5 },
+    { x: 24, y: sod + 2 },
+    { x: 8, y: 18 },
+  ]);
+  fillPoly(g.fillStyle(0xc68642, 1), [
+    { x: 14, y: 14 },
+    { x: 30, y: 10 },
+    { x: 58, y: 9 },
+    { x: 90, y: 10 },
+    { x: 114, y: 15 },
+    { x: 116, y: 21 },
+    { x: 92, y: sod - 2 },
+    { x: 62, y: sod },
+    { x: 34, y: sod - 2 },
+    { x: 16, y: 20 },
+  ]);
+  g.fillStyle(0xa86b32, 0.8);
+  g.fillCircle(38, 20, 2.2);
+  g.fillCircle(78, 22, 1.8);
+  g.fillCircle(102, 18, 1.6);
+
+  fillPoly(g.fillStyle(0x2a7028, 1), [
+    { x: 8, y: 11 },
+    { x: 20, y: 4 },
+    { x: 46, y: 1 },
+    { x: 76, y: 3 },
+    { x: 106, y: 2 },
+    { x: 122, y: 10 },
+    { x: 116, y: 14 },
+    { x: 86, y: 13 },
+    { x: 52, y: 14 },
+    { x: 18, y: 13 },
+  ]);
+  fillPoly(g.fillStyle(0x6bcc3a, 1), [
+    { x: 12, y: 9 },
+    { x: 26, y: 3 },
+    { x: 54, y: 2 },
+    { x: 84, y: 3 },
+    { x: 110, y: 4 },
+    { x: 118, y: 9 },
+    { x: 106, y: 12 },
+    { x: 72, y: 11 },
+    { x: 38, y: 12 },
+    { x: 16, y: 11 },
+  ]);
+  fillPoly(g.fillStyle(0x8ee36d, 1), [
+    { x: 20, y: 7 },
+    { x: 42, y: 3 },
+    { x: 70, y: 2 },
+    { x: 98, y: 4 },
+    { x: 110, y: 7 },
+    { x: 98, y: 9 },
+    { x: 60, y: 8 },
+    { x: 28, y: 9 },
+  ]);
+
+  g.fillStyle(0x4aa028, 1);
+  for (const blade of [
+    [16, 8],
+    [40, 5],
+    [66, 4],
+    [92, 5],
+    [114, 8],
+  ]) {
+    const [bx, by] = blade;
+    g.fillTriangle(bx, by, bx - 3.4, by - 7, bx + 3.6, by);
+  }
+  g.fillStyle(0x8ee36d, 1);
+  for (const blade of [
+    [17, 8],
+    [41, 5],
+    [67, 4],
+    [93, 5],
+    [115, 8],
+  ]) {
+    const [bx, by] = blade;
+    g.fillTriangle(bx, by, bx - 1.6, by - 5, bx + 2, by);
+  }
+
+  g.fillStyle(0xff2f78, 1);
+  g.fillCircle(30, 6, 2.6);
+  g.fillCircle(86, 5, 2.4);
+  g.fillStyle(0xffe56a, 1);
+  g.fillCircle(30, 6, 1.15);
+  g.fillCircle(86, 5, 1.05);
+  g.fillStyle(0xff8ab8, 1);
+  g.fillCircle(54, 4, 1.8);
+  g.fillStyle(0xc8e8d8, 0.95);
+  g.fillCircle(106, 8, 1.4);
+
+  commit(g, 'special-grow-ledge', w, h);
+}
+
+export const SAND_DUNE_WIDTH = TILE * 2;
+export const SAND_DUNE_HEIGHT = 58;
+
+function drawSandDrip(
+  g: Phaser.GameObjects.Graphics,
+  cx: number,
+  top: number,
+  width: number,
+  length: number,
+): void {
+  const half = width / 2;
+  fillPoly(g.fillStyle(0x5a3014, 1), [
+    { x: cx - half - 1.6, y: top },
+    { x: cx + half + 1.6, y: top },
+    { x: cx + 1.4, y: top + length },
+    { x: cx - 1.4, y: top + length },
+  ]);
+  fillPoly(g.fillStyle(0x8a5a22, 1), [
+    { x: cx - half, y: top },
+    { x: cx + half, y: top },
+    { x: cx + 0.6, y: top + length - 1.5 },
+    { x: cx - 0.6, y: top + length - 1.5 },
+  ]);
+  fillPoly(g.fillStyle(0xe7bd61, 1), [
+    { x: cx - half * 0.45, y: top },
+    { x: cx + half * 0.2, y: top },
+    { x: cx - 0.2, y: top + length * 0.72 },
+  ]);
+  g.fillStyle(0xc9953f, 1);
+  g.fillCircle(cx, top + length - 1, Math.max(2.2, half * 0.7));
+}
+
+function drawSpecialSandDune(scene: Phaser.Scene): void {
+  const w = SAND_DUNE_WIDTH;
+  const h = SAND_DUNE_HEIGHT;
+  const g = gfx(scene);
+  const crest = 16;
+
+  g.fillStyle(0x5a3014, 0.18);
+  g.fillEllipse(w / 2 + 4, 32, 110, 16);
+
+  const drips: Array<{ x: number; width: number; length: number }> = [
+    { x: 22, width: 10, length: 16 },
+    { x: 42, width: 14, length: 26 },
+    { x: 64, width: 11, length: 18 },
+    { x: 86, width: 15, length: 28 },
+    { x: 108, width: 10, length: 15 },
+  ];
+  for (const drip of drips) {
+    drawSandDrip(g, drip.x, crest + 6, drip.width, drip.length);
+  }
+
+  fillPoly(g.fillStyle(0x5a3014, 1), [
+    { x: 2, y: 20 },
+    { x: 18, y: 8 },
+    { x: 44, y: 2 },
+    { x: 70, y: 1 },
+    { x: 98, y: 7 },
+    { x: 120, y: 16 },
+    { x: 126, y: 24 },
+    { x: 120, y: crest + 12 },
+    { x: 98, y: crest + 16 },
+    { x: 70, y: crest + 12 },
+    { x: 42, y: crest + 16 },
+    { x: 18, y: crest + 12 },
+    { x: 4, y: 22 },
+  ]);
+  fillPoly(g.fillStyle(0x8a5a22, 1), [
+    { x: 6, y: 19 },
+    { x: 20, y: 9 },
+    { x: 46, y: 3 },
+    { x: 70, y: 2 },
+    { x: 96, y: 8 },
+    { x: 116, y: 16 },
+    { x: 122, y: 23 },
+    { x: 116, y: crest + 10 },
+    { x: 96, y: crest + 14 },
+    { x: 68, y: crest + 10 },
+    { x: 42, y: crest + 14 },
+    { x: 20, y: crest + 10 },
+    { x: 8, y: 21 },
+  ]);
+  fillPoly(g.fillStyle(0xc9953f, 1), [
+    { x: 12, y: 17 },
+    { x: 28, y: 8 },
+    { x: 54, y: 3 },
+    { x: 80, y: 4 },
+    { x: 106, y: 12 },
+    { x: 116, y: 18 },
+    { x: 108, y: 24 },
+    { x: 78, y: 26 },
+    { x: 48, y: 25 },
+    { x: 20, y: 22 },
+  ]);
+  fillPoly(g.fillStyle(0xe8c36a, 1), [
+    { x: 16, y: 12 },
+    { x: 38, y: 4 },
+    { x: 68, y: 2 },
+    { x: 96, y: 8 },
+    { x: 112, y: 15 },
+    { x: 104, y: 18 },
+    { x: 72, y: 16 },
+    { x: 40, y: 15 },
+    { x: 20, y: 16 },
+  ]);
+  fillPoly(g.fillStyle(0xf0d48a, 1), [
+    { x: 26, y: 8 },
+    { x: 50, y: 2 },
+    { x: 76, y: 3 },
+    { x: 98, y: 9 },
+    { x: 90, y: 12 },
+    { x: 58, y: 10 },
+    { x: 32, y: 11 },
+  ]);
+
+  g.lineStyle(1.5, 0xd0a24e, 0.6);
+  g.beginPath();
+  g.moveTo(18, 18);
+  g.lineTo(48, 14);
+  g.lineTo(82, 16);
+  g.lineTo(112, 22);
+  g.strokePath();
+  g.lineStyle(1.2, 0x8a5a22, 0.4);
+  g.beginPath();
+  g.moveTo(26, 22);
+  g.lineTo(60, 20);
+  g.lineTo(94, 24);
+  g.strokePath();
+
+  g.fillStyle(0x6b4423, 0.9);
+  g.fillEllipse(36, 22, 6.5, 3.4);
+  g.fillEllipse(88, 26, 7.5, 3.8);
+  g.fillEllipse(60, 28, 5.2, 2.8);
+  g.fillStyle(0xf0d48a, 0.55);
+  g.fillEllipse(38, 21, 3.2, 1.5);
+  g.fillEllipse(90, 25, 3.4, 1.5);
+
+  g.fillStyle(0x2d6b3a, 1);
+  g.fillRoundedRect(52, 1, 5, 14, 2);
+  g.fillStyle(0x4d8a3e, 1);
+  g.fillRoundedRect(53, 2, 3, 11, 1.5);
+  g.fillStyle(0x3a5c22, 1);
+  g.fillTriangle(52, 8, 44, 4, 53, 11);
+  g.fillTriangle(57, 9, 66, 5, 56, 12);
+  g.fillStyle(0x6ad08a, 1);
+  g.fillCircle(48, 4, 1.3);
+  g.fillCircle(63, 5, 1.2);
+
+  g.fillStyle(0xfff4c4, 0.75);
+  g.fillCircle(40, 5, 1.3);
+  g.fillCircle(84, 6, 1.2);
+
+  commit(g, 'special-sand-dune', w, h);
+}
+
 function drawSpecialBubble(scene: Phaser.Scene): void {
   const g = gfx(scene);
   const cx = 64;
@@ -2337,6 +2713,8 @@ export function createGameTextures(scene: Phaser.Scene): void {
   drawCartoonStar(scene);
   drawSpecialBubble(scene);
   drawSpecialFrostPath(scene);
+  drawSpecialGrowLedge(scene);
+  drawSpecialSandDune(scene);
   drawFlyingCarpets(scene);
   drawAirJumpProps(scene);
   createLandscapeTextures(scene);
@@ -2347,6 +2725,7 @@ export function createGameTextures(scene: Phaser.Scene): void {
   for (const theme of THEMES) {
     drawSpecialAnchor(scene, theme);
     drawSolidTile(scene, theme);
+    drawFillTile(scene, theme);
     drawOnewayTile(scene, theme);
     drawArenaTile(scene, theme);
     drawArenaGateTile(scene, theme);
@@ -2360,6 +2739,10 @@ export function createGameTextures(scene: Phaser.Scene): void {
 
 export function solidTileKey(theme: Theme): string {
   return `tile-${theme}-solid`;
+}
+
+export function fillTileKey(theme: Theme): string {
+  return `tile-${theme}-fill`;
 }
 
 export function onewayTileKey(theme: Theme): string {
