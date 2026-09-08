@@ -12,13 +12,26 @@ import { SkinsScene } from './scenes/SkinsScene';
 import { TitleScene } from './scenes/TitleScene';
 import { WorldMapScene } from './scenes/WorldMapScene';
 import { audio } from './systems/audio';
+import { dismissBootSplash } from './systems/boot-splash';
 import { bootHudPause, layoutHudPause } from './systems/hud-pause';
 import { bootTouchControls, watchLandscapePrompt } from './systems/touch-controls';
 import { bindGameToViewport, bootViewport } from './systems/viewport';
 
-if (import.meta.env.PROD) {
-  registerSW({ immediate: true });
+function registerProductionSW(): void {
+  if (!import.meta.env.PROD) {
+    return;
+  }
+  const start = (): void => {
+    registerSW({ immediate: true });
+  };
+  if (typeof requestIdleCallback === 'function') {
+    requestIdleCallback(start, { timeout: 2500 });
+    return;
+  }
+  globalThis.setTimeout(start, 2500);
 }
+
+registerProductionSW();
 audio.install();
 
 const config: Phaser.Types.Core.GameConfig = {
@@ -56,6 +69,12 @@ const game = new Phaser.Game(config);
 bindGameToViewport(game);
 watchLandscapePrompt(game);
 game.scale.on('resize', layoutHudPause);
+globalThis.setTimeout(() => {
+  if (game.scene.isActive('BootScene') && !game.scene.isActive('TitleScene')) {
+    game.scene.start('TitleScene');
+  }
+  dismissBootSplash();
+}, 3500);
 if (import.meta.env.DEV) {
   Object.assign(window, { __rs4: game });
 }
