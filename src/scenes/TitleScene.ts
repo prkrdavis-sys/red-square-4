@@ -98,6 +98,7 @@ export class TitleScene extends Phaser.Scene {
 
     const entries: Array<{ label: string; action: () => void }> = [
       { label: hasProgress ? 'CONTINUE' : 'PLAY', action: startCampaign },
+      { label: 'PLAY WITH FRIENDS', action: () => this.scene.start('CoopScene') },
       { label: 'SKINS', action: () => launchOverlay(this, 'SkinsScene') },
       { label: 'SETTINGS', action: () => launchOverlay(this, 'SettingsScene') },
       { label: 'CREDITS', action: () => launchOverlay(this, 'CreditsScene') },

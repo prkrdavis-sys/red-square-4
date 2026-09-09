@@ -7,6 +7,8 @@ export const RECORDED_THEME_URLS: Record<Theme, string> = {
   ocean: 'assets/audio/ocean-overworld.mp3',
   castle: 'assets/audio/castle-overworld.mp3',
   rainforest: 'assets/audio/rainforest-overworld.mp3',
+  beach: 'assets/audio/grass-overworld.mp3',
+  'rainy-city': '',
 };
 
 export const LOOP_FADE_SECONDS = 2.5;
@@ -25,6 +27,10 @@ export function recordedThemeUrl(theme: Theme): string {
       return RECORDED_THEME_URLS.castle;
     case 'rainforest':
       return RECORDED_THEME_URLS.rainforest;
+    case 'beach':
+      return RECORDED_THEME_URLS.grass;
+    case 'rainy-city':
+      return RECORDED_THEME_URLS['rainy-city'];
     default: {
       const neverTheme: never = theme;
       return neverTheme;

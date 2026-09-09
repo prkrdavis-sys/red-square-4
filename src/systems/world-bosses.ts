@@ -410,6 +410,65 @@ function drawHowler(g: Phaser.GameObjects.Graphics, pose: CharacterPose): void {
   paintEye(g, cx + 10, cy - 18, pose, 10, 11);
 }
 
+function drawCrab(g: Phaser.GameObjects.Graphics, pose: CharacterPose): void {
+  const p = poseDraw(pose);
+  const cx = 64 + p.lean * 0.2;
+  const cy = 70 + p.dy;
+  const pinch = pose === 'attack' ? -10 : 0;
+  for (const side of [-1, 1]) {
+    for (let i = 0; i < 3; i += 1) {
+      inkRoundRect(g, cx + side * (12 + i * 8) - 4, cy + 8 + i * 3, 8, 18, 3, 0xc45a28);
+    }
+  }
+  inkEllipse(g, cx, cy, 52 * p.squash, 36, 0xe85042);
+  g.fillStyle(0x982820, 1);
+  g.fillEllipse(cx + 6, cy + 8, 28, 18);
+  g.fillStyle(0xffa090, 1);
+  g.fillEllipse(cx - 4, cy - 6, 22, 14);
+  inkEllipse(g, cx - 40, cy - 8 + pinch, 24, 18, 0xc45a28);
+  inkEllipse(g, cx + 40, cy - 8 + pinch, 24, 18, 0xc45a28);
+  inkTriangle(g, cx - 52, cy - 14 + pinch, cx - 52, cy + pinch, cx - 70, cy - 8 + pinch, 0xe85042);
+  inkTriangle(g, cx + 52, cy - 14 + pinch, cx + 52, cy + pinch, cx + 70, cy - 8 + pinch, 0xe85042);
+  inkCircle(g, cx - 14, cy - 16, 8, 0xe85042);
+  inkCircle(g, cx + 14, cy - 16, 8, 0xe85042);
+  paintEye(g, cx - 14, cy - 18, pose, 10, 11);
+  paintEye(g, cx + 14, cy - 18, pose, 10, 11);
+}
+
+function drawSewerCroc(g: Phaser.GameObjects.Graphics, pose: CharacterPose): void {
+  const p = poseDraw(pose);
+  const cx = 64 + p.lean * 0.25;
+  const cy = 69 + p.dy;
+  const jaw = pose === 'attack' ? 14 : pose === 'hurt' ? -3 : 4;
+  inkEllipse(g, cx - 8, cy + 8, 82 * p.squash, 46, 0x2f7c5b);
+  g.fillStyle(0x194936, 1);
+  g.fillEllipse(cx + 5, cy + 17, 58, 24);
+  inkEllipse(g, cx + 25, cy - 8, 66, 30, 0x3e9b72);
+  inkRoundRect(g, cx + 22, cy - 7, 58, 16 + jaw, 7, 0x2f7c5b);
+  g.fillStyle(0xd8f0b0, 1);
+  for (let x = cx + 28; x < cx + 72; x += 11) {
+    g.fillTriangle(x, cy + 3, x + 5, cy + 3, x + 2, cy + 9 + jaw * 0.35);
+  }
+  for (let i = 0; i < 5; i += 1) {
+    inkTriangle(
+      g,
+      cx - 45 + i * 16,
+      cy - 10,
+      cx - 37 + i * 16,
+      cy - 29 - (i % 2) * 5,
+      cx - 29 + i * 16,
+      cy - 10,
+      0x63b586,
+    );
+  }
+  inkRoundRect(g, cx - 34, cy + 26, 18, 24, 6, 0x194936);
+  inkRoundRect(g, cx + 5, cy + 26, 18, 24, 6, 0x194936);
+  g.fillStyle(0xd84cff, 1);
+  g.fillRect(cx - 46, cy + 4, 58, 6);
+  paintEye(g, cx + 18, cy - 17, pose, 11, 12);
+  paintEye(g, cx + 38, cy - 16, pose, 11, 12);
+}
+
 function drawKind(g: Phaser.GameObjects.Graphics, kind: BossKind, pose: CharacterPose): void {
   switch (kind) {
     case 'piranha':
@@ -429,6 +488,12 @@ function drawKind(g: Phaser.GameObjects.Graphics, kind: BossKind, pose: Characte
       return;
     case 'howler':
       drawHowler(g, pose);
+      return;
+    case 'crab':
+      drawCrab(g, pose);
+      return;
+    case 'sewer-croc':
+      drawSewerCroc(g, pose);
       return;
     default: {
       const neverKind: never = kind;

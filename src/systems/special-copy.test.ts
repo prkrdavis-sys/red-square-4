@@ -9,6 +9,8 @@ const COPY: Record<SpecialKind, { label: string; description: string }> = {
   'bubble-pulse': { label: 'Bubble', description: 'Launch yourself on a rising bubble.' },
   'shadow-blink': { label: 'Blink', description: 'Blink a short distance in the direction you face.' },
   'liana-swing': { label: 'Swing', description: 'Grab a vine and swing forward.' },
+  'tide-wall': { label: 'Tide', description: 'Send a short-lived wave you can stand on.' },
+  'lightning-pulse': { label: 'Lightning', description: 'Call lightning to power gates and short out nearby threats.' },
 };
 
 describe('world special copy', () => {

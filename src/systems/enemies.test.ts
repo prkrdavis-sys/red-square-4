@@ -6,8 +6,8 @@ const POSES = ['idle', 'move', 'attack', 'hurt', 'dead'] as const;
 
 describe('world enemy art', () => {
   it('gives every enemy its own generated frames', () => {
-    expect(ENEMY_KINDS).toHaveLength(12);
-    expect(new Set(ENEMY_KINDS).size).toBe(12);
+    expect(ENEMY_KINDS).toHaveLength(16);
+    expect(new Set(ENEMY_KINDS).size).toBe(16);
     for (const kind of ENEMY_KINDS) {
       expect(enemyTextureKeys(kind)).toEqual(POSES.map((pose) => `enemy-${kind}-${pose}`));
     }
@@ -15,7 +15,7 @@ describe('world enemy art', () => {
 
   it('does not share enemy textures across worlds', () => {
     const used = new Map<string, number>();
-    for (let world = 1; world <= 6; world += 1) {
+    for (let world = 1; world <= 8; world += 1) {
       for (const kind of enemiesForWorld(world)) {
         for (const pose of POSES) {
           const key = enemyTextureKey(kind, pose);

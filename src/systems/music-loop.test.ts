@@ -11,7 +11,8 @@ describe('recorded theme tracks', () => {
     expect(recordedThemeUrl('ocean')).toBe('assets/audio/ocean-overworld.mp3');
     expect(recordedThemeUrl('castle')).toBe('assets/audio/castle-overworld.mp3');
     expect(recordedThemeUrl('rainforest')).toBe('assets/audio/rainforest-overworld.mp3');
-    for (const theme of THEMES) {
+    expect(recordedThemeUrl('rainy-city')).toBe('');
+    for (const theme of THEMES.filter((theme) => theme !== 'rainy-city')) {
       expect(recordedThemeUrl(theme).length).toBeGreaterThan(0);
     }
   });

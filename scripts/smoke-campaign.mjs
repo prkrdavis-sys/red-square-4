@@ -1,9 +1,11 @@
 import { chromium } from 'playwright';
 
 const baseUrl = process.env.SMOKE_URL ?? 'http://127.0.0.1:5173';
-const levels = Array.from({ length: 6 }, (_, worldIndex) =>
+const levels = Array.from({ length: 8 }, (_, worldIndex) =>
   Array.from({ length: 4 }, (_, stageIndex) => `${worldIndex + 1}-${stageIndex + 1}`),
 ).flat();
+const requestedLevels = process.env.SMOKE_LEVELS?.split(',').filter((id) => levels.includes(id));
+const desktopLevels = requestedLevels?.length ? requestedLevels : levels;
 
 function saveFor(levelId) {
   return {
@@ -32,20 +34,26 @@ async function enterLevel(page, levelId) {
     ({ key, save }) => localStorage.setItem(key, JSON.stringify(save)),
     { key: 'red-square-4-save-v2', save: saveFor(levelId) },
   );
-  await page.goto(baseUrl, { waitUntil: 'networkidle' });
+  await page.goto(baseUrl, { waitUntil: 'domcontentloaded' });
   await page.locator('#app canvas').waitFor({ state: 'visible' });
-  await page.waitForTimeout(350);
+  await page.waitForFunction(() => window.__rs4?.scene.isActive('TitleScene') === true);
   await page.keyboard.press('Enter');
-  await page.waitForTimeout(280);
+  await page.waitForFunction(() => window.__rs4?.scene.isActive('WorldMapScene') === true);
   await page.keyboard.press('Enter');
-  await page.waitForTimeout(520);
+  await page.waitForFunction(
+    (expected) => document.querySelector('#app canvas')?.dataset.levelId === expected,
+    levelId,
+  );
 }
 
 async function smokeViewport(browser, viewportName, contextOptions, levelIds) {
   const failures = [];
   for (const levelId of levelIds) {
+    console.log(`Smoke ${viewportName} ${levelId}`);
     const context = await browser.newContext(contextOptions);
     const page = await context.newPage();
+    page.setDefaultTimeout(30_000);
+    page.setDefaultNavigationTimeout(30_000);
     const errors = [];
     page.on('pageerror', (error) => errors.push(`pageerror: ${error.message}`));
     page.on('console', (message) => {
@@ -65,7 +73,9 @@ async function smokeViewport(browser, viewportName, contextOptions, levelIds) {
         await page.waitForFunction(
           () => document.querySelector('#app canvas')?.dataset.controlsHint === '1',
         );
-        await page.keyboard.press('Enter');
+        await page.evaluate((id) => {
+          window.__rs4?.scene.start('PlayScene', { levelId: id, skipControlsHint: true });
+        }, levelId);
         await page.waitForFunction(
           () => document.querySelector('#app canvas')?.dataset.controlsHint !== '1',
         );
@@ -102,7 +112,9 @@ async function smokeViewport(browser, viewportName, contextOptions, levelIds) {
         await page.screenshot({ path: `/tmp/red-square-${viewportName}-${levelId}.png` });
       }
     } catch (error) {
-      errors.push(error instanceof Error ? error.stack ?? error.message : String(error));
+      const detail = error instanceof Error ? error.stack ?? error.message : String(error);
+      console.error(`Smoke ${viewportName} ${levelId} failed: ${detail}`);
+      errors.push(detail);
     }
 
     if (errors.length > 0) {
@@ -118,7 +130,7 @@ const desktopFailures = await smokeViewport(
   browser,
   'desktop',
   { viewport: { width: 1280, height: 720 } },
-  levels,
+  desktopLevels,
 );
 const mobileFailures = await smokeViewport(
   browser,
@@ -130,7 +142,7 @@ const mobileFailures = await smokeViewport(
     isMobile: true,
     deviceScaleFactor: 2,
   },
-  ['1-1', '2-2', '3-3', '4-4', '5-4', '6-4'],
+  requestedLevels?.length ? [] : ['1-1', '2-2', '3-3', '4-4', '5-4', '6-4', '7-4', '8-4'],
 );
 await browser.close();
 
@@ -139,5 +151,5 @@ if (failures.length > 0) {
   console.error(JSON.stringify(failures, null, 2));
   process.exitCode = 1;
 } else {
-  console.log(`Smoke-tested ${levels.length} desktop levels and 6 landscape-touch representatives.`);
+  console.log(`Smoke-tested ${desktopLevels.length} desktop levels and ${requestedLevels?.length ? 0 : 8} landscape-touch representatives.`);
 }

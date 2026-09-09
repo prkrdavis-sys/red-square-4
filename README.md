@@ -1,6 +1,6 @@
 # Red Square 4
 
-A Mario-inspired 2D platformer. You are a red square. The baddies are black-and-grey circles with red evil eyes. Six worlds, twenty-four courses, mini-bosses, and a 3-stomp world boss at the end of each castle.
+A Mario-inspired 2D platformer. You are a red square. The baddies are black-and-grey circles with red evil eyes. Eight worlds, thirty-two courses, mini-bosses, and a world boss at the end of each world.
 
 ## Play
 
@@ -11,6 +11,15 @@ npm run dev
 ```
 
 Open the URL Vite prints (usually `http://localhost:5173`). On a phone, use the LAN address Vite prints so you can add it to the home screen.
+
+## Online co-op
+
+Choose **Co-op** on the title screen to create a persistent friend code, add
+friends, invite an online friend, and select any level the host has unlocked.
+Co-op uses Firebase for anonymous player profiles, friends, presence, invites,
+and WebRTC signaling; gameplay then travels directly between the two players.
+See [`docs/FIREBASE_SOCIAL_SETUP.md`](docs/FIREBASE_SOCIAL_SETUP.md) before
+running co-op locally or deploying it.
 
 ## Install on a phone
 
@@ -33,7 +42,7 @@ Home-screen install needs HTTPS (or localhost). Deploy the `dist` folder, or run
 
 ## Campaign
 
-World map in the Super Mario Bros. 3 style: `1-1` through `6-4`.
+World map in the Super Mario Bros. 3 style: `1-1` through `8-4`.
 
 | World | Theme |
 | --- | --- |
@@ -43,7 +52,9 @@ World map in the Super Mario Bros. 3 style: `1-1` through `6-4`.
 | 4 | Deep ocean (floatier jump) |
 | 5 | Evil castle (lava) |
 | 6 | Rainforest (liana swing) |
+| 7 | Beach (tide wall) |
+| 8 | Neon Downpour (awning wall-jump and lightning pulse) |
 
-Stages `x-1`–`x-3` end with a 1-stomp mini-boss. Stage `x-4` is a 3-stomp world boss: he poofs away, a victory jingle plays, and the world is cleared.
+Stages `x-1`–`x-3` end with a 3-stomp mini-boss. Stage `x-4` is a 5-stomp world boss: he poofs away, a victory jingle plays, and the world is cleared.
 
 Progress is saved in the browser. Use **Continue** on the main menu, or **New Game** to wipe unlocks.

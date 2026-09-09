@@ -400,6 +400,60 @@ function drawRainforest(g: Phaser.GameObjects.Graphics, variant: MiniBossVariant
   paintFeet(g, cx, cy + hh - 8, pose, 0x4a3420, 16);
 }
 
+function drawBeach(g: Phaser.GameObjects.Graphics, variant: MiniBossVariant, pose: CharacterPose): void {
+  const p = poseDraw(pose);
+  const cx = 64 + p.lean;
+  const cy = 68 + p.dy;
+  const r = 36 + (variant === 3 ? 5 : 0);
+  inkEllipse(g, cx + 8, cy, (r + 8) * p.squash, 34, 0xc45a28);
+  g.fillStyle(0x8a3014, 1);
+  g.fillEllipse(cx + 10, cy + 8, 22, 16);
+  g.fillStyle(0xf0c48a, 1);
+  g.fillEllipse(cx, cy - 6, 20, 14);
+  inkEllipse(g, cx - 22, cy + 4, 22, 18, 0xe8a05a);
+  const pinch = pose === 'attack' ? -8 : 0;
+  inkEllipse(g, cx - 38, cy + pinch, 18, 14, 0xc45a28);
+  inkTriangle(g, cx - 48, cy - 6 + pinch, cx - 48, cy + 4 + pinch, cx - 62, cy - 2 + pinch, 0xe8a05a);
+  if (variant >= 2) {
+    inkRoundRect(g, cx - 18, cy + 18, 8, 20, 3, 0xe8a05a);
+    inkRoundRect(g, cx + 10, cy + 18, 8, 20, 3, 0xe8a05a);
+  }
+  if (variant === 3) {
+    inkCircle(g, cx + 16, cy - 22, 8, 0x3aa0d8);
+    g.fillStyle(0xfff4c4, 1);
+    g.fillCircle(cx + 16, cy - 22, 3);
+  }
+  paintFace(g, cx - 8, cy - 4, pose, 11);
+  paintFeet(g, cx, cy + r - 6, pose, 0x8a5a22, 14);
+}
+
+function drawRainyCity(g: Phaser.GameObjects.Graphics, variant: MiniBossVariant, pose: CharacterPose): void {
+  const p = poseDraw(pose);
+  const cx = 64 + p.lean;
+  const cy = 67 + p.dy;
+  const body = variant === 1 ? 0x59647f : variant === 2 ? 0x8b557f : 0x3b4358;
+  if (variant === 3) {
+    inkRoundRect(g, cx - 52, cy + 18, 104, 27, 10, 0xd84cff);
+    inkCircle(g, cx - 36, cy + 43, 14, 0x111827);
+    inkCircle(g, cx + 36, cy + 43, 14, 0x111827);
+    g.fillStyle(0x63e8ff, 0.9);
+    g.fillCircle(cx + 48, cy + 28, 6);
+  }
+  inkEllipse(g, cx, cy, 74 * p.squash, 58, body);
+  inkCircle(g, cx - 4, cy - 30, 28, body);
+  inkTriangle(g, cx - 28, cy - 42, cx - 22, cy - 68, cx - 8, cy - 48, body);
+  inkTriangle(g, cx + 10, cy - 49, cx + 24, cy - 68, cx + 26, cy - 38, body);
+  g.fillStyle(0xd84cff, 1);
+  g.fillRect(cx - 34, cy + 4, 68, 7);
+  if (variant === 2) {
+    inkCircle(g, cx + 36, cy - 8, 13, 0x30384a);
+    g.fillStyle(0x71809a, 0.7);
+    g.fillCircle(cx + 32, cy - 12, 4);
+  }
+  paintFace(g, cx - 4, cy - 27, pose, 13);
+  paintFeet(g, cx, cy + 28, pose, 0x20283a, 17);
+}
+
 function drawTheme(
   g: Phaser.GameObjects.Graphics,
   theme: Theme,
@@ -424,6 +478,12 @@ function drawTheme(
       return;
     case 'rainforest':
       drawRainforest(g, variant, pose);
+      return;
+    case 'beach':
+      drawBeach(g, variant, pose);
+      return;
+    case 'rainy-city':
+      drawRainyCity(g, variant, pose);
       return;
     default: {
       const neverTheme: never = theme;

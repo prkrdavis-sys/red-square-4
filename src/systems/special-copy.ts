@@ -7,6 +7,8 @@ const LABELS: Record<SpecialKind, string> = {
   'bubble-pulse': 'Bubble',
   'shadow-blink': 'Blink',
   'liana-swing': 'Swing',
+  'tide-wall': 'Tide',
+  'lightning-pulse': 'Lightning',
 };
 
 const DESCRIPTIONS: Record<SpecialKind, string> = {
@@ -16,6 +18,8 @@ const DESCRIPTIONS: Record<SpecialKind, string> = {
   'bubble-pulse': 'Launch yourself on a rising bubble.',
   'shadow-blink': 'Blink a short distance in the direction you face.',
   'liana-swing': 'Grab a vine and swing forward.',
+  'tide-wall': 'Send a short-lived wave you can stand on.',
+  'lightning-pulse': 'Call lightning to power gates and short out nearby threats.',
 };
 
 export function specialLabel(kind: SpecialKind): string {

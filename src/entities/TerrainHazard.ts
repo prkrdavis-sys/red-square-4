@@ -11,8 +11,10 @@ import { projectileFlightSpeed, projectileStyleForKind } from '../systems/projec
 import { EnemyProjectile } from './EnemyProjectile';
 import {
   FIRST_HAZARD_DELAY_MS,
+  ELECTRIC_PUDDLE_TILES,
   FLAME_JET_TILES,
   ICE_BEAM_TILES,
+  MORTAR_MUZZLE_LIFT_PX,
   SONAR_COLUMN_TILES,
   beamLethal,
   beamTextureKey,
@@ -24,8 +26,11 @@ import {
   hazardTelegraphMs,
   hazardTextureKey,
   hazardUsesGravity,
+  mortarVelocities,
   pitcherBlockedByStand,
   shotgunVelocities,
+  urchinIdleTextureKey,
+  urchinVelocities,
   type TerrainHazardSpawn,
 } from './terrain-hazard';
 
@@ -41,6 +46,7 @@ export class TerrainHazard extends Phaser.Physics.Arcade.Sprite {
   private beam?: Phaser.GameObjects.Image;
   private charge?: Phaser.GameObjects.Sprite;
   private dartFired = false;
+  private idleStartedAt = 0;
 
   constructor(
     scene: Phaser.Scene,
@@ -75,6 +81,7 @@ export class TerrainHazard extends Phaser.Physics.Arcade.Sprite {
       return;
     }
     this.armed = true;
+    this.idleStartedAt = this.scene.time.now;
     this.nextCycleAt = this.scene.time.now + FIRST_HAZARD_DELAY_MS + (this.spawn.x % 5) * 90;
   }
 
@@ -153,6 +160,9 @@ export class TerrainHazard extends Phaser.Physics.Arcade.Sprite {
     this.setScale(1);
     this.clearTint();
     this.fireProjectiles(player, projectiles);
+    if (this.spawn.kind === 'urchin-ball') {
+      this.setTexture('hazard-urchin-ball-bald');
+    }
     this.tickAttack(now, player, projectiles);
   }
 
@@ -181,6 +191,7 @@ export class TerrainHazard extends Phaser.Physics.Arcade.Sprite {
 
   private restIdle(): void {
     this.phase = 'idle';
+    this.idleStartedAt = this.scene.time.now;
     this.clearCharge();
     this.setAngle(0);
     this.setScale(1);
@@ -211,6 +222,9 @@ export class TerrainHazard extends Phaser.Physics.Arcade.Sprite {
     this.setScale(0.94 + t * 0.12, 1.04 + t * 0.16);
     const flash = Math.sin(now / (70 - t * 36));
     this.setTint(flash > 0 ? 0xfff3c4 : telegraphTint(this.spawn.kind));
+    if (this.spawn.kind === 'urchin-ball') {
+      this.setTexture('hazard-urchin-ball-windup');
+    }
     this.updateCharge(now, t);
   }
 
@@ -220,6 +234,10 @@ export class TerrainHazard extends Phaser.Physics.Arcade.Sprite {
       this.y = hazardWorldY(this.spawn) + 10;
       this.syncStaticBody();
     }
+    if (this.spawn.kind === 'urchin-ball') {
+      const elapsed = this.scene.time.now - this.idleStartedAt;
+      this.setTexture(urchinIdleTextureKey(elapsed, hazardCooldownMs('urchin-ball')));
+    }
   }
 
   private fireProjectiles(player: Phaser.Physics.Arcade.Sprite, projectiles: Phaser.Physics.Arcade.Group): void {
@@ -228,9 +246,14 @@ export class TerrainHazard extends Phaser.Physics.Arcade.Sprite {
       return;
     }
     const style = projectileStyleForKind(this.projectileKind);
-    const speed = projectileFlightSpeed(style, hazardUsesGravity(kind));
     const muzzle = this.muzzle();
-    for (const velocity of shotgunVelocities(speed)) {
+    const velocities =
+      kind === 'needle-mortar'
+        ? mortarVelocities(this.scene.physics.world.gravity.y)
+        : kind === 'urchin-ball'
+          ? urchinVelocities(projectileFlightSpeed(style, false))
+          : shotgunVelocities(projectileFlightSpeed(style, false));
+    for (const velocity of velocities) {
       const shot = new EnemyProjectile(
         this.scene,
         muzzle.x,
@@ -276,6 +299,9 @@ export class TerrainHazard extends Phaser.Physics.Arcade.Sprite {
   private muzzle(): { x: number; y: number } {
     if (this.spawn.mount === 'hill') {
       return { x: this.x + this.spawn.facing * 22, y: this.y - 4 };
+    }
+    if (this.spawn.kind === 'needle-mortar') {
+      return { x: this.x, y: this.y - MORTAR_MUZZLE_LIFT_PX };
     }
     return { x: this.x, y: this.y - 22 };
   }
@@ -353,6 +379,10 @@ function telegraphTint(kind: TerrainHazardKind): number {
       return 0xff6a3a;
     case 'pitcher-snare':
       return 0x6ad08a;
+    case 'urchin-ball':
+      return 0xd45aa0;
+    case 'power-box':
+      return 0x63e8ff;
     default: {
       const neverKind: never = kind;
       return neverKind;
@@ -392,9 +422,16 @@ function createBeam(
       beam.setPosition(originX, originY - 18);
       break;
     }
+    case 'power-box': {
+      beam.setOrigin(0.5, 0.5);
+      beam.setDisplaySize(ELECTRIC_PUDDLE_TILES * TILE, 20);
+      beam.setPosition(originX, originY - 18);
+      break;
+    }
     case 'bramble-vent':
     case 'needle-mortar':
     case 'pitcher-snare':
+    case 'urchin-ball':
       break;
     default: {
       const neverKind: never = spawn.kind;

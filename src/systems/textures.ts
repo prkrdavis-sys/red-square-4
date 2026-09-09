@@ -378,6 +378,15 @@ function paintBossTrim(g: Phaser.GameObjects.Graphics, item: HeldItem, palette: 
       g.fillStyle(0x8ae070, 1);
       g.fillCircle(24, 27, 1.8);
       return;
+    case 'conch':
+      g.fillStyle(0xc45a28, 1);
+      g.fillRoundedRect(8, 26, 32, 6, 2);
+      g.fillStyle(0xf0c48a, 1);
+      g.fillEllipse(16, 29, 8, 6);
+      g.fillEllipse(28, 28, 10, 7);
+      g.fillStyle(0xffe08a, 1);
+      g.fillCircle(36, 29, 3);
+      return;
     default: {
       const neverItem: never = item;
       return neverItem;
@@ -472,6 +481,14 @@ function paintHeldItem(g: Phaser.GameObjects.Graphics, item: HeldItem, pose: Her
       g.fillCircle(x + 2, y + 4, 2);
       g.fillStyle(0x8ae070, 1);
       g.fillCircle(x + 4, y + 2, 1.4);
+      return;
+    case 'conch':
+      g.fillStyle(0xc45a28, 1);
+      g.fillEllipse(x + 2, y + 10, 8, 12);
+      g.fillStyle(0xf0c48a, 1);
+      g.fillEllipse(x + 2, y + 9, 5, 8);
+      g.fillStyle(0xffe08a, 1);
+      g.fillCircle(x + 1, y + 6, 1.6);
       return;
     default: {
       const neverItem: never = item;
@@ -620,6 +637,10 @@ function tileColors(theme: Theme): { top: number; mid: number; dirt: number; dar
       return { top: 0x5a3d66, mid: 0x3e2948, dirt: 0x2a1c32, dark: 0x120814, speck: 0x6e4a7a };
     case 'rainforest':
       return { top: 0x3a9a3a, mid: 0x2a7028, dirt: 0x4a3420, dark: 0x2a1c10, speck: 0x6a8a32 };
+    case 'beach':
+      return { top: 0xf4d890, mid: 0xe0b05a, dirt: 0xd4a05a, dark: 0x8a5a22, speck: 0xfff4c4 };
+    case 'rainy-city':
+      return { top: 0x71809a, mid: 0x46536c, dirt: 0x29344b, dark: 0x111827, speck: 0x55dff2 };
     default: {
       const neverTheme: never = theme;
       return neverTheme;
@@ -651,6 +672,12 @@ function drawSolidTile(scene: Phaser.Scene, theme: Theme): void {
     g.fillRect(14, 8, 4, 8);
     g.fillEllipse(16, 8, 10, 6);
     g.fillEllipse(22, 10, 8, 5);
+  } else if (theme === 'rainy-city') {
+    g.lineStyle(2, 0x111827, 0.8);
+    g.lineBetween(2, 22, TILE - 2, 22);
+    g.lineBetween(TILE / 2, 22, TILE / 2, TILE - 2);
+    g.fillStyle(0x55dff2, 0.32);
+    g.fillRect(6, 7, TILE - 12, 3);
   }
   commit(g, `tile-${theme}-solid`, TILE, TILE);
 }
@@ -688,6 +715,10 @@ function arenaPalette(theme: Theme): { floor: number; inlay: number; line: numbe
       return { floor: 0x2a1c32, inlay: 0x6e4a7a, line: 0x8a3048, flag: 0x8a2030, pole: 0x3e2948 };
     case 'rainforest':
       return { floor: 0x3a2814, inlay: 0x1e5a28, line: 0x8ab05a, flag: 0x2d8a3a, pole: 0x4a3018 };
+    case 'beach':
+      return { floor: 0xc9953f, inlay: 0x2aa0c8, line: 0xfff4c4, flag: 0x3aa0d8, pole: 0x8a5a22 };
+    case 'rainy-city':
+      return { floor: 0x202b40, inlay: 0x394861, line: 0x55dff2, flag: 0xd84cff, pole: 0x71809a };
     default: {
       const neverTheme: never = theme;
       return neverTheme;
@@ -709,6 +740,10 @@ function masonryColors(theme: Theme): { brick: number; brickAlt: number; mortar:
       return { brick: 0x6a5a78, brickAlt: 0x4e3e5c, mortar: 0x241828, highlight: 0x9a88a8 };
     case 'rainforest':
       return { brick: 0x4a6a32, brickAlt: 0x3a5428, mortar: 0x1a2810, highlight: 0x7aaa4a };
+    case 'beach':
+      return { brick: 0xd4a05a, brickAlt: 0xb88632, mortar: 0x6a4420, highlight: 0xffe08a };
+    case 'rainy-city':
+      return { brick: 0x45536c, brickAlt: 0x303c53, mortar: 0x111827, highlight: 0x71809a };
     default: {
       const neverTheme: never = theme;
       return neverTheme;
@@ -950,6 +985,8 @@ function drawTerrainHazards(scene: Phaser.Scene): void {
   drawIceBeam(scene);
   drawSonarBeam(scene);
   drawFlameBeam(scene);
+  drawElectricBeam(scene);
+  drawUrchinFrames(scene);
 }
 
 function paintHazardSocket(g: Phaser.GameObjects.Graphics, kind: TerrainHazardKind): void {
@@ -1030,10 +1067,75 @@ function paintHazardSocket(g: Phaser.GameObjects.Graphics, kind: TerrainHazardKi
       g.fillTriangle(18, 34, 10, 22, 24, 30);
       g.fillTriangle(46, 34, 54, 20, 40, 30);
       return;
+    case 'urchin-ball':
+      paintUrchinBody(g, 'full');
+      return;
+    case 'power-box':
+      g.fillStyle(0x172033, 1);
+      g.fillRoundedRect(9, 18, 46, 58, 5);
+      g.fillStyle(0x46536c, 1);
+      g.fillRoundedRect(13, 22, 38, 50, 3);
+      g.fillStyle(0xf0c84a, 1);
+      g.fillTriangle(32, 28, 22, 48, 31, 48);
+      g.fillTriangle(31, 44, 42, 44, 28, 66);
+      g.lineStyle(3, 0x63e8ff, 0.9);
+      g.strokeRoundedRect(15, 24, 34, 46, 3);
+      return;
     default: {
       const neverKind: never = kind;
       return neverKind;
     }
+  }
+}
+
+type UrchinStage = 'bald' | 'half' | 'full' | 'windup';
+
+function paintUrchinBody(g: Phaser.GameObjects.Graphics, stage: UrchinStage): void {
+  const spikeScale = stage === 'bald' ? 0 : stage === 'half' ? 0.55 : stage === 'windup' ? 1.18 : 1;
+  g.fillStyle(0x3a2814, 1);
+  g.fillEllipse(32, 70, 28, 10);
+  g.fillStyle(0x4a3068, 1);
+  g.fillCircle(32, 48, 18);
+  g.fillStyle(0x6a48a0, 1);
+  g.fillCircle(32, 46, 15);
+  g.fillStyle(0x8a68c8, 1);
+  g.fillCircle(26, 42, 6);
+  if (spikeScale > 0) {
+    for (let i = 0; i < 8; i += 1) {
+      const angle = (Math.PI * 2 * i) / 8 - Math.PI / 2;
+      const inner = 14;
+      const outer = 14 + 16 * spikeScale;
+      const x1 = 32 + Math.cos(angle) * inner;
+      const y1 = 46 + Math.sin(angle) * inner;
+      const x2 = 32 + Math.cos(angle) * outer;
+      const y2 = 46 + Math.sin(angle) * outer;
+      const spread = 0.22;
+      g.fillStyle(stage === 'windup' ? 0xffe08a : 0x2a1a40, 1);
+      g.fillTriangle(
+        32 + Math.cos(angle - spread) * inner,
+        46 + Math.sin(angle - spread) * inner,
+        x2,
+        y2,
+        32 + Math.cos(angle + spread) * inner,
+        46 + Math.sin(angle + spread) * inner,
+      );
+      g.fillStyle(stage === 'windup' ? 0xfff4c4 : 0x8a68c8, 1);
+      g.fillTriangle(x1, y1, x2, y2, 32 + Math.cos(angle + 0.08) * (inner + 2), 46 + Math.sin(angle + 0.08) * (inner + 2));
+    }
+  }
+  g.fillStyle(0x1a1018, 1);
+  g.fillCircle(26, 44, 2.4);
+  g.fillCircle(38, 44, 2.4);
+  g.fillStyle(0xfff4c4, 1);
+  g.fillCircle(26, 43, 1);
+  g.fillCircle(38, 43, 1);
+}
+
+function drawUrchinFrames(scene: Phaser.Scene): void {
+  for (const stage of ['bald', 'half', 'windup'] as const) {
+    const g = gfx(scene);
+    paintUrchinBody(g, stage);
+    commit(g, `hazard-urchin-ball-${stage}`, TILE, 80);
   }
 }
 
@@ -1066,6 +1168,24 @@ function drawFlameBeam(scene: Phaser.Scene): void {
   commit(g, 'beam-flame', 64, 20);
 }
 
+function drawElectricBeam(scene: Phaser.Scene): void {
+  const g = gfx(scene);
+  g.fillStyle(0x176680, 0.6);
+  g.fillRoundedRect(0, 4, 64, 14, 7);
+  g.lineStyle(4, 0x63e8ff, 1);
+  g.beginPath();
+  g.moveTo(0, 12);
+  g.lineTo(14, 6);
+  g.lineTo(24, 15);
+  g.lineTo(39, 5);
+  g.lineTo(52, 14);
+  g.lineTo(64, 8);
+  g.strokePath();
+  g.lineStyle(2, 0xe2fcff, 0.9);
+  g.strokePath();
+  commit(g, 'beam-electric', 64, 22);
+}
+
 function drawLavaTile(scene: Phaser.Scene): void {
   const g = gfx(scene);
   g.fillStyle(0x4a0a0a, 1);
@@ -1078,6 +1198,33 @@ function drawLavaTile(scene: Phaser.Scene): void {
   g.fillStyle(0xfff1a8, 0.7);
   g.fillCircle(30, 24, 4);
   commit(g, 'tile-lava', TILE, TILE);
+}
+
+function drawTrafficTextures(scene: Phaser.Scene): void {
+  const road = gfx(scene);
+  road.fillStyle(0x111827, 1);
+  road.fillRect(0, 0, TILE, TILE);
+  road.fillStyle(0x27344b, 1);
+  road.fillRect(0, 0, TILE, 20);
+  road.fillStyle(0xf0c84a, 0.9);
+  road.fillRect(8, 8, 28, 4);
+  road.fillStyle(0x63e8ff, 0.25);
+  road.fillRect(0, 1, TILE, 4);
+  commit(road, 'tile-traffic', TILE, TILE);
+
+  const car = gfx(scene);
+  car.fillStyle(0x101522, 1);
+  car.fillRoundedRect(3, 14, 74, 26, 7);
+  car.fillStyle(0xd84cff, 1);
+  car.fillRoundedRect(7, 10, 66, 25, 6);
+  car.fillStyle(0x63e8ff, 0.8);
+  car.fillRoundedRect(19, 4, 38, 16, 6);
+  car.fillStyle(0x101522, 1);
+  car.fillCircle(20, 38, 8);
+  car.fillCircle(60, 38, 8);
+  car.fillStyle(0xfff2a0, 1);
+  car.fillCircle(72, 25, 4);
+  commit(car, 'city-car', 80, 48);
 }
 
 function drawParticle(scene: Phaser.Scene): void {
@@ -1280,6 +1427,8 @@ function drawAirJumpProps(scene: Phaser.Scene): void {
   drawGhostShroudFrame(scene, 'ghost-shroud-b', 1);
   drawFeatherLeafFrame(scene, 'feather-leaf-a', 0);
   drawFeatherLeafFrame(scene, 'feather-leaf-b', 1);
+  drawParasolFrame(scene, 'parasol-a', 0);
+  drawParasolFrame(scene, 'parasol-b', 1);
 }
 
 function drawFlowerSpringFrame(scene: Phaser.Scene, key: string, frame: 0 | 1): void {
@@ -1438,6 +1587,31 @@ function drawFeatherLeafFrame(scene: Phaser.Scene, key: string, frame: 0 | 1): v
   g.fillStyle(0x8ee36d, 1);
   g.fillEllipse(40, 18, 12, 5);
   commit(g, key, 80, 34);
+}
+
+function drawParasolFrame(scene: Phaser.Scene, key: string, frame: 0 | 1): void {
+  const g = gfx(scene);
+  const bob = frame === 1 ? 2 : 0;
+  const cy = 34 + bob;
+  g.fillStyle(0x1a4a68, 0.28);
+  g.fillEllipse(40, 78, 54, 10);
+  g.fillStyle(0xc45a28, 1);
+  g.fillRect(38, cy + 8, 4, 36);
+  g.fillStyle(0xe8a05a, 1);
+  g.fillRect(39, cy + 10, 2, 32);
+  g.fillStyle(0x1a6aa8, 1);
+  g.fillEllipse(40, cy + 4, 64, 22);
+  g.fillStyle(0x3aa0d8, 1);
+  g.fillEllipse(40, cy, 60, 18);
+  g.fillStyle(0xffe08a, 1);
+  g.fillEllipse(40, cy - 2, 22, 8);
+  g.fillStyle(0xffffff, 0.7);
+  g.fillEllipse(26, cy - 4, 14, 6);
+  g.fillStyle(0xc45a28, 1);
+  g.fillCircle(40, cy + 44, 3.2);
+  g.fillStyle(0xffe08a, 1);
+  g.fillCircle(40, cy + 44, 1.6);
+  commit(g, key, 80, 86);
 }
 
 function drawFlyingCarpetFrame(scene: Phaser.Scene, key: string, frame: 0 | 1): void {
@@ -1828,6 +2002,57 @@ function drawSpecialGrowLedge(scene: Phaser.Scene): void {
   commit(g, 'special-grow-ledge', w, h);
 }
 
+function drawSpecialTideWall(scene: Phaser.Scene): void {
+  const w = GROW_LEDGE_WIDTH;
+  const h = GROW_LEDGE_HEIGHT;
+  const g = gfx(scene);
+  fillPoly(g.fillStyle(0x145a88, 1), [
+    { x: 2, y: 18 },
+    { x: 18, y: 6 },
+    { x: 48, y: 1 },
+    { x: 80, y: 4 },
+    { x: 110, y: 2 },
+    { x: 126, y: 12 },
+    { x: 128, y: 28 },
+    { x: 112, y: 42 },
+    { x: 80, y: 48 },
+    { x: 48, y: 44 },
+    { x: 18, y: 48 },
+    { x: 4, y: 32 },
+  ]);
+  fillPoly(g.fillStyle(0x2aa0c8, 1), [
+    { x: 8, y: 16 },
+    { x: 24, y: 8 },
+    { x: 54, y: 4 },
+    { x: 86, y: 6 },
+    { x: 112, y: 8 },
+    { x: 122, y: 16 },
+    { x: 118, y: 30 },
+    { x: 90, y: 40 },
+    { x: 56, y: 36 },
+    { x: 24, y: 40 },
+    { x: 8, y: 28 },
+  ]);
+  fillPoly(g.fillStyle(0x7eeaf2, 1), [
+    { x: 16, y: 12 },
+    { x: 40, y: 6 },
+    { x: 72, y: 5 },
+    { x: 104, y: 9 },
+    { x: 116, y: 14 },
+    { x: 104, y: 18 },
+    { x: 64, y: 16 },
+    { x: 28, y: 18 },
+  ]);
+  g.fillStyle(0xffffff, 0.92);
+  g.fillEllipse(28, 14, 18, 6);
+  g.fillEllipse(70, 10, 22, 5);
+  g.fillEllipse(104, 14, 16, 5);
+  g.fillStyle(0xfff4c4, 0.7);
+  g.fillCircle(48, 20, 2.4);
+  g.fillCircle(88, 22, 1.8);
+  commit(g, 'special-tide-wall', w, h);
+}
+
 export const SAND_DUNE_WIDTH = TILE * 2;
 export const SAND_DUNE_HEIGHT = 58;
 
@@ -2005,6 +2230,52 @@ function drawSpecialBubble(scene: Phaser.Scene): void {
   commit(g, 'special-bubble', 128, 128);
 }
 
+function drawLightningSpecialTextures(scene: Phaser.Scene): void {
+  const strike = gfx(scene);
+  strike.lineStyle(12, 0x63e8ff, 0.55);
+  strike.beginPath();
+  strike.moveTo(72, 0);
+  strike.lineTo(44, 62);
+  strike.lineTo(69, 62);
+  strike.lineTo(34, 144);
+  strike.lineTo(94, 54);
+  strike.lineTo(68, 54);
+  strike.lineTo(96, 0);
+  strike.strokePath();
+  strike.lineStyle(5, 0xe2fcff, 1);
+  strike.strokePath();
+  commit(strike, 'special-lightning-strike', 128, 144);
+
+  const glow = gfx(scene);
+  glow.fillStyle(0x63e8ff, 0.13);
+  glow.fillCircle(64, 64, 62);
+  glow.lineStyle(5, 0xb8f8ff, 0.88);
+  glow.strokeCircle(64, 64, 48);
+  glow.lineStyle(3, 0xd84cff, 0.55);
+  glow.strokeCircle(64, 64, 33);
+  commit(glow, 'special-lightning-glow', 128, 128);
+
+  const gate = gfx(scene);
+  gate.fillStyle(0x172238, 1);
+  gate.fillRoundedRect(5, 3, 54, 58, 7);
+  gate.lineStyle(4, 0x63e8ff, 1);
+  gate.strokeRoundedRect(8, 6, 48, 52, 6);
+  gate.fillStyle(0xf0c84a, 1);
+  gate.fillTriangle(33, 12, 21, 34, 31, 34);
+  gate.fillTriangle(30, 30, 44, 30, 27, 54);
+  commit(gate, 'special-powered-gate', 64, 64);
+
+  const cooldown = gfx(scene);
+  cooldown.fillStyle(0x182238, 0.94);
+  cooldown.fillCircle(24, 24, 22);
+  cooldown.lineStyle(4, 0x63e8ff, 0.9);
+  cooldown.strokeCircle(24, 24, 19);
+  cooldown.fillStyle(0x71809a, 0.8);
+  cooldown.fillTriangle(25, 7, 16, 25, 24, 25);
+  cooldown.fillTriangle(23, 22, 34, 22, 20, 40);
+  commit(cooldown, 'special-lightning-cooldown', 48, 48);
+}
+
 function drawSpecialAnchor(scene: Phaser.Scene, theme: Theme): void {
   const colors: Record<Theme, [number, number]> = {
     grass: [0x2d6e35, 0x9be36e],
@@ -2013,6 +2284,8 @@ function drawSpecialAnchor(scene: Phaser.Scene, theme: Theme): void {
     ocean: [0x146c84, 0x83ebee],
     castle: [0x542e72, 0xc58cef],
     rainforest: [0x1e5a28, 0x8ee36d],
+    beach: [0x146c84, 0xffe08a],
+    'rainy-city': [0x25324a, 0x63e8ff],
   };
   const [dark, bright] = colors[theme];
   const g = gfx(scene);
@@ -2039,6 +2312,10 @@ function paintProjectile(g: Phaser.GameObjects.Graphics, style: ProjectileStyle)
       return paintFireballProjectile(g);
     case 'boomerang':
       return paintBoomerangProjectile(g);
+    case 'starfish':
+      return paintStarfishProjectile(g);
+    case 'water-balloon':
+      return paintWaterBalloonProjectile(g);
     default: {
       const neverStyle: never = style;
       return neverStyle;
@@ -2296,8 +2573,55 @@ function paintBoomerangProjectile(g: Phaser.GameObjects.Graphics): { w: number; 
   return { w: 46, h: 32 };
 }
 
+function paintStarfishProjectile(g: Phaser.GameObjects.Graphics): { w: number; h: number } {
+  const cx = 18;
+  const cy = 18;
+  for (let i = 0; i < 5; i += 1) {
+    const angle = (Math.PI * 2 * i) / 5 - Math.PI / 2;
+    const tipX = cx + Math.cos(angle) * 16;
+    const tipY = cy + Math.sin(angle) * 16;
+    const left = angle - 0.55;
+    const right = angle + 0.55;
+    g.fillStyle(0x8a3a18, 1);
+    g.fillTriangle(
+      cx + Math.cos(left) * 6,
+      cy + Math.sin(left) * 6,
+      tipX,
+      tipY,
+      cx + Math.cos(right) * 6,
+      cy + Math.sin(right) * 6,
+    );
+    g.fillStyle(0xf0714f, 1);
+    g.fillTriangle(
+      cx + Math.cos(left) * 4,
+      cy + Math.sin(left) * 4,
+      cx + Math.cos(angle) * 13,
+      cy + Math.sin(angle) * 13,
+      cx + Math.cos(right) * 4,
+      cy + Math.sin(right) * 4,
+    );
+  }
+  g.fillStyle(0xffb49c, 1);
+  g.fillCircle(cx, cy, 6);
+  g.fillStyle(0xfff4c4, 1);
+  g.fillCircle(cx - 2, cy - 2, 2);
+  return { w: 36, h: 36 };
+}
+
+function paintWaterBalloonProjectile(g: Phaser.GameObjects.Graphics): { w: number; h: number } {
+  g.fillStyle(0x102038, 1);
+  g.fillEllipse(18, 20, 30, 30);
+  g.fillStyle(0x42bfe8, 1);
+  g.fillEllipse(18, 19, 26, 27);
+  g.fillStyle(0xa8f4ff, 0.75);
+  g.fillEllipse(13, 13, 8, 6);
+  g.fillStyle(0xd84cff, 1);
+  g.fillTriangle(15, 5, 21, 5, 18, 10);
+  return { w: 36, h: 38 };
+}
+
 function drawEnemyProjectiles(scene: Phaser.Scene): void {
-  for (let world = 1; world <= 6; world += 1) {
+  for (let world = 1; world <= 8; world += 1) {
     for (const kind of enemiesForWorld(world)) {
       const g = gfx(scene);
       const size = paintProjectile(g, projectileStyleForKind(kind));
@@ -2313,6 +2637,8 @@ function drawPuzzleTextures(scene: Phaser.Scene): void {
     { key: 'sand-wall', dark: 0x8f602b, bright: 0xe7bd61 },
     { key: 'shadow-wall', dark: 0x3b2350, bright: 0xa96bd2 },
     { key: 'moss-curtain', dark: 0x1a3a1c, bright: 0x6ad08a },
+    { key: 'driftwood-wall', dark: 0x6a4420, bright: 0xe0b86a },
+    { key: 'blackout-gate', dark: 0x182238, bright: 0x63e8ff },
   ];
   for (const definition of definitions) {
     const g = gfx(scene);
@@ -2690,6 +3016,31 @@ function drawLockedNode(scene: Phaser.Scene): void {
   commit(g, 'map-node-locked', 32, 32);
 }
 
+function drawSecretPortal(scene: Phaser.Scene): void {
+  const g = gfx(scene);
+  const cx = 32;
+  const cy = 32;
+  g.fillStyle(0x140828, 0.95);
+  g.fillCircle(cx, cy, 30);
+  g.fillStyle(0x6a2cff, 0.9);
+  g.fillCircle(cx, cy, 24);
+  g.fillStyle(0xc8a8ff, 0.85);
+  g.fillCircle(cx, cy, 16);
+  g.fillStyle(0xf7f0ff, 0.95);
+  g.fillCircle(cx, cy, 7);
+  g.lineStyle(3, 0xffe08a, 0.85);
+  g.strokeCircle(cx, cy, 28);
+  g.lineStyle(2, 0xffffff, 0.7);
+  g.beginPath();
+  g.moveTo(cx, cy - 22);
+  g.lineTo(cx + 8, cy);
+  g.lineTo(cx, cy + 22);
+  g.lineTo(cx - 8, cy);
+  g.closePath();
+  g.strokePath();
+  commit(g, 'secret-portal', 64, 64);
+}
+
 export function createGameTextures(scene: Phaser.Scene): void {
   applySkin(scene, loadSave().equippedSkin);
   stampSkinThumbs(scene);
@@ -2700,12 +3051,14 @@ export function createGameTextures(scene: Phaser.Scene): void {
   createMiniBossTextures(scene);
   createWorldBossTextures(scene);
   drawLavaTile(scene);
+  drawTrafficTextures(scene);
   drawTerrainHazards(scene);
   drawParticle(scene);
   drawFireworkSpark(scene);
   drawCampaignPickups(scene);
   drawEnemyProjectiles(scene);
   drawPuzzleTextures(scene);
+  drawLightningSpecialTextures(scene);
   drawBlastCore(scene);
   drawBlastRing(scene);
   drawBlastSmoke(scene);
@@ -2714,6 +3067,7 @@ export function createGameTextures(scene: Phaser.Scene): void {
   drawSpecialBubble(scene);
   drawSpecialFrostPath(scene);
   drawSpecialGrowLedge(scene);
+  drawSpecialTideWall(scene);
   drawSpecialSandDune(scene);
   drawFlyingCarpets(scene);
   drawAirJumpProps(scene);
@@ -2721,6 +3075,7 @@ export function createGameTextures(scene: Phaser.Scene): void {
   createForegroundTextures(scene);
   drawNode(scene);
   drawLockedNode(scene);
+  drawSecretPortal(scene);
 
   for (const theme of THEMES) {
     drawSpecialAnchor(scene, theme);
@@ -2782,6 +3137,8 @@ export function kenneyArenaGateKey(theme: Theme): string {
     case 'grass':
     case 'desert':
     case 'rainforest':
+    case 'beach':
+    case 'rainy-city':
       return 'kenney-brick-brown';
     case 'snow':
     case 'ocean':
@@ -2799,6 +3156,8 @@ export function kenneyArenaWallKey(theme: Theme): string {
     case 'grass':
     case 'desert':
     case 'rainforest':
+    case 'beach':
+    case 'rainy-city':
       return 'kenney-bricks-brown';
     case 'snow':
     case 'ocean':
@@ -2820,8 +3179,10 @@ export function arenaFlagColor(theme: Theme): ArenaFlagColor {
       return 'green';
     case 'snow':
     case 'ocean':
+    case 'rainy-city':
       return 'blue';
     case 'desert':
+    case 'beach':
       return 'yellow';
     case 'castle':
       return 'red';

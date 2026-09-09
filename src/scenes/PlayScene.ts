@@ -5,7 +5,9 @@ import {
   START_LIVES,
   TILE,
   enemyThreatensTile,
+  isSecretLevel,
   parseLevelId,
+  secretLevelId,
   themeSky,
   type EnemyKind,
   type LevelId,
@@ -24,6 +26,7 @@ import {
   session,
   setCheckpoint,
   setLastPlayed,
+  unlockSecretLevel,
 } from '../data/progress';
 import { applySettings } from '../data/settings';
 import { isBossRewardSkin, skinForLevel, type SkinDef } from '../data/skins';
@@ -40,6 +43,15 @@ import { Player, type PlayerInput } from '../entities/Player';
 import { buildLevel, type BuiltLevel } from '../levels/builder';
 import { bossSafeLandingX } from '../levels/arena';
 import { getLevel } from '../levels/worlds';
+import {
+  clearActiveCoopSession,
+  getActiveCoopSession,
+  type CoopRuntimeSession,
+  type BossPose,
+  type PlayerPose,
+  type RuntimeMessage,
+} from '../network/runtime-session';
+import { smoothPredictionCorrection } from '../network/snapshot';
 import { audio } from '../systems/audio';
 import {
   checkpointPlaneX,
@@ -52,7 +64,16 @@ import {
 import { spawnCheckpointFireworks } from '../systems/fireworks';
 import { forgetFlak, rememberFlak, restoreFlak, setFlakGroup } from '../systems/flak';
 import { Foreground } from '../systems/foreground';
+import { selectMultiplayerTarget } from '../systems/multiplayer-targeting';
 import { Parallax } from '../systems/parallax';
+import {
+  classifyPlayerCollision,
+  isPlayerCollisionReady,
+  playerCollisionCooldownMs,
+  startPlayerCollisionCooldown,
+  type CollisionCooldowns,
+} from '../systems/player-collision';
+import { sharedCameraGoal, smoothSharedCamera } from '../systems/shared-camera';
 import {
   HUD_PAUSE,
   hideHudPause,
@@ -79,7 +100,19 @@ interface PlayData {
   levelId?: LevelId;
   skipControlsHint?: boolean;
   fromDeath?: boolean;
+  coop?: boolean;
 }
+
+const EMPTY_INPUT: PlayerInput = {
+  left: false,
+  right: false,
+  jump: false,
+  jumpJust: false,
+  down: false,
+  downJust: false,
+  special: false,
+  specialJust: false,
+};
 
 function playerFromCollider(
   object:
@@ -192,6 +225,20 @@ export class PlayScene extends Phaser.Scene {
   private coins!: Phaser.Physics.Arcade.Group;
   private retainFlak = false;
   private special!: WorldSpecial;
+  private coop?: CoopRuntimeSession;
+  private players: Player[] = [];
+  private localPlayer!: Player;
+  private remotePlayer?: Player;
+  private remoteInput: PlayerInput = EMPTY_INPUT;
+  private playerAlive = new Map<Player, boolean>();
+  private networkSequence = 0;
+  private lastSnapshotAt = 0;
+  private lastInputSentAt = 0;
+  private collisionCooldowns: CollisionCooldowns = {};
+  private stopTransport?: () => void;
+  private cameraTarget?: Phaser.GameObjects.Zone;
+  private hudSpectating?: Phaser.GameObjects.Text;
+  private appliedRewardEvents = new Set<string>();
 
   constructor() {
     super('PlayScene');
@@ -199,6 +246,8 @@ export class PlayScene extends Phaser.Scene {
 
   init(data: PlayData): void {
     this.levelId = data.levelId ?? '1-1';
+    const session = getActiveCoopSession();
+    this.coop = data.coop === true && session?.levelId === this.levelId ? session : undefined;
     this.paused = false;
     this.controlsHintOpen = false;
     this.skipControlsHint = data.skipControlsHint === true;
@@ -210,6 +259,14 @@ export class PlayScene extends Phaser.Scene {
     this.fightEngaged = false;
     this.threatsLive = false;
     this.retainFlak = false;
+    this.players = [];
+    this.remoteInput = EMPTY_INPUT;
+    this.playerAlive.clear();
+    this.networkSequence = 0;
+    this.lastSnapshotAt = 0;
+    this.lastInputSentAt = 0;
+    this.collisionCooldowns = {};
+    this.appliedRewardEvents.clear();
   }
 
   create(): void {
@@ -219,13 +276,32 @@ export class PlayScene extends Phaser.Scene {
     const def = getLevel(this.levelId);
     this.cameras.main.setBackgroundColor(themeSky(def.theme));
     this.built = buildLevel(this, def.rows, def.theme, def.world, def.course);
+    const hostPlayer = this.built.player;
+    this.players = [hostPlayer];
+    if (this.coop) {
+      const guestPlayer = new Player(this, hostPlayer.x + 48, hostPlayer.y);
+      guestPlayer.applyTheme(def.theme);
+      hostPlayer.setData('playerId', this.coop.role === 'host' ? this.coop.localPlayerId : this.coop.remotePlayerId);
+      guestPlayer.setData('playerId', this.coop.role === 'guest' ? this.coop.localPlayerId : this.coop.remotePlayerId);
+      hostPlayer.setCoopAccent(false);
+      guestPlayer.setCoopAccent(true);
+      this.players.push(guestPlayer);
+      this.localPlayer = this.coop.role === 'host' ? hostPlayer : guestPlayer;
+      this.remotePlayer = this.coop.role === 'host' ? guestPlayer : hostPlayer;
+      this.stopTransport = this.coop.transport.subscribe((message) => this.onRuntimeMessage(message));
+    } else {
+      this.localPlayer = hostPlayer;
+    }
+    for (const player of this.players) {
+      this.playerAlive.set(player, true);
+    }
     this.parallax = new Parallax(this, def.theme);
     this.foreground = new Foreground(this, def.theme, this.built.widthPx, def.world, def.stage);
     audio.playTheme(this, def.theme);
     this.special = new WorldSpecial(this, this.built, def.theme, def.course.special);
     const savedCheckpoint = checkpointForLevelStart(this.levelId, this.fromDeath ? 'death' : 'fresh');
     if (savedCheckpoint && checkpointSpawnIsSafe(def.course.enemies, def.course.traps, savedCheckpoint)) {
-      this.built.player.setPosition(savedCheckpoint.x, savedCheckpoint.y);
+      this.players.forEach((player, index) => player.setPosition(savedCheckpoint.x + index * 48, savedCheckpoint.y));
       this.armSavedCheckpoint(savedCheckpoint);
     }
 
@@ -247,6 +323,7 @@ export class PlayScene extends Phaser.Scene {
       puzzleTargets,
       miniBoss,
       worldBoss,
+      secretPortal,
       bossFences,
     } = this.built;
 
@@ -332,6 +409,11 @@ export class PlayScene extends Phaser.Scene {
         this.activateCheckpoint(checkpoint as Phaser.Physics.Arcade.Sprite);
       }
     });
+    if (secretPortal) {
+      for (const actor of this.players) {
+        this.physics.add.overlap(actor, secretPortal, () => this.enterSecretPortal(secretPortal));
+      }
+    }
 
     const mask = collectibleMask(this.levelId);
     for (const child of collectibles.getChildren()) {
@@ -376,7 +458,15 @@ export class PlayScene extends Phaser.Scene {
       }
     });
 
-    this.cameras.main.startFollow(player, true, 0.14, 0.14);
+    for (const coopPlayer of this.players.slice(1)) {
+      this.bindAdditionalPlayerPhysics(coopPlayer);
+    }
+    if (this.players.length === 2) {
+      this.physics.add.collider(this.players[0], this.players[1], () => this.onPlayersCollide());
+    }
+
+    this.cameraTarget = this.add.zone(player.x, player.y, 2, 2);
+    this.cameras.main.startFollow(this.cameraTarget, true, 0.14, 0.14);
     this.cameras.main.setDeadzone(90, 160);
     this.cameras.main.setBounds(0, 0, this.built.widthPx, Math.max(GAME_HEIGHT, this.built.heightPx));
     this.cameras.main.setRoundPixels(true);
@@ -432,6 +522,59 @@ export class PlayScene extends Phaser.Scene {
       }).setScrollFactor(0).setDepth(30);
     }
 
+    if (def.theme === 'beach') {
+      this.add.particles(0, 0, 'firework-spark', {
+        x: { min: 0, max: this.built.widthPx },
+        y: { min: GAME_HEIGHT - 90, max: GAME_HEIGHT - 24 },
+        scale: { start: 0.28, end: 0 },
+        lifespan: 1600,
+        quantity: 1,
+        frequency: 220,
+        tint: [0xfff4c4, 0x7eeaf2, 0xffffff],
+        speedY: { min: -18, max: -4 },
+        speedX: { min: -8, max: 12 },
+        alpha: { start: 0.55, end: 0 },
+        blendMode: Phaser.BlendModes.ADD,
+      }).setDepth(9);
+    }
+
+    if (def.theme === 'rainy-city') {
+      this.add
+        .rectangle(0, 0, this.built.widthPx, this.built.heightPx, 0x07101f, 0.14)
+        .setOrigin(0, 0)
+        .setDepth(8);
+      this.add
+        .particles(0, 0, 'firework-spark', {
+          x: { min: -30, max: GAME_WIDTH + 80 },
+          y: -20,
+          scaleX: { start: 0.08, end: 0.04 },
+          scaleY: { start: 0.9, end: 0.35 },
+          lifespan: 720,
+          quantity: 4,
+          frequency: 22,
+          tint: [0x9fefff, 0x63cfe8],
+          speedY: { min: 720, max: 980 },
+          speedX: { min: -210, max: -130 },
+          alpha: { start: 0.58, end: 0.08 },
+        })
+        .setScrollFactor(0)
+        .setDepth(30);
+      const lightning = this.add
+        .rectangle(0, 0, GAME_WIDTH, GAME_HEIGHT, 0xb8efff, 1)
+        .setOrigin(0, 0)
+        .setScrollFactor(0)
+        .setDepth(29)
+        .setAlpha(0);
+      this.time.addEvent({
+        delay: 5200,
+        loop: true,
+        callback: () => {
+          lightning.setAlpha(0.15);
+          this.tweens.add({ targets: lightning, alpha: 0, duration: 150 });
+        },
+      });
+    }
+
     this.createHud(def.name);
     this.createPauseOverlay();
     this.bindKeys();
@@ -464,30 +607,74 @@ export class PlayScene extends Phaser.Scene {
       if (!this.retainFlak) {
         forgetFlak();
       }
+      this.stopTransport?.();
+      this.stopTransport = undefined;
     });
   }
 
   update(): void {
     if (!this.paused && !this.controlsHintOpen) {
       this.cullFlak();
-      this.tryActivateCheckpoints(this.built.player);
+      if (this.isAuthority) {
+        for (const player of this.livingPlayers()) {
+          this.tryActivateCheckpoints(player);
+        }
+      }
     }
-    if (this.paused || this.completing || this.controlsHintOpen) {
+    if ((this.paused && !this.coop) || this.completing || this.controlsHintOpen) {
       return;
     }
 
     const def = getLevel(this.levelId);
-    const input = this.readInput();
-    const { player, baddies, miniBoss, worldBoss } = this.built;
+    const input = this.paused ? EMPTY_INPUT : this.readInput();
+    const { baddies, miniBoss, worldBoss } = this.built;
 
-    this.refreshNoJumpZone(player);
-    player.tick(input, def.theme);
-    if (input.specialJust && this.special.activate(player, player.flipX ? -1 : 1)) {
-      audio.play(this, 'special');
+    this.refreshNoJumpZone(this.localPlayer);
+    this.localPlayer.tick(input, def.theme);
+    if (this.coop?.role === 'guest') {
+      if (this.time.now >= this.lastInputSentAt + 33 || input.jumpJust || input.downJust || input.specialJust) {
+        this.lastInputSentAt = this.time.now;
+        this.coop.transport.send({ type: 'input', sequence: ++this.networkSequence, input });
+      }
+    } else if (this.remotePlayer && this.playerAlive.get(this.remotePlayer)) {
+      this.refreshNoJumpZone(this.remotePlayer);
+      this.remotePlayer.tick(this.remoteInput, def.theme);
+      const remoteSpecialDirection = this.remotePlayer.flipX ? -1 : 1;
+      if (
+        this.remoteInput.specialJust &&
+        this.special.activate(this.remotePlayer, remoteSpecialDirection)
+      ) {
+        audio.play(this, 'special');
+        this.coop?.transport.send({
+          type: 'special',
+          playerId: String(this.remotePlayer.getData('playerId') ?? ''),
+          direction: remoteSpecialDirection,
+        });
+      }
+      this.remoteInput = {
+        ...this.remoteInput,
+        jumpJust: false,
+        downJust: false,
+        specialJust: false,
+      };
     }
-    this.tryActivateCheckpoints(player);
+    const localSpecialDirection = this.localPlayer.flipX ? -1 : 1;
+    if (input.specialJust && this.isAuthority && this.special.activate(this.localPlayer, localSpecialDirection)) {
+      audio.play(this, 'special');
+      this.coop?.transport.send({
+        type: 'special',
+        playerId: String(this.localPlayer.getData('playerId') ?? ''),
+        direction: localSpecialDirection,
+      });
+    }
+    if (this.isAuthority) {
+      this.tryActivateCheckpoints(this.localPlayer);
+    }
 
-    if (!this.threatsLive && (input.left || input.right)) {
+    if (
+      !this.threatsLive &&
+      (input.left || input.right || this.remoteInput.left || this.remoteInput.right)
+    ) {
       this.threatsLive = true;
       for (const child of baddies.getChildren()) {
         if (child instanceof Baddie) {
@@ -502,27 +689,45 @@ export class PlayScene extends Phaser.Scene {
     }
     if (this.threatsLive) {
       for (const child of baddies.getChildren()) {
-        (child as Baddie).tick(player, this.built.solids, this.built.oneways, this.built.projectiles);
+        const baddie = child as Baddie;
+        const target = this.closestLivingPlayer(baddie.x);
+        if (target) {
+          baddie.tick(target, this.built.solids, this.built.oneways, this.built.projectiles);
+        }
       }
       for (const child of this.built.traps.getChildren()) {
         if (child instanceof TerrainHazard) {
-          child.tick(player, this.built.projectiles);
+          const target = this.closestLivingPlayer(child.x);
+          if (target) {
+            child.tick(target, this.built.projectiles);
+          }
         }
       }
       for (const child of this.built.projectiles.getChildren()) {
         if (child instanceof EnemyProjectile) {
-          child.tick(player);
+          const target = this.closestLivingPlayer(child.x);
+          if (target) {
+            child.tick(target);
+          }
         }
       }
     }
-    this.tickBoss(miniBoss, player);
-    this.tickBoss(worldBoss, player);
-
-    if (player.y > this.built.heightPx + 20) {
-      this.killPlayer('pit');
-      return;
+    const bossTarget = this.closestLivingPlayer((worldBoss ?? miniBoss)?.x ?? this.localPlayer.x);
+    if (bossTarget) {
+      this.tickBoss(miniBoss, bossTarget);
+      this.tickBoss(worldBoss, bossTarget);
     }
 
+    if (this.isAuthority) {
+      for (const player of this.livingPlayers()) {
+        if (player.y > this.built.heightPx + 20) {
+          this.killPlayer('pit', player);
+        }
+      }
+    }
+
+    this.updateCoopCamera();
+    this.broadcastSnapshot();
     this.parallax.update(this.cameras.main.scrollX);
     this.foreground.update(this.cameras.main.scrollX);
 
@@ -533,7 +738,7 @@ export class PlayScene extends Phaser.Scene {
     this.syncSpecialCharge();
     this.hudCollectibles.setText(`STARS  ${levelCollectibleCount(this.levelId)}/3`);
     this.syncHudCoins();
-    this.hudShield.setText(player.shielded ? 'SHIELD  READY' : 'SHIELD  —');
+    this.hudShield.setText(this.localPlayer.shielded ? 'SHIELD  READY' : 'SHIELD  —');
     const boss = worldBoss?.active ? worldBoss : miniBoss?.active ? miniBoss : undefined;
     if (boss && !boss.dying && boss.engaged) {
       this.hudBoss.setText(
@@ -543,6 +748,406 @@ export class PlayScene extends Phaser.Scene {
     } else {
       this.hudBoss.setVisible(false);
     }
+  }
+
+  private get isAuthority(): boolean {
+    return !this.coop || this.coop.role === 'host';
+  }
+
+  private livingPlayers(): Player[] {
+    return this.players.filter((player) => player.active && this.playerAlive.get(player) !== false);
+  }
+
+  private closestLivingPlayer(x: number): Player | undefined {
+    const target = selectMultiplayerTarget(
+      { x, y: 0 },
+      this.players.map((player, index) => ({
+        id: index === 0 ? 'host' as const : 'guest' as const,
+        x: player.x,
+        y: player.y,
+        targetable: this.playerAlive.get(player) !== false,
+      })),
+    );
+    return target ? this.players[target.id === 'host' ? 0 : 1] : undefined;
+  }
+
+  private playerPose(player: Player): PlayerPose {
+    return {
+      x: player.x,
+      y: player.y,
+      velocityX: player.arcadeBody.velocity.x,
+      velocityY: player.arcadeBody.velocity.y,
+      flipX: player.flipX,
+      alive: this.playerAlive.get(player) !== false,
+    };
+  }
+
+  private bossPose(boss: Boss): BossPose {
+    return {
+      x: boss.x,
+      y: boss.y,
+      velocityX: boss.arcadeBody.velocity.x,
+      velocityY: boss.arcadeBody.velocity.y,
+      hp: boss.hp,
+      engaged: boss.engaged,
+      active: boss.active && !boss.dying,
+    };
+  }
+
+  private broadcastSnapshot(): void {
+    if (this.coop?.role !== 'host' || this.players.length !== 2 || this.time.now < this.lastSnapshotAt + 50) {
+      return;
+    }
+    const host = this.players[0];
+    const guest = this.players[1];
+    if (!host || !guest) {
+      return;
+    }
+    this.lastSnapshotAt = this.time.now;
+    const boss = this.built.worldBoss ?? this.built.miniBoss;
+    this.coop.transport.send({
+      type: 'snapshot',
+      sequence: ++this.networkSequence,
+      host: this.playerPose(host),
+      guest: this.playerPose(guest),
+      lives: session.lives,
+      boss: boss ? this.bossPose(boss) : undefined,
+    });
+  }
+
+  private applyRemotePose(player: Player, pose: PlayerPose, reconcile: boolean): void {
+    if (!pose.alive) {
+      if (this.playerAlive.get(player) !== false) {
+        this.playerAlive.set(player, false);
+        player.enterSpectating();
+      }
+      return;
+    }
+    if (this.playerAlive.get(player) === false) {
+      this.playerAlive.set(player, true);
+      player.reviveAt(pose.x, pose.y);
+    }
+    const corrected = reconcile
+      ? smoothPredictionCorrection(
+          {
+            x: player.x,
+            y: player.y,
+            velocityX: player.arcadeBody.velocity.x,
+            velocityY: player.arcadeBody.velocity.y,
+          },
+          pose,
+          0.35,
+          180,
+        )
+      : pose;
+    player.applyNetworkPose({ ...pose, ...corrected });
+  }
+
+  private onRuntimeMessage(message: RuntimeMessage): void {
+    if (!this.coop) {
+      return;
+    }
+    switch (message.type) {
+      case 'input':
+        if (this.coop.role === 'host') {
+          this.remoteInput = message.input;
+        }
+        return;
+      case 'snapshot': {
+        if (this.coop.role !== 'guest') {
+          return;
+        }
+        const host = this.players[0];
+        const guest = this.players[1];
+        if (host && guest) {
+          this.applyRemotePose(host, message.host, false);
+          this.applyRemotePose(guest, message.guest, true);
+          session.lives = message.lives;
+          const boss = this.built.worldBoss ?? this.built.miniBoss;
+          if (boss && message.boss) {
+            boss.setPosition(message.boss.x, message.boss.y);
+            boss.arcadeBody.setVelocity(message.boss.velocityX, message.boss.velocityY);
+            boss.hp = message.boss.hp;
+            boss.engaged = message.boss.engaged;
+            if (!message.boss.active && boss.active) {
+              boss.poofAway();
+            }
+          }
+        }
+        return;
+      }
+      case 'checkpoint':
+        setCheckpoint(this.levelId, message.x, message.y);
+        this.reviveSpectators(message.x, message.y, false);
+        return;
+      case 'player-impact': {
+        const first = this.players[0];
+        const second = this.players[1];
+        if (!first || !second) {
+          return;
+        }
+        first.playTeammateImpact(message.kind);
+        second.playTeammateImpact(message.kind);
+        audio.play(this, message.kind === 'head' ? 'teammate-stomp' : 'teammate-bump');
+        return;
+      }
+      case 'player-died': {
+        const player = this.players.find((candidate) => candidate.getData('playerId') === message.playerId);
+        if (player && this.playerAlive.get(player) !== false) {
+          this.playerAlive.set(player, false);
+          player.die(() => player.enterSpectating());
+        }
+        return;
+      }
+      case 'special': {
+        if (this.coop.role === 'guest') {
+          const player = this.players.find((candidate) => candidate.getData('playerId') === message.playerId);
+          if (player && this.special.activate(player, message.direction)) {
+            audio.play(this, 'special');
+          }
+        }
+        return;
+      }
+      case 'reward':
+        if (this.appliedRewardEvents.has(message.eventId)) {
+          return;
+        }
+        this.appliedRewardEvents.add(message.eventId);
+        if (message.reward === 'coin') {
+          this.syncHudCoins(addCoins(1).coins);
+        } else if (typeof message.index === 'number') {
+          collectStar(this.levelId, message.index);
+          for (const child of this.built.collectibles.getChildren()) {
+            if (Number((child as Phaser.GameObjects.GameObject).getData('index')) === message.index) {
+              child.destroy();
+            }
+          }
+        }
+        return;
+      case 'team-restart':
+        this.coop.levelId = message.levelId;
+        this.scene.restart({ levelId: message.levelId, skipControlsHint: true, fromDeath: true, coop: true });
+        return;
+      case 'level-complete':
+        if (this.coop.role === 'guest' && message.levelId === this.levelId && !this.completing) {
+          this.completing = true;
+          markCleared(this.levelId);
+          this.showCompleteMenu('CO-OP CLEAR!');
+        }
+        return;
+      case 'leave':
+        if (!this.completing) {
+          this.completing = true;
+          const returningToLobby = message.reason === 'team-game-over' || message.reason === 'return-to-lobby';
+          this.showBanner(returningToLobby ? 'RETURNING TO LOBBY' : 'TEAMMATE LEFT', () => {
+            clearActiveCoopSession('peer-left');
+            this.scene.start(returningToLobby ? 'CoopScene' : 'TitleScene');
+          });
+        }
+        return;
+      default: {
+        const neverMessage: never = message;
+        return neverMessage;
+      }
+    }
+  }
+
+  private updateCoopCamera(): void {
+    const target = this.cameraTarget;
+    if (!target) {
+      return;
+    }
+    const goal = sharedCameraGoal(
+      this.players.map((player, index) => ({
+        id: index === 0 ? 'host' as const : 'guest' as const,
+        x: player.x,
+        y: player.y,
+        velocityX: player.arcadeBody.velocity.x,
+        velocityY: player.arcadeBody.velocity.y,
+        active: this.playerAlive.get(player) !== false,
+      })),
+      {
+        viewportWidth: GAME_WIDTH,
+        viewportHeight: GAME_HEIGHT,
+        paddingX: 180,
+        paddingY: 140,
+        minZoom: 0.72,
+        maxZoom: 1,
+        lookAheadSeconds: 0.08,
+      },
+    );
+    if (!goal) {
+      return;
+    }
+    const smoothed = smoothSharedCamera(
+      { x: target.x, y: target.y, zoom: this.cameras.main.zoom },
+      goal,
+      0.14,
+      0.08,
+    );
+    target.setPosition(smoothed.x, smoothed.y);
+    this.cameras.main.zoom = smoothed.zoom;
+    const living = this.livingPlayers();
+    if (this.isAuthority && living.length === 2 && Math.abs(living[0]!.x - living[1]!.x) > 900) {
+      const left = living[0]!.x < living[1]!.x ? living[0]! : living[1]!;
+      const right = left === living[0] ? living[1]! : living[0]!;
+      left.arcadeBody.setVelocityX(Math.max(left.arcadeBody.velocity.x, 80));
+      right.arcadeBody.setVelocityX(Math.min(right.arcadeBody.velocity.x, -80));
+    }
+    const spectating = this.playerAlive.get(this.localPlayer) === false;
+    this.hudSpectating?.setVisible(spectating);
+    if (spectating) {
+      this.hudSpectating?.setText(`SPECTATING ${this.coop?.remoteName.toUpperCase() ?? 'TEAMMATE'}`);
+    }
+  }
+
+  private bindAdditionalPlayerPhysics(player: Player): void {
+    this.physics.add.collider(player, this.built.solids);
+    this.physics.add.collider(
+      player,
+      this.built.puzzleTargets,
+      undefined,
+      (objectA, objectB) => {
+        const target = objectA === player ? objectB : objectA;
+        return 'getData' in target && target.getData('solid') === true;
+      },
+    );
+    this.physics.add.collider(
+      player,
+      this.built.oneways,
+      undefined,
+      (objectA, objectB) => this.oneWayProcess(objectA, objectB),
+    );
+    this.physics.add.collider(player, this.built.baddies, (objectA, objectB) => {
+      if (this.isAuthority) {
+        this.onBaddieCollide(objectA as Player, objectB as Baddie);
+      }
+    });
+    if (this.built.miniBoss) {
+      this.bindBossCombat(player, this.built.miniBoss, false);
+    }
+    if (this.built.worldBoss) {
+      this.bindBossCombat(player, this.built.worldBoss, true);
+    }
+    const die = () => this.killPlayer('hazard', player);
+    this.physics.add.overlap(player, this.built.hazards, die);
+    this.physics.add.overlap(player, this.built.traps, die);
+    this.physics.add.overlap(player, this.built.trapBeams, die);
+    this.physics.add.overlap(player, this.built.projectiles, (objectA, objectB) => {
+      if (!this.isAuthority) {
+        return;
+      }
+      const projectile = objectA instanceof EnemyProjectile ? objectA : objectB instanceof EnemyProjectile ? objectB : undefined;
+      if (projectile && !projectile.neutralized) {
+        projectile.destroy();
+        this.killPlayer('baddie', player);
+      }
+    });
+    this.physics.add.overlap(player, this.built.collectibles, (objectA, objectB) => {
+      if (!this.isAuthority) {
+        return;
+      }
+      const pickup = objectA === player ? objectB : objectA;
+      if ('getData' in pickup) {
+        this.collectPickup(pickup as Phaser.Physics.Arcade.Sprite);
+      }
+    });
+    this.physics.add.overlap(player, this.built.shields, (objectA, objectB) => {
+      if (!this.isAuthority) {
+        return;
+      }
+      const pickup = objectA === player ? objectB : objectA;
+      if ('destroy' in pickup) {
+        player.giveShield();
+        audio.play(this, 'select');
+        (pickup as Phaser.GameObjects.GameObject).destroy();
+      }
+    });
+    this.physics.add.overlap(player, this.built.checkpoints, (objectA, objectB) => {
+      if (!this.isAuthority) {
+        return;
+      }
+      const checkpoint = objectA === player ? objectB : objectA;
+      if ('getData' in checkpoint) {
+        this.activateCheckpoint(checkpoint as Phaser.Physics.Arcade.Sprite);
+      }
+    });
+    this.physics.add.collider(player, this.flak, (objectA, objectB) => this.onFlakBump(objectA, objectB));
+    this.physics.add.overlap(player, this.coins, (objectA, objectB) => {
+      if (!this.isAuthority) {
+        return;
+      }
+      const coin = coinFromCollider(objectA) ?? coinFromCollider(objectB);
+      if (coin) {
+        this.collectCoin(coin);
+      }
+    });
+  }
+
+  private onPlayersCollide(): void {
+    if (
+      !this.isAuthority ||
+      this.players.length !== 2 ||
+      !isPlayerCollisionReady(this.collisionCooldowns, 'host', 'guest', this.time.now)
+    ) {
+      return;
+    }
+    const first = this.players[0];
+    const second = this.players[1];
+    if (!first || !second || !this.playerAlive.get(first) || !this.playerAlive.get(second)) {
+      return;
+    }
+    const collision = classifyPlayerCollision(
+      {
+        id: 'host',
+        x: first.x,
+        y: first.y,
+        width: first.arcadeBody.width,
+        height: first.arcadeBody.height,
+        velocityX: first.arcadeBody.velocity.x,
+        velocityY: first.arcadeBody.velocity.y,
+      },
+      {
+        id: 'guest',
+        x: second.x,
+        y: second.y,
+        width: second.arcadeBody.width,
+        height: second.arcadeBody.height,
+        velocityX: second.arcadeBody.velocity.x,
+        velocityY: second.arcadeBody.velocity.y,
+      },
+    );
+    this.collisionCooldowns = startPlayerCollisionCooldown(
+      this.collisionCooldowns,
+      'host',
+      'guest',
+      this.time.now,
+      playerCollisionCooldownMs(collision.kind),
+    );
+    if (collision.kind === 'none' || collision.kind === 'separate') {
+      return;
+    }
+    if (collision.kind === 'host-stomps-guest' || collision.kind === 'guest-stomps-host') {
+      const upper = collision.kind === 'host-stomps-guest' ? first : second;
+      const lower = upper === first ? second : first;
+      upper.bounce();
+      lower.playTeammateImpact('head');
+      upper.playTeammateImpact('head');
+      audio.play(this, 'teammate-stomp');
+      this.coop?.transport.send({
+        type: 'player-impact',
+        kind: 'head',
+        upperPlayerId: String(upper.getData('playerId') ?? ''),
+      });
+      return;
+    }
+    const direction = Math.sign(second.x - first.x) || 1;
+    first.arcadeBody.setVelocityX(-direction * 190);
+    second.arcadeBody.setVelocityX(direction * 190);
+    first.playTeammateImpact('side');
+    second.playTeammateImpact('side');
+    audio.play(this, 'teammate-bump');
+    this.coop?.transport.send({ type: 'player-impact', kind: 'side' });
   }
 
   private tickBoss(boss: Boss | undefined, player: Player): void {
@@ -738,7 +1343,7 @@ export class PlayScene extends Phaser.Scene {
   }
 
   private onBaddieCollide(player: Player, baddie: Baddie): void {
-    if (!baddie.active || baddie.dying || player.frozen) {
+    if (!this.isAuthority || !baddie.active || baddie.dying || player.frozen) {
       return;
     }
     if (isFallingStomp(stompBox(player.arcadeBody), stompBox(baddie.arcadeBody))) {
@@ -763,15 +1368,46 @@ export class PlayScene extends Phaser.Scene {
     this.physics.add.overlap(player, boss, () => this.onBossBodyHit(player, boss));
   }
 
+  private enterSecretPortal(portal: Phaser.Physics.Arcade.Sprite): void {
+    if (!this.isAuthority || this.completing || this.paused || this.controlsHintOpen) {
+      return;
+    }
+    const parsed = parseLevelId(this.levelId);
+    if (parsed.secret || parsed.stage !== 3) {
+      return;
+    }
+    const target = secretLevelId(parsed.world);
+    this.completing = true;
+    this.syncTouchHud();
+    this.players.forEach((actor) => actor.freeze());
+    unlockSecretLevel(target);
+    audio.play(this, 'phase');
+    const traveler = this.localPlayer ?? this.built.player;
+    traveler.suckInto(portal.x, portal.y, () => {
+      this.cameras.main.once('camerafadeoutcomplete', () => {
+        if (this.coop) {
+          this.coop.levelId = target;
+          this.coop.transport.send({ type: 'team-restart', levelId: target });
+        }
+        this.scene.start('PlayScene', {
+          levelId: target,
+          skipControlsHint: true,
+          coop: Boolean(this.coop),
+        });
+      });
+      this.cameras.main.fadeOut(320, 0, 0, 0);
+    });
+  }
+
   private canStompBoss(player: Player, boss: Boss): boolean {
-    if (!boss.active || boss.dying || player.frozen) {
+    if (!this.isAuthority || !boss.active || boss.dying || player.frozen) {
       return false;
     }
     return isFallingStomp(stompBox(player.arcadeBody), stompBox(boss.arcadeBody));
   }
 
   private onBossHeadStomp(player: Player, boss: Boss, worldBoss: boolean): void {
-    if (!boss.active || boss.dying || player.frozen) {
+    if (!this.isAuthority || !boss.active || boss.dying || player.frozen) {
       return;
     }
     const result = boss.takeStomp();
@@ -787,7 +1423,7 @@ export class PlayScene extends Phaser.Scene {
   }
 
   private onBossBodyHit(player: Player, boss: Boss): void {
-    if (!boss.active || boss.dying || player.frozen) {
+    if (!this.isAuthority || !boss.active || boss.dying || player.frozen) {
       return;
     }
     if (this.canStompBoss(player, boss)) {
@@ -801,9 +1437,14 @@ export class PlayScene extends Phaser.Scene {
   private defeatBoss(boss: Boss, worldBoss: boolean): void {
     this.completing = true;
     this.syncTouchHud();
-    this.built.player.freeze();
+    this.players.forEach((player) => player.freeze());
     const firstClear = !loadSave().cleared.includes(this.levelId);
     markCleared(this.levelId);
+    this.coop?.transport.send({
+      type: 'level-complete',
+      levelId: this.levelId,
+      completionId: `${this.coop.localPlayerId}:${this.levelId}:${Date.now()}`,
+    });
     audio.play(this, 'poof');
     const def = getLevel(this.levelId);
     const message = worldBoss ? `WORLD ${def.world} CLEARED!` : `${this.levelId}  CLEAR!`;
@@ -815,15 +1456,30 @@ export class PlayScene extends Phaser.Scene {
     });
   }
 
-  private killPlayer(reason: 'pit' | 'hazard' | 'baddie'): void {
-    if (this.completing || this.built.player.frozen) {
+  private killPlayer(reason: 'pit' | 'hazard' | 'baddie', player = this.built.player): void {
+    if (!this.isAuthority || this.completing || player.frozen || this.playerAlive.get(player) === false) {
       return;
     }
-    if (reason === 'baddie' && !this.built.player.canBeHurt()) {
+    if (reason === 'baddie' && !player.canBeHurt()) {
       return;
     }
-    if (reason === 'baddie' && this.built.player.consumeShield()) {
+    if (reason === 'baddie' && player.consumeShield()) {
       audio.play(this, 'hurt');
+      return;
+    }
+    if (this.coop) {
+      this.playerAlive.set(player, false);
+      audio.play(this, 'hurt');
+      this.coop.transport.send({
+        type: 'player-died',
+        playerId: String(player.getData('playerId') ?? ''),
+      });
+      player.die(() => {
+        player.enterSpectating();
+        if (this.livingPlayers().length === 0) {
+          this.restartCoopTeam();
+        }
+      });
       return;
     }
     this.completing = true;
@@ -844,6 +1500,46 @@ export class PlayScene extends Phaser.Scene {
       this.retainFlak = true;
       this.scene.restart({ levelId: this.levelId, skipControlsHint: true, fromDeath: true });
     });
+  }
+
+  private restartCoopTeam(): void {
+    if (!this.coop || !this.isAuthority || this.completing) {
+      return;
+    }
+    this.completing = true;
+    session.lives -= 1;
+    if (session.lives <= 0) {
+      clearCheckpoint(this.levelId);
+      this.showBanner('TEAM GAME OVER', () => {
+        resetSessionLives();
+        clearActiveCoopSession('team-game-over');
+        this.scene.start('CoopScene');
+      });
+      return;
+    }
+    rememberFlak(this.levelId, this.flak, this.built.heightPx + 160);
+    this.retainFlak = true;
+    this.coop.transport.send({ type: 'team-restart', levelId: this.levelId });
+    this.scene.restart({ levelId: this.levelId, skipControlsHint: true, fromDeath: true, coop: true });
+  }
+
+  private reviveSpectators(x: number, y: number, broadcast: boolean): void {
+    let revived = false;
+    this.players.forEach((player, index) => {
+      if (this.playerAlive.get(player) !== false) {
+        return;
+      }
+      this.playerAlive.set(player, true);
+      player.reviveAt(x + index * 48, y);
+      player.setCoopAccent(index === 1);
+      revived = true;
+    });
+    if (revived) {
+      audio.play(this, 'firework-burst');
+    }
+    if (broadcast && this.coop) {
+      this.coop.transport.send({ type: 'checkpoint', x, y });
+    }
   }
 
   private bounceFromBoss(player: Player, boss: Boss): void {
@@ -876,11 +1572,16 @@ export class PlayScene extends Phaser.Scene {
   }
 
   private collectCoin(coin: Coin): void {
-    if (!coin.active || coin.isCollecting) {
+    if (!this.isAuthority || !coin.active || coin.isCollecting) {
       return;
     }
     coin.beginCollect();
     this.syncHudCoins(addCoins(1).coins);
+    this.coop?.transport.send({
+      type: 'reward',
+      reward: 'coin',
+      eventId: `${this.levelId}:coin:${this.networkSequence++}`,
+    });
     this.punchHudCoins();
     audio.play(this, 'coin');
     this.tweens.add({
@@ -894,11 +1595,17 @@ export class PlayScene extends Phaser.Scene {
   }
 
   private collectPickup(pickup: Phaser.Physics.Arcade.Sprite): void {
-    if (!pickup.active) {
+    if (!this.isAuthority || !pickup.active) {
       return;
     }
     const index = Number(pickup.getData('index'));
     collectStar(this.levelId, index);
+    this.coop?.transport.send({
+      type: 'reward',
+      reward: 'star',
+      index,
+      eventId: `${this.levelId}:star:${index}`,
+    });
     audio.play(this, 'collect');
     this.tweens.add({
       targets: pickup,
@@ -956,7 +1663,7 @@ export class PlayScene extends Phaser.Scene {
   }
 
   private activateCheckpoint(checkpoint: Phaser.Physics.Arcade.Sprite): void {
-    if (checkpoint.getData('active') === true) {
+    if (!this.isAuthority || checkpoint.getData('active') === true) {
       return;
     }
     const incomingX = checkpointPlaneX(checkpoint);
@@ -973,6 +1680,11 @@ export class PlayScene extends Phaser.Scene {
       Number(checkpoint.getData('spawnY')),
     );
     spawnCheckpointFireworks(this, flag);
+    this.reviveSpectators(
+      Number(checkpoint.getData('spawnX')),
+      Number(checkpoint.getData('spawnY')),
+      true,
+    );
   }
 
   private createHud(name: string): void {
@@ -1020,6 +1732,16 @@ export class PlayScene extends Phaser.Scene {
       .setScrollFactor(0)
       .setDepth(50)
       .setResolution(2);
+    this.hudSpectating = this.add
+      .text(GAME_WIDTH / 2, 82, '', {
+        ...textStyle('24px', '#ffe9a8'),
+        backgroundColor: '#140c10',
+        padding: { x: 14, y: 8 },
+      })
+      .setOrigin(0.5, 0)
+      .setScrollFactor(0)
+      .setDepth(55)
+      .setVisible(false);
     this.pauseBtn = new MenuButton(
       this,
       HUD_PAUSE.x,
@@ -1058,8 +1780,24 @@ export class PlayScene extends Phaser.Scene {
 
     const resume = new MenuButton(this, GAME_WIDTH / 2, 300, 'RESUME', () => this.togglePause());
     const settings = new MenuButton(this, GAME_WIDTH / 2, 364, 'SETTINGS', () => launchOverlay(this, 'SettingsScene'));
-    const map = new MenuButton(this, GAME_WIDTH / 2, 428, 'WORLD MAP', () => this.scene.start('WorldMapScene'));
-    const mainMenu = new MenuButton(this, GAME_WIDTH / 2, 492, 'MAIN MENU', () => this.scene.start('TitleScene'));
+    const map = new MenuButton(
+      this,
+      GAME_WIDTH / 2,
+      428,
+      this.coop ? 'CO-OP LOBBY' : 'WORLD MAP',
+      () => {
+        if (this.coop) {
+          clearActiveCoopSession('return-to-lobby');
+          this.scene.start('CoopScene');
+        } else {
+          this.scene.start('WorldMapScene');
+        }
+      },
+    );
+    const mainMenu = new MenuButton(this, GAME_WIDTH / 2, 492, 'MAIN MENU', () => {
+      clearActiveCoopSession('main-menu');
+      this.scene.start('TitleScene');
+    });
     resume.setDepth(85);
     settings.setDepth(85);
     map.setDepth(85);
@@ -1127,7 +1865,7 @@ export class PlayScene extends Phaser.Scene {
     this.paused = !this.paused;
     this.pauseOverlay.setVisible(this.paused);
     this.pauseNav.setEnabled(this.paused);
-    this.physics.world.isPaused = this.paused;
+    this.physics.world.isPaused = this.paused && !this.coop;
     audio.setMusicDuck(this.paused ? 0.38 : 1);
     this.syncTouchHud();
   }
@@ -1138,20 +1876,36 @@ export class PlayScene extends Phaser.Scene {
     this.physics.world.isPaused = true;
     audio.setMusicDuck(0.42);
 
-    const next = nextLevelId(this.levelId);
+    const next = isSecretLevel(this.levelId) ? undefined : nextLevelId(this.levelId);
     const items: Array<{ label: string; action: () => void }> = [];
-    if (next) {
+    if (next && (!this.coop || this.coop.role === 'host')) {
       items.push({
         label: 'NEXT LEVEL',
-        action: () => this.scene.start('PlayScene', { levelId: next }),
+        action: () => {
+          if (this.coop) {
+            this.coop.levelId = next;
+            this.coop.transport.send({ type: 'team-restart', levelId: next });
+          }
+          this.scene.start('PlayScene', { levelId: next, coop: Boolean(this.coop) });
+        },
       });
     }
-    items.push(
-      { label: 'WORLD MAP', action: () => this.scene.start('WorldMapScene') },
-      { label: 'SETTINGS', action: () => launchOverlay(this, 'SettingsScene') },
-      { label: 'CREDITS', action: () => launchOverlay(this, 'CreditsScene') },
-      { label: 'MAIN MENU', action: () => this.scene.start('TitleScene') },
-    );
+    if (this.coop) {
+      items.push({
+        label: 'CO-OP LOBBY',
+        action: () => {
+          clearActiveCoopSession('return-to-lobby');
+          this.scene.start('CoopScene');
+        },
+      });
+    } else {
+      items.push(
+        { label: 'WORLD MAP', action: () => this.scene.start('WorldMapScene') },
+        { label: 'SETTINGS', action: () => launchOverlay(this, 'SettingsScene') },
+        { label: 'CREDITS', action: () => launchOverlay(this, 'CreditsScene') },
+        { label: 'MAIN MENU', action: () => this.scene.start('TitleScene') },
+      );
+    }
 
     const dim = this.add.rectangle(GAME_WIDTH / 2, GAME_HEIGHT / 2, GAME_WIDTH, GAME_HEIGHT, 0x000000, 0.5);
     const unlockBand = unlockedSkin ? 62 : 0;

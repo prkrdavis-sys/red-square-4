@@ -1,0 +1,112 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function owns(uid) {
+      return signedIn() && request.auth.uid == uid;
+    }
+
+    function memberOf(data) {
+      return signedIn() && request.auth.uid in data.memberIds;
+    }
+
+    function sessionData(sessionId) {
+      return get(/databases/$(database)/documents/sessions/$(sessionId)).data;
+    }
+
+    function sessionMember(sessionId) {
+      return memberOf(sessionData(sessionId));
+    }
+
+    function activeSessionMember(sessionId) {
+      let data = sessionData(sessionId);
+      return memberOf(data)
+        && data.state in ['signaling', 'connected']
+        && data.expiresAt > request.time;
+    }
+
+    match /users/{uid} {
+      allow read: if owns(uid);
+      allow write: if false;
+    }
+
+    match /profiles/{uid} {
+      allow get: if signedIn();
+      allow list: if false;
+      allow write: if false;
+    }
+
+    match /friendCodes/{code} {
+      allow read, write: if false;
+    }
+
+    match /friendships/{friendshipId} {
+      allow read: if memberOf(resource.data);
+      allow write: if false;
+    }
+
+    match /friendRequests/{requestId} {
+      allow read: if signedIn()
+        && (request.auth.uid == resource.data.senderUid
+          || request.auth.uid == resource.data.recipientUid);
+      allow write: if false;
+    }
+
+    match /invitations/{invitationId} {
+      allow read: if memberOf(resource.data);
+      allow write: if false;
+    }
+
+    match /sessions/{sessionId} {
+      allow read: if memberOf(resource.data);
+      allow write: if false;
+
+      match /signals/{signalType} {
+        allow read: if sessionMember(sessionId);
+        allow create, update: if activeSessionMember(sessionId)
+          && request.resource.data.keys().hasOnly(['type', 'sdp', 'senderUid', 'createdAt'])
+          && request.resource.data.senderUid == request.auth.uid
+          && request.resource.data.type == signalType
+          && request.resource.data.sdp is string
+          && request.resource.data.sdp.size() <= 100000
+          && ((signalType == 'offer'
+              && request.auth.uid == sessionData(sessionId).hostUid)
+            || (signalType == 'answer'
+              && request.auth.uid == sessionData(sessionId).guestUid));
+        allow delete: if false;
+      }
+
+      match /candidates/{ownerUid}/items/{candidateId} {
+        allow read: if sessionMember(sessionId);
+        allow create: if activeSessionMember(sessionId)
+          && owns(ownerUid)
+          && request.resource.data.keys().hasOnly([
+            'candidate',
+            'sdpMid',
+            'sdpMLineIndex',
+            'usernameFragment',
+            'senderUid',
+            'createdAt'
+          ])
+          && request.resource.data.senderUid == request.auth.uid
+          && request.resource.data.candidate is string
+          && request.resource.data.candidate.size() <= 4096
+          && (request.resource.data.sdpMid == null
+            || request.resource.data.sdpMid is string)
+          && (request.resource.data.sdpMLineIndex == null
+            || request.resource.data.sdpMLineIndex is int)
+          && (request.resource.data.usernameFragment == null
+            || request.resource.data.usernameFragment is string);
+        allow update, delete: if false;
+      }
+    }
+
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

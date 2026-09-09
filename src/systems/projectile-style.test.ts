@@ -16,6 +16,8 @@ const STYLE_BY_THEME: Record<Theme, ProjectileStyle> = {
   ocean: 'bubble',
   castle: 'fireball',
   rainforest: 'boomerang',
+  beach: 'starfish',
+  'rainy-city': 'water-balloon',
 };
 
 describe('projectile styles', () => {
@@ -33,6 +35,8 @@ describe('projectile styles', () => {
       { world: 4, style: 'bubble' },
       { world: 5, style: 'fireball' },
       { world: 6, style: 'boomerang' },
+      { world: 7, style: 'starfish' },
+      { world: 8, style: 'water-balloon' },
     ];
     for (const { world, style } of worlds) {
       for (const kind of enemiesForWorld(world)) {

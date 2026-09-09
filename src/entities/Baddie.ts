@@ -20,6 +20,7 @@ export class Baddie extends Phaser.Physics.Arcade.Sprite {
   private nextAttackAt = Number.POSITIVE_INFINITY;
   private nextMoveAt = 0;
   private vulnerableUntil = 0;
+  private stunnedUntil = 0;
   private windingUp = false;
   private windupUntil = 0;
   private threatsArmed = false;
@@ -53,6 +54,13 @@ export class Baddie extends Phaser.Physics.Arcade.Sprite {
     this.setTint(0xffef9d);
   }
 
+  stunBySpecial(duration = 650): void {
+    this.stunnedUntil = Math.max(this.stunnedUntil, this.scene.time.now + duration);
+    this.cancelWindup();
+    this.arcadeBody.setVelocityX(0);
+    this.setTint(0x8fefff);
+  }
+
   armThreats(): void {
     if (this.threatsArmed) {
       return;
@@ -73,6 +81,11 @@ export class Baddie extends Phaser.Physics.Arcade.Sprite {
     projectiles: Phaser.Physics.Arcade.Group,
   ): void {
     if (this.dying || !this.threatsArmed) {
+      return;
+    }
+    if (this.scene.time.now < this.stunnedUntil) {
+      this.arcadeBody.setVelocityX(0);
+      this.present('hurt');
       return;
     }
     if (!this.windingUp) {
@@ -104,7 +117,8 @@ export class Baddie extends Phaser.Physics.Arcade.Sprite {
       (this.kind === 'bramble-hopper' ||
         this.kind === 'dune-scarab' ||
         this.kind === 'clockwork-hound' ||
-        this.kind === 'howler-ape') &&
+        this.kind === 'howler-ape' ||
+        this.kind === 'alley-cat') &&
       body.blocked.down &&
       Math.abs(dx) < 280 &&
       this.scene.time.now > this.nextMoveAt

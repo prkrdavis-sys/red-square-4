@@ -4,7 +4,9 @@ import Phaser from 'phaser';
 import { registerSW } from 'virtual:pwa-register';
 import './style.css';
 import { GAME_HEIGHT, GAME_WIDTH, TILE } from './config';
+import { installCoopSmokeApi } from './network/coop-smoke-api';
 import { BootScene } from './scenes/BootScene';
+import { CoopScene } from './scenes/CoopScene';
 import { CreditsScene } from './scenes/CreditsScene';
 import { PlayScene } from './scenes/PlayScene';
 import { SettingsScene } from './scenes/SettingsScene';
@@ -59,7 +61,7 @@ const config: Phaser.Types.Core.GameConfig = {
   input: {
     activePointers: 3,
   },
-  scene: [BootScene, TitleScene, WorldMapScene, PlayScene, SettingsScene, SkinsScene, CreditsScene],
+  scene: [BootScene, TitleScene, WorldMapScene, PlayScene, CoopScene, SettingsScene, SkinsScene, CreditsScene],
 };
 
 bootViewport();
@@ -77,4 +79,5 @@ globalThis.setTimeout(() => {
 }, 3500);
 if (import.meta.env.DEV) {
   Object.assign(window, { __rs4: game });
+  installCoopSmokeApi(game);
 }

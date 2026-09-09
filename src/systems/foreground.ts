@@ -156,6 +156,27 @@ function specsFor(theme: Theme): PropSpec[] {
         { id: 'fern', w: 140, h: 176, motion: 'sway', alpha: 0.86, weight: 1.5, footprint: 2, size: 'large' },
         { id: 'leaf', w: 156, h: 190, motion: 'sway', alpha: 0.84, weight: 1.2, footprint: 2, size: 'large' },
       ];
+    case 'beach':
+      return [
+        { id: 'tuft', w: 70, h: 48, motion: 'sway', alpha: 0.95, weight: 2.8, footprint: 1, size: 'small' },
+        { id: 'shell', w: 54, h: 36, motion: 'still', alpha: 0.94, weight: 1.2, footprint: 1, size: 'small' },
+        { id: 'star', w: 50, h: 42, motion: 'still', alpha: 0.92, weight: 0.9, footprint: 1, size: 'small' },
+        { id: 'stone', w: 86, h: 44, motion: 'still', alpha: 0.94, weight: 1.3, footprint: 1, size: 'small' },
+        { id: 'drift', w: 120, h: 52, motion: 'still', alpha: 0.92, weight: 1.5, footprint: 2, size: 'small' },
+        { id: 'grass', w: 64, h: 86, motion: 'sway', alpha: 0.9, weight: 1.2, footprint: 1, size: 'small' },
+        { id: 'palm', w: 96, h: 176, motion: 'sway', alpha: 0.86, weight: 1.1, footprint: 2, size: 'large' },
+        { id: 'umbrella', w: 110, h: 140, motion: 'sway', alpha: 0.88, weight: 0.8, footprint: 2, size: 'large' },
+      ];
+    case 'rainy-city':
+      return [
+        { id: 'puddle', w: 120, h: 38, motion: 'flicker', alpha: 0.82, weight: 2.2, footprint: 2, size: 'small' },
+        { id: 'trash', w: 72, h: 66, motion: 'still', alpha: 0.94, weight: 1.5, footprint: 1, size: 'small' },
+        { id: 'hydrant', w: 62, h: 82, motion: 'still', alpha: 0.96, weight: 1.0, footprint: 1, size: 'small' },
+        { id: 'barrier', w: 132, h: 82, motion: 'still', alpha: 0.92, weight: 1.2, footprint: 2, size: 'large' },
+        { id: 'umbrella', w: 118, h: 142, motion: 'sway', alpha: 0.88, weight: 1.1, footprint: 2, size: 'large' },
+        { id: 'neon-sign', w: 104, h: 178, motion: 'flicker', alpha: 0.86, weight: 0.8, footprint: 2, size: 'large' },
+        { id: 'cables', w: 150, h: 106, motion: 'sway', alpha: 0.82, weight: 0.7, footprint: 3, size: 'large' },
+      ];
     default: {
       const neverTheme: never = theme;
       return neverTheme;
@@ -183,6 +204,12 @@ function paintLip(ctx: CanvasRenderingContext2D, theme: Theme): void {
     case 'rainforest':
       paintRainforestLip(ctx);
       return;
+    case 'beach':
+      paintBeachLip(ctx);
+      return;
+    case 'rainy-city':
+      paintRainyCityLip(ctx);
+      return;
     default: {
       const neverTheme: never = theme;
       return neverTheme;
@@ -209,6 +236,12 @@ function paintProp(ctx: CanvasRenderingContext2D, theme: Theme, id: string, w: n
       return;
     case 'rainforest':
       paintRainforestProp(ctx, id, w, h);
+      return;
+    case 'beach':
+      paintBeachProp(ctx, id, w, h);
+      return;
+    case 'rainy-city':
+      paintRainyCityProp(ctx, id, w, h);
       return;
     default: {
       const neverTheme: never = theme;
@@ -1338,6 +1371,180 @@ function paintRainforestProp(ctx: CanvasRenderingContext2D, id: string, w: numbe
       stampElephantEar(ctx, cx + 4, h - 96, 28, 58, 0.18, 0x1e5a28, 0x0a2818, 0x6ad08a);
       ctx.fillStyle = css(0x8ab0c0, 0.55);
       fillCircle(ctx, cx + 18, h - 48, 2.6);
+      return;
+    default:
+      return;
+  }
+}
+
+function paintBeachLip(ctx: CanvasRenderingContext2D): void {
+  paintFringeBank(ctx, 0xb88632, 0xe0b05a);
+  ctx.fillStyle = css(0xe0b05a, 0.9);
+  ctx.beginPath();
+  ctx.moveTo(0, LIP_H);
+  for (let x = 0; x <= LIP_W; x += 6) {
+    ctx.lineTo(x, LIP_H - 12 - 5 * Math.sin(x * 0.07));
+  }
+  ctx.lineTo(LIP_W, LIP_H);
+  ctx.closePath();
+  ctx.fill();
+  ctx.fillStyle = css(0xfff4c4, 0.55);
+  for (const x of [24, 80, 148, 220, 292, 352]) {
+    wrapDraw(x, LIP_W, 12, (ox) => fillEllipse(ctx, x + ox, LIP_H - 8, 14, 3));
+  }
+}
+
+function paintBeachProp(ctx: CanvasRenderingContext2D, id: string, w: number, h: number): void {
+  const cx = w / 2;
+  switch (id) {
+    case 'tuft':
+      stampBlades(ctx, cx, h, 6, 32, 0x6a8a32, 0x4a6a22);
+      stampBlades(ctx, cx + 4, h, 4, 26, 0x8ab05a, 0x6a8a32);
+      return;
+    case 'shell':
+      ctx.fillStyle = css(0xf0c48a);
+      fillEllipse(ctx, cx, h - 12, 18, 12);
+      ctx.fillStyle = css(0xffe08a);
+      fillEllipse(ctx, cx - 2, h - 14, 12, 8);
+      ctx.fillStyle = css(0xc45a28, 0.7);
+      fillEllipse(ctx, cx + 4, h - 12, 6, 4);
+      return;
+    case 'star':
+      ctx.fillStyle = css(0xf0714f);
+      for (let i = 0; i < 5; i += 1) {
+        const a = (Math.PI * 2 * i) / 5 - Math.PI / 2;
+        ctx.beginPath();
+        ctx.moveTo(cx, h - 18);
+        ctx.lineTo(cx + Math.cos(a - 0.4) * 6, h - 18 + Math.sin(a - 0.4) * 6);
+        ctx.lineTo(cx + Math.cos(a) * 16, h - 18 + Math.sin(a) * 16);
+        ctx.lineTo(cx + Math.cos(a + 0.4) * 6, h - 18 + Math.sin(a + 0.4) * 6);
+        ctx.closePath();
+        ctx.fill();
+      }
+      return;
+    case 'stone':
+      ctx.fillStyle = css(0x8a7a68);
+      fillEllipse(ctx, cx, h - 16, 28, 14);
+      ctx.fillStyle = css(0xb8a898);
+      fillEllipse(ctx, cx - 6, h - 18, 16, 8);
+      return;
+    case 'drift':
+      ctx.fillStyle = css(0x8a5a22);
+      fillEllipse(ctx, cx, h - 18, 48, 12);
+      ctx.fillStyle = css(0xc9953f);
+      fillEllipse(ctx, cx - 8, h - 20, 30, 8);
+      return;
+    case 'grass':
+      stampBlades(ctx, cx, h, 5, 50, 0x4a8a3a, 0x2a6a28);
+      return;
+    case 'palm':
+      ctx.fillStyle = css(0x8a5a22);
+      ctx.fillRect(cx - 4, h - 90, 8, 90);
+      ctx.fillStyle = css(0x2a8a3a);
+      for (const lean of [-28, -10, 10, 28]) {
+        ctx.beginPath();
+        ctx.moveTo(cx, h - 88);
+        ctx.quadraticCurveTo(cx + lean, h - 120, cx + lean * 1.3, h - 70);
+        ctx.quadraticCurveTo(cx + lean * 0.3, h - 86, cx, h - 88);
+        ctx.fill();
+      }
+      return;
+    case 'umbrella':
+      ctx.fillStyle = css(0xc45a28);
+      ctx.fillRect(cx - 2, h - 90, 4, 90);
+      ctx.fillStyle = css(0x3aa0d8);
+      fillEllipse(ctx, cx, h - 92, 44, 16);
+      ctx.fillStyle = css(0xffe08a);
+      fillEllipse(ctx, cx, h - 96, 18, 6);
+      return;
+    default:
+      return;
+  }
+}
+
+function paintRainyCityLip(ctx: CanvasRenderingContext2D): void {
+  paintFringeBank(ctx, 0x0c1322, 0x25324a);
+  ctx.fillStyle = css(0x63e8ff, 0.3);
+  ctx.fillRect(0, LIP_H - 27, LIP_W, 5);
+  ctx.fillStyle = css(0xb850d8, 0.22);
+  for (const x of [24, 86, 154, 238, 310, 366]) {
+    wrapDraw(x, LIP_W, 24, (ox) => fillEllipse(ctx, x + ox, LIP_H - 14, 22, 5));
+  }
+  ctx.fillStyle = css(0xf0c84a, 0.7);
+  for (let x = 16; x < LIP_W; x += 72) {
+    ctx.fillRect(x, LIP_H - 8, 34, 3);
+  }
+}
+
+function paintRainyCityProp(ctx: CanvasRenderingContext2D, id: string, w: number, h: number): void {
+  const cx = w / 2;
+  switch (id) {
+    case 'puddle':
+      ctx.fillStyle = css(0x071323, 0.75);
+      fillEllipse(ctx, cx, h - 9, w * 0.44, 9);
+      ctx.fillStyle = css(0x63e8ff, 0.38);
+      fillEllipse(ctx, cx - 12, h - 12, w * 0.28, 4);
+      return;
+    case 'trash':
+      ctx.fillStyle = css(0x111827);
+      fillEllipse(ctx, cx, h - 18, 24, 18);
+      ctx.fillStyle = css(0x46536c);
+      ctx.fillRect(cx - 18, h - 46, 36, 32);
+      ctx.fillStyle = css(0x71809a);
+      ctx.fillRect(cx - 22, h - 50, 44, 7);
+      return;
+    case 'hydrant':
+      ctx.fillStyle = css(0x7c1838);
+      ctx.fillRect(cx - 14, h - 52, 28, 50);
+      ctx.fillStyle = css(0xe34463);
+      fillCircle(ctx, cx, h - 56, 18);
+      ctx.fillStyle = css(0xff8293, 0.55);
+      ctx.fillRect(cx - 8, h - 66, 12, 5);
+      return;
+    case 'barrier':
+      ctx.fillStyle = css(0x20283a);
+      ctx.fillRect(10, h - 22, w - 20, 12);
+      ctx.fillStyle = css(0xf0c84a);
+      ctx.fillRect(8, h - 64, w - 16, 22);
+      ctx.fillStyle = css(0x111827);
+      for (let x = 16; x < w - 12; x += 28) {
+        ctx.fillRect(x, h - 64, 12, 22);
+      }
+      return;
+    case 'umbrella':
+      ctx.strokeStyle = css(0x20283a);
+      ctx.lineWidth = 5;
+      ctx.beginPath();
+      ctx.moveTo(cx, h - 92);
+      ctx.lineTo(cx, h - 8);
+      ctx.stroke();
+      ctx.fillStyle = css(0xb850d8);
+      fillEllipse(ctx, cx, h - 96, 48, 18);
+      ctx.fillStyle = css(0x63e8ff, 0.65);
+      fillEllipse(ctx, cx - 15, h - 100, 18, 6);
+      return;
+    case 'neon-sign':
+      ctx.fillStyle = css(0x111827);
+      ctx.fillRect(cx - 7, h - 104, 14, 104);
+      ctx.fillStyle = css(0x20283a);
+      ctx.fillRect(8, 6, w - 16, 76);
+      ctx.strokeStyle = css(0x63e8ff);
+      ctx.lineWidth = 5;
+      ctx.strokeRect(15, 14, w - 30, 58);
+      ctx.fillStyle = css(0xb850d8);
+      ctx.fillRect(25, 31, w - 50, 8);
+      ctx.fillRect(25, 49, w - 50, 8);
+      return;
+    case 'cables':
+      ctx.strokeStyle = css(0x101522);
+      ctx.lineWidth = 7;
+      ctx.beginPath();
+      ctx.moveTo(0, 18);
+      ctx.quadraticCurveTo(cx, h - 18, w, 12);
+      ctx.stroke();
+      ctx.strokeStyle = css(0x63e8ff, 0.35);
+      ctx.lineWidth = 2;
+      ctx.stroke();
       return;
     default:
       return;

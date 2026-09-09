@@ -225,6 +225,10 @@ export interface CourseSpec {
   traps?: number[];
   mini?: number;
   boss?: number;
+  /** Optional warp into this world's `W-?` specialty course. */
+  secretPortal?: { x: number; tilesUp: number };
+  /** True for hidden `W-?` gauntlets. */
+  secret?: boolean;
 }
 
 export interface EnemySpawn {
@@ -258,15 +262,20 @@ export interface CompiledCourse {
   special: SpecialKind;
   puzzles: PuzzleFeature[];
   miniVariant: MiniBossVariant | undefined;
+  secretPortal?: { x: number; tilesUp: number };
+  secret?: boolean;
 }
 
-/** Early stages keep one mid-course flag. Stages 3–4 split the run across two. */
-export function checkpointFractionsForStage(stage: number): readonly number[] {
-  return stage >= 3 ? [0.32, 0.62] : [0.5];
+/** Early stages keep one mid-course flag. Stages 3–4 and secrets split the run across two. */
+export function checkpointFractionsForStage(stage: number, secret = false): readonly number[] {
+  return secret || stage >= 3 ? [0.32, 0.62] : [0.5];
 }
 
 /** Stage 3–4 gauntlets add enemies as worlds get later. Specs are the floor. */
-export function lateStageEnemyQuota(world: number, stage: number): number {
+export function lateStageEnemyQuota(world: number, stage: number, secret = false): number {
+  if (secret) {
+    return 16 + world;
+  }
   if (stage === 3) {
     return 12 + world;
   }
@@ -355,7 +364,7 @@ function topUpLateStageEnemies(
   rawSpawns: Array<{ x: number; tilesUp: number }>,
   spawnX: number,
 ): Array<{ x: number; tilesUp: number }> {
-  const needed = lateStageEnemyQuota(world, stage) - rawSpawns.length;
+  const needed = lateStageEnemyQuota(world, stage, spec.secret === true) - rawSpawns.length;
   if (needed <= 0) {
     return [];
   }
@@ -472,6 +481,8 @@ function isSolidPuzzle(kind: PuzzleKind): boolean {
     case 'sand-wall':
     case 'shadow-wall':
     case 'moss-curtain':
+    case 'driftwood-wall':
+    case 'blackout-gate':
       return true;
     case 'vine-bed':
     case 'down-current':
@@ -601,7 +612,7 @@ function placeCourseCheckpoints(
   const playableEnd = Math.max(24, Math.min(spec.width - 8, fightX - 10));
   const placed: CoursePickup[] = [];
   let minX = 8;
-  for (const fraction of checkpointFractionsForStage(stage)) {
+  for (const fraction of checkpointFractionsForStage(stage, spec.secret === true)) {
     const desired = Math.max(minX, Math.floor(playableEnd * fraction));
     const x = safeFloorX(rows, desired, blocked);
     occupy(blocked, x, 1);
@@ -693,6 +704,7 @@ export function compileCourse(world: number, stage: number, spec: CourseSpec, th
     }
   }
   occupyTrapThreats(blocked, trapXs, theme, spec.width);
+  const secret = spec.secret === true;
   const checkpoints = placeCourseCheckpoints(rows, spec, stage, blocked);
   const originXs = [spawnX, ...checkpoints.map((checkpoint) => checkpoint.x)];
   const kinds = assignSafeEnemyKinds(world, stage, rawSpawns, originXs);
@@ -719,7 +731,7 @@ export function compileCourse(world: number, stage: number, spec: CourseSpec, th
       occupy(puzzleBlocked, checkpoint.x, 1);
     }
   }
-  const puzzleCount = stage === 4 ? 1 : stage;
+  const puzzleCount = secret ? 4 : stage === 4 ? 1 : stage;
   const puzzles = Array.from({ length: puzzleCount }, (_, index) => {
     const desired = Math.floor(spec.width * ((index + 1) / (puzzleCount + 1)));
     if (puzzleKind === 'down-current') {
@@ -729,11 +741,11 @@ export function compileCourse(world: number, stage: number, spec: CourseSpec, th
       for (let i = 0; i < width; i += 1) {
         puzzleBlocked.add(x + i);
       }
-      return { x, kind: puzzleKind, height: Math.min(4, 1 + stage), width };
+      return { x, kind: puzzleKind, height: Math.min(4, 1 + Math.max(stage, secret ? 4 : 0)), width };
     }
     const x = safeFloorX(rows, desired, puzzleBlocked);
     occupy(puzzleBlocked, x, 1);
-    return { x, kind: puzzleKind, height: Math.min(4, 1 + stage), width: 1 };
+    return { x, kind: puzzleKind, height: Math.min(4, 1 + Math.max(stage, secret ? 4 : 0)), width: 1 };
   });
   const kind = hazardForTheme(theme);
   const traps: TerrainHazardSpawn[] = trapXs.map((x) => ({
@@ -750,12 +762,14 @@ export function compileCourse(world: number, stage: number, spec: CourseSpec, th
     checkpoints,
     collectibles: [
       { x: collectibleA, tilesUp: 2 },
-      { x: collectibleB, tilesUp: stage >= 2 ? 3 : 2 },
-      { x: collectibleC, tilesUp: stage >= 3 ? 4 : 2 },
+      { x: collectibleB, tilesUp: stage >= 2 || secret ? 3 : 2 },
+      { x: collectibleC, tilesUp: stage >= 3 || secret ? 4 : 2 },
     ],
     shield: { x: shieldX, tilesUp: 1 },
     special: specialForTheme(theme),
     puzzles,
-    miniVariant: stage < 4 ? (stage as MiniBossVariant) : undefined,
+    miniVariant: secret || stage >= 4 ? undefined : (stage as MiniBossVariant),
+    secretPortal: spec.secretPortal,
+    secret,
   };
 }

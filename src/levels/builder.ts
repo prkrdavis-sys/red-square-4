@@ -1,9 +1,10 @@
 import Phaser from 'phaser';
-import { GROUND_Y, MAP_ROWS, TILE, type Theme } from '../config';
+import { GROUND_Y, MAP_ROWS, MINI_BOSS_HP, TILE, WORLD_BOSS_HP, secretBossName, type Theme } from '../config';
 import { Baddie } from '../entities/Baddie';
 import { Boss } from '../entities/Boss';
 import { Star } from '../entities/Star';
 import { Player } from '../entities/Player';
+import { SecretPortal } from '../entities/SecretPortal';
 import { TerrainHazard } from '../entities/TerrainHazard';
 import {
   arenaGateTileKey,
@@ -44,6 +45,7 @@ export interface BuiltLevel {
   puzzleTargets: Phaser.Physics.Arcade.StaticGroup;
   miniBoss: Boss | undefined;
   worldBoss: Boss | undefined;
+  secretPortal: SecretPortal | undefined;
   arena: ArenaKeep | undefined;
   bossFences: Phaser.GameObjects.Rectangle[];
 }
@@ -77,6 +79,39 @@ function addHazard(
   sprite.setDisplaySize(TILE, TILE);
   const body = sprite.body as Phaser.Physics.Arcade.StaticBody;
   body.updateFromGameObject();
+}
+
+function addCityTraffic(scene: Phaser.Scene, rows: string[]): void {
+  const lane = rows[MAP_ROWS - 1] ?? '';
+  let start = -1;
+  for (let x = 0; x <= lane.length; x += 1) {
+    if (lane[x] === '~') {
+      if (start < 0) {
+        start = x;
+      }
+      continue;
+    }
+    if (start < 0) {
+      continue;
+    }
+    const width = x - start;
+    const left = start * TILE;
+    const right = x * TILE;
+    for (let index = 0; index < Math.max(1, Math.floor(width / 4)); index += 1) {
+      const car = scene.add.image(left - TILE * (index + 1.5), MAP_ROWS * TILE - 38, 'city-car');
+      car.setDepth(13);
+      car.setFlipX(index % 2 === 1);
+      scene.tweens.add({
+        targets: car,
+        x: right + TILE * 1.5,
+        duration: 1500 + width * 120 + index * 260,
+        delay: index * 620,
+        repeat: -1,
+        ease: 'Linear',
+      });
+    }
+    start = -1;
+  }
 }
 
 export function buildLevel(
@@ -126,7 +161,7 @@ export function buildLevel(
           addTileImage(scene, px, py, pickTile(scene, onewayTileKey(theme), `kenney-${theme}-oneway`), true);
           break;
         case '~':
-          addHazard(hazards, px, py, 'tile-lava');
+          addHazard(hazards, px, py, theme === 'rainy-city' ? 'tile-traffic' : 'tile-lava');
           break;
         case 'P':
           player = new Player(scene, px + TILE / 2, py + TILE / 2);
@@ -139,7 +174,7 @@ export function buildLevel(
             px + TILE / 2,
             py + TILE / 2 - 8,
             getWorldBossKind(world),
-            1,
+            MINI_BOSS_HP,
             theme,
             course.miniVariant,
           );
@@ -150,8 +185,10 @@ export function buildLevel(
             px + TILE / 2,
             py + TILE / 2 - 16,
             getWorldBossKind(world),
-            3,
+            WORLD_BOSS_HP,
             theme,
+            undefined,
+            course.secret ? secretBossName(world) : undefined,
           );
           break;
         case '.':
@@ -160,6 +197,10 @@ export function buildLevel(
           break;
       }
     }
+  }
+
+  if (theme === 'rainy-city') {
+    addCityTraffic(scene, rows);
   }
 
   for (const run of colliderRuns(rows)) {
@@ -209,6 +250,16 @@ export function buildLevel(
     addPuzzleTarget(scene, puzzleTargets, puzzle);
   }
 
+  let secretPortal: SecretPortal | undefined;
+  if (course.secretPortal) {
+    secretPortal = new SecretPortal(
+      scene,
+      course.secretPortal.x * TILE + TILE / 2,
+      (GROUND_Y - course.secretPortal.tilesUp) * TILE - TILE / 2,
+      theme,
+    );
+  }
+
   const heightPx = MAP_ROWS * TILE;
   const boss = worldBoss ?? miniBoss;
   let arena: ArenaKeep | undefined;
@@ -240,6 +291,7 @@ export function buildLevel(
     puzzleTargets,
     miniBoss,
     worldBoss,
+    secretPortal,
     arena,
     bossFences,
   };
@@ -254,7 +306,13 @@ function addPuzzleTarget(
     addDownCurrentZone(scene, group, puzzle);
     return;
   }
-  const isWall = puzzle.kind === 'ice-wall' || puzzle.kind === 'sand-wall' || puzzle.kind === 'shadow-wall';
+  const isWall =
+    puzzle.kind === 'ice-wall' ||
+    puzzle.kind === 'sand-wall' ||
+    puzzle.kind === 'shadow-wall' ||
+    puzzle.kind === 'moss-curtain' ||
+    puzzle.kind === 'driftwood-wall' ||
+    puzzle.kind === 'blackout-gate';
   const width = isWall ? 30 : TILE;
   const height = isWall ? puzzle.height * TILE : 28;
   const target = group.create(

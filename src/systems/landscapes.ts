@@ -147,6 +147,36 @@ function palette(theme: Theme): LandscapePalette {
         groundShade: 0x1a4a18,
         groundTop: 0x3d8a32,
       };
+    case 'beach':
+      return {
+        skyTop: 0x1a78d8,
+        skyHorizon: 0xffe8c4,
+        cloud: 0xffffff,
+        cloudShade: 0xc8dce8,
+        far: 0x4aa0c8,
+        farCap: 0x8ad0e8,
+        mountain: 0x2a8aaa,
+        mountainShade: 0x1a6a88,
+        cap: 0xf4d890,
+        ground: 0xe0b05a,
+        groundShade: 0xb88632,
+        groundTop: 0xffe08a,
+      };
+    case 'rainy-city':
+      return {
+        skyTop: 0x080d1d,
+        skyHorizon: 0x243653,
+        cloud: 0x33445f,
+        cloudShade: 0x151e32,
+        far: 0x172238,
+        farCap: 0x425472,
+        mountain: 0x202d45,
+        mountainShade: 0x0d1526,
+        cap: 0x63e8ff,
+        ground: 0x18243a,
+        groundShade: 0x09111f,
+        groundTop: 0x40516e,
+      };
     default: {
       const neverTheme: never = theme;
       return neverTheme;
@@ -706,6 +736,90 @@ function drawOceanFloor(ctx: CanvasRenderingContext2D, colors: LandscapePalette,
   }
 }
 
+function paintCitySky(ctx: CanvasRenderingContext2D, width: number, height: number, colors: LandscapePalette): void {
+  const gradient = ctx.createLinearGradient(0, 0, 0, height);
+  gradient.addColorStop(0, css(colors.skyTop));
+  gradient.addColorStop(0.64, css(colors.skyHorizon));
+  gradient.addColorStop(1, css(0x4a285c));
+  ctx.fillStyle = gradient;
+  ctx.fillRect(0, 0, width, height);
+  ctx.strokeStyle = css(0x9fefff, 0.16);
+  ctx.lineWidth = 1.4;
+  for (let i = 0; i < 180; i += 1) {
+    const x = (i * 97 + 31) % width;
+    const y = (i * 53) % height;
+    ctx.beginPath();
+    ctx.moveTo(x, y);
+    ctx.lineTo(x - 10, y + 34);
+    ctx.stroke();
+  }
+}
+
+function drawCityBuildings(
+  ctx: CanvasRenderingContext2D,
+  colors: LandscapePalette,
+  texH: number,
+  far: boolean,
+): void {
+  const width = LANDSCAPE.stripW;
+  const step = far ? 92 : 128;
+  for (let x = -20, index = 0; x < width + step; x += step, index += 1) {
+    const w = step - (far ? 15 : 20);
+    const h = (far ? 70 : 118) + ((index * 47) % (far ? 105 : 150));
+    ctx.fillStyle = css(far ? colors.far : colors.mountainShade);
+    ctx.fillRect(x + 6, texH - h - 8, w, h + 8);
+    ctx.fillStyle = css(far ? colors.farCap : colors.mountain);
+    ctx.fillRect(x, texH - h, w, h);
+    ctx.fillStyle = css(index % 3 === 0 ? 0x63e8ff : index % 3 === 1 ? 0xd84cff : 0xf0c84a, far ? 0.34 : 0.62);
+    for (let wy = texH - h + 18; wy < texH - 16; wy += far ? 22 : 26) {
+      for (let wx = x + 12; wx < x + w - 8; wx += far ? 20 : 24) {
+        if ((wx + wy + index) % 5 !== 0) {
+          ctx.fillRect(wx, wy, far ? 7 : 9, far ? 9 : 12);
+        }
+      }
+    }
+    if (!far && index % 3 === 0) {
+      ctx.strokeStyle = css(0x71809a, 0.8);
+      ctx.lineWidth = 4;
+      ctx.strokeRect(x + w - 22, texH - h + 22, 28, Math.max(36, h - 44));
+      for (let fy = texH - h + 38; fy < texH - 20; fy += 26) {
+        ctx.beginPath();
+        ctx.moveTo(x + w - 22, fy);
+        ctx.lineTo(x + w + 6, fy + 18);
+        ctx.stroke();
+      }
+    }
+    if (!far && index % 4 === 1) {
+      ctx.fillStyle = css(0x101827);
+      ctx.fillRect(x + w * 0.35, texH - h - 20, w * 0.3, 20);
+      ctx.fillStyle = css(0x63e8ff, 0.55);
+      fillEllipse(ctx, x + w * 0.5, texH - h - 20, w * 0.15, 5, width);
+    }
+  }
+}
+
+function drawCityStreet(ctx: CanvasRenderingContext2D, colors: LandscapePalette, texH: number): void {
+  const width = LANDSCAPE.stripW;
+  ctx.fillStyle = css(colors.groundShade);
+  ctx.fillRect(0, 0, width, texH);
+  ctx.fillStyle = css(colors.ground);
+  ctx.fillRect(0, 44, width, texH - 44);
+  ctx.fillStyle = css(colors.groundTop);
+  ctx.fillRect(0, 38, width, 12);
+  ctx.fillStyle = css(0x63e8ff, 0.16);
+  for (let x = 20; x < width; x += 170) {
+    fillEllipse(ctx, x, 72 + (x % 4) * 12, 74, 8, width);
+  }
+  ctx.fillStyle = css(0xd84cff, 0.12);
+  for (let x = 100; x < width; x += 310) {
+    ctx.fillRect(x, 50, 46, 180);
+  }
+  ctx.fillStyle = css(0xf0c84a, 0.62);
+  for (let x = 0; x < width; x += 92) {
+    ctx.fillRect(x + 12, 122, 48, 5);
+  }
+}
+
 function sourceImageOf(scene: Phaser.Scene, key: string): HTMLImageElement | HTMLCanvasElement | undefined {
   if (!scene.textures.exists(key)) {
     return undefined;
@@ -875,6 +989,195 @@ function paintMeadowSky(ctx: CanvasRenderingContext2D, width: number, height: nu
       ctx.stroke();
     });
   }
+}
+
+function paintBeachSky(ctx: CanvasRenderingContext2D, width: number, height: number, colors: LandscapePalette): void {
+  const mid = 0x5eb8fc;
+  const steps = 56;
+  const slice = Math.ceil(height / steps) + 1;
+  for (let i = 0; i < steps; i += 1) {
+    const t = i / (steps - 1);
+    const color =
+      t < 0.42
+        ? mixColor(colors.skyTop, mid, t / 0.42)
+        : t < 0.74
+          ? mixColor(mid, mixColor(mid, colors.skyHorizon, 0.62), (t - 0.42) / 0.32)
+          : mixColor(mixColor(mid, colors.skyHorizon, 0.55), colors.skyHorizon, (t - 0.74) / 0.26);
+    ctx.fillStyle = css(color);
+    ctx.fillRect(0, (height / steps) * i, width, slice);
+  }
+
+  const haze = ctx.createLinearGradient(0, height * 0.48, 0, height);
+  haze.addColorStop(0, css(0xfff4d8, 0));
+  haze.addColorStop(0.5, css(0xffe8c4, 0.18));
+  haze.addColorStop(1, css(0xfff8e8, 0.38));
+  ctx.fillStyle = haze;
+  ctx.fillRect(0, height * 0.46, width, height * 0.54);
+
+  ctx.fillStyle = css(0xffffff, 0.16);
+  for (const streak of [
+    { x: 110, y: 42, rx: 96, ry: 6 },
+    { x: 380, y: 24, rx: 70, ry: 5 },
+    { x: 720, y: 54, rx: 118, ry: 7 },
+    { x: 1080, y: 20, rx: 80, ry: 5 },
+    { x: 1420, y: 48, rx: 102, ry: 6 },
+    { x: 1800, y: 32, rx: 86, ry: 5 },
+    { x: 2160, y: 58, rx: 108, ry: 7 },
+    { x: 2460, y: 28, rx: 74, ry: 5 },
+  ]) {
+    fillEllipse(ctx, streak.x, streak.y, streak.rx, streak.ry, width);
+    fillEllipse(ctx, streak.x + 28, streak.y + 6, streak.rx * 0.55, streak.ry * 0.7, width);
+  }
+
+  ctx.strokeStyle = css(0x2a4068, 0.36);
+  ctx.lineWidth = 1.5;
+  ctx.lineCap = 'round';
+  for (const bird of [
+    { x: 220, y: 108, s: 1.05 },
+    { x: 252, y: 118, s: 0.72 },
+    { x: 278, y: 104, s: 0.88 },
+    { x: 860, y: 64, s: 0.95 },
+    { x: 890, y: 74, s: 0.62 },
+    { x: 1480, y: 126, s: 1.1 },
+    { x: 1514, y: 136, s: 0.7 },
+    { x: 1540, y: 122, s: 0.82 },
+    { x: 2080, y: 88, s: 0.8 },
+    { x: 2106, y: 96, s: 0.55 },
+  ]) {
+    wrapStamp(bird.x, width, 12, (ox) => {
+      const x = bird.x + ox;
+      ctx.beginPath();
+      ctx.moveTo(x - 6 * bird.s, bird.y);
+      ctx.quadraticCurveTo(x - 1.2 * bird.s, bird.y - 3.4 * bird.s, x, bird.y);
+      ctx.quadraticCurveTo(x + 1.2 * bird.s, bird.y - 3.4 * bird.s, x + 6 * bird.s, bird.y);
+      ctx.stroke();
+    });
+  }
+}
+
+function drawBeachClouds(ctx: CanvasRenderingContext2D, colors: LandscapePalette): void {
+  const width = LANDSCAPE.stripW;
+  for (const cloud of cloudPlan('beach')) {
+    stampMeadowCloud(ctx, cloud.x, cloud.y, cloud.s, width, colors.cloud, colors.cloudShade, 'cumulus');
+  }
+}
+
+function stampBeachPalm(
+  ctx: CanvasRenderingContext2D,
+  cx: number,
+  baseY: number,
+  scale: number,
+  width: number,
+): void {
+  wrapStamp(cx, width, 36 * scale, (ox) => {
+    const x = cx + ox;
+    ctx.fillStyle = css(0x8a5a22);
+    ctx.beginPath();
+    ctx.moveTo(x - 3 * scale, baseY);
+    ctx.lineTo(x + 3 * scale, baseY);
+    ctx.lineTo(x + 1.4 * scale, baseY - 46 * scale);
+    ctx.lineTo(x - 1.4 * scale, baseY - 46 * scale);
+    ctx.closePath();
+    ctx.fill();
+    ctx.fillStyle = css(0x2a8a3a);
+    for (const lean of [-22, -8, 8, 22]) {
+      ctx.beginPath();
+      ctx.moveTo(x, baseY - 44 * scale);
+      ctx.quadraticCurveTo(x + lean * scale, baseY - 58 * scale, x + lean * 1.4 * scale, baseY - 36 * scale);
+      ctx.quadraticCurveTo(x + lean * 0.4 * scale, baseY - 42 * scale, x, baseY - 44 * scale);
+      ctx.fill();
+    }
+    ctx.fillStyle = css(0x8ee36d, 0.55);
+    ctx.beginPath();
+    ctx.moveTo(x, baseY - 44 * scale);
+    ctx.quadraticCurveTo(x + 10 * scale, baseY - 56 * scale, x + 18 * scale, baseY - 38 * scale);
+    ctx.fill();
+  });
+}
+
+function drawBeachFar(ctx: CanvasRenderingContext2D, colors: LandscapePalette, texH: number): void {
+  const width = LANDSCAPE.stripW;
+  const ridge = ridgeHeights(
+    width,
+    texH,
+    [
+      { x: 220, w: 260, h: texH * 0.42 },
+      { x: 780, w: 320, h: texH * 0.5 },
+      { x: 1420, w: 280, h: texH * 0.36 },
+      { x: 2080, w: 300, h: texH * 0.44 },
+    ],
+    [
+      { amp: texH * 0.05, cycles: 2, phase: 0.4 },
+      { amp: texH * 0.03, cycles: 5, phase: 1.5 },
+    ],
+  );
+  ctx.fillStyle = css(colors.far);
+  fillBelow(ctx, ridge, texH, width);
+  ctx.fillStyle = css(colors.farCap, 0.45);
+  fillBand(ctx, ridge, texH, width, 36);
+  ctx.fillStyle = css(0x2aa0c8, 0.35);
+  fillBand(ctx, ridge, texH, width, 18);
+}
+
+function drawBeachHills(ctx: CanvasRenderingContext2D, colors: LandscapePalette, texH: number): void {
+  const width = LANDSCAPE.stripW;
+  const ridge = ridgeHeights(
+    width,
+    texH,
+    [
+      { x: 180, w: 280, h: 110 },
+      { x: 720, w: 340, h: 140 },
+      { x: 1380, w: 260, h: 95 },
+      { x: 1980, w: 300, h: 125 },
+      { x: 2440, w: 200, h: 80 },
+    ],
+    [
+      { amp: texH * 0.05, cycles: 2, phase: 0.3 },
+      { amp: texH * 0.028, cycles: 4, phase: 1.4 },
+    ],
+  );
+  ctx.fillStyle = css(colors.mountain);
+  fillBelow(ctx, ridge, texH, width);
+  ctx.fillStyle = css(colors.mountainShade, 0.4);
+  fillBand(ctx, ridge, texH, width, 70);
+  ctx.fillStyle = css(colors.cap, 0.55);
+  fillBand(ctx, ridge, texH, width, 22);
+  stampBeachPalm(ctx, 420, texH - (ridge[420] ?? 80) + 8, 1.1, width);
+  stampBeachPalm(ctx, 980, texH - (ridge[980] ?? 90) + 6, 0.9, width);
+  stampBeachPalm(ctx, 1640, texH - (ridge[1640] ?? 85) + 8, 1.2, width);
+  stampBeachPalm(ctx, 2210, texH - (ridge[2210] ?? 80) + 6, 0.85, width);
+}
+
+function drawBeachGround(ctx: CanvasRenderingContext2D, colors: LandscapePalette, texH: number): void {
+  const width = LANDSCAPE.stripW;
+  const ridge = ridgeHeights(
+    width,
+    texH,
+    [
+      { x: 240, w: 400, h: 64 },
+      { x: 860, w: 360, h: 82 },
+      { x: 1500, w: 480, h: 70 },
+      { x: 2140, w: 340, h: 90 },
+    ],
+    [
+      { amp: 22, cycles: 2, phase: 0.5 },
+      { amp: 12, cycles: 4, phase: 1.6 },
+    ],
+    0.8,
+  );
+  ctx.fillStyle = css(colors.ground);
+  fillBelow(ctx, ridge, texH, width);
+  ctx.fillStyle = css(colors.groundShade, 0.32);
+  fillBand(ctx, ridge, texH, width, 80);
+  ctx.fillStyle = css(colors.groundTop, 0.9);
+  fillBand(ctx, ridge, texH, width, 18);
+  ctx.fillStyle = css(0xffffff, 0.55);
+  for (let x = 0; x < width; x += 18) {
+    const y = texH - (ridge[x] ?? 40) + 6;
+    fillEllipse(ctx, x + 6, y, 10, 3, width);
+  }
+  ctx.fillStyle = css(0x2aa0c8, 0.22);
+  fillBand(ctx, ridge, texH, width, 8);
 }
 
 function stampMeadowCloud(
@@ -2287,6 +2590,18 @@ function drawSky(scene: Phaser.Scene, theme: Theme, colors: LandscapePalette): v
     });
     return;
   }
+  if (theme === 'beach') {
+    paintCanvas(scene, skyKey(theme), LANDSCAPE.stripW, GAME_HEIGHT, (ctx) => {
+      paintBeachSky(ctx, LANDSCAPE.stripW, GAME_HEIGHT, colors);
+    });
+    return;
+  }
+  if (theme === 'rainy-city') {
+    paintCanvas(scene, skyKey(theme), LANDSCAPE.stripW, GAME_HEIGHT, (ctx) => {
+      paintCitySky(ctx, LANDSCAPE.stripW, GAME_HEIGHT, colors);
+    });
+    return;
+  }
   paintCanvas(scene, skyKey(theme), 16, GAME_HEIGHT, (ctx) => {
     const steps = 36;
     const slice = Math.ceil(GAME_HEIGHT / steps) + 1;
@@ -2359,6 +2674,27 @@ function cloudPlan(theme: Theme): { x: number; y: number; s: number }[] {
         { x: 2280, y: 108, s: 1.08 },
         { x: 2480, y: 84, s: 0.76 },
       ];
+    case 'beach':
+      return [
+        { x: 150, y: 96, s: 1.22 },
+        { x: 420, y: 132, s: 0.7 },
+        { x: 700, y: 84, s: 1.3 },
+        { x: 1020, y: 118, s: 0.82 },
+        { x: 1360, y: 92, s: 1.12 },
+        { x: 1680, y: 76, s: 0.88 },
+        { x: 1980, y: 124, s: 1.08 },
+        { x: 2260, y: 88, s: 0.74 },
+        { x: 2480, y: 108, s: 1.02 },
+      ];
+    case 'rainy-city':
+      return [
+        { x: 120, y: 72, s: 1.5 },
+        { x: 520, y: 104, s: 1.15 },
+        { x: 920, y: 66, s: 1.62 },
+        { x: 1400, y: 112, s: 1.22 },
+        { x: 1840, y: 74, s: 1.48 },
+        { x: 2300, y: 96, s: 1.3 },
+      ];
     default: {
       const neverTheme: never = theme;
       return neverTheme;
@@ -2398,6 +2734,10 @@ function drawClouds(scene: Phaser.Scene, theme: Theme, colors: LandscapePalette)
     }
     if (theme === 'desert') {
       drawDuneClouds(ctx, colors);
+      return;
+    }
+    if (theme === 'beach') {
+      drawBeachClouds(ctx, colors);
       return;
     }
     for (const cloud of cloudPlan(theme)) {
@@ -2562,6 +2902,18 @@ function drawRange(scene: Phaser.Scene, key: string, theme: Theme, colors: Lands
       }
       return;
     }
+    if (theme === 'beach') {
+      if (far) {
+        drawBeachFar(ctx, colors, texH);
+      } else {
+        drawBeachHills(ctx, colors, texH);
+      }
+      return;
+    }
+    if (theme === 'rainy-city') {
+      drawCityBuildings(ctx, colors, texH, far);
+      return;
+    }
 
     const peaks = theme === 'snow' ? snowPeaks(far, texH) : grassPeaks(far, texH);
     const ridge = ridgeHeights(
@@ -2603,6 +2955,14 @@ function drawGround(scene: Phaser.Scene, theme: Theme, colors: LandscapePalette)
     }
     if (theme === 'desert') {
       drawDuneGround(ctx, colors, texH);
+      return;
+    }
+    if (theme === 'beach') {
+      drawBeachGround(ctx, colors, texH);
+      return;
+    }
+    if (theme === 'rainy-city') {
+      drawCityStreet(ctx, colors, texH);
       return;
     }
 
@@ -2669,6 +3029,10 @@ export function hillKey(theme: Theme): string {
       return 'hill-castle';
     case 'rainforest':
       return 'hill-rainforest';
+    case 'beach':
+      return 'hill-beach';
+    case 'rainy-city':
+      return 'hill-rainy-city';
     default: {
       const neverTheme: never = theme;
       return neverTheme;
@@ -2690,6 +3054,10 @@ export function mountainKey(theme: Theme): string {
       return 'mtn-castle';
     case 'rainforest':
       return 'mtn-rainforest';
+    case 'beach':
+      return 'mtn-beach';
+    case 'rainy-city':
+      return 'mtn-rainy-city';
     default: {
       const neverTheme: never = theme;
       return neverTheme;

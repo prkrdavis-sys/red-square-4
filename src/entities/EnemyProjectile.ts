@@ -106,6 +106,12 @@ export class EnemyProjectile extends Phaser.Physics.Arcade.Sprite {
         this.tickBoomerang();
         this.setAngle(this.angle + 12);
         return;
+      case 'starfish':
+        this.setAngle(this.angle + 10);
+        return;
+      case 'water-balloon':
+        this.setAngle(this.angle + 5);
+        return;
       default: {
         const neverStyle: never = this.style;
         return neverStyle;

@@ -5,10 +5,13 @@ import {
   airJumpMode,
   applyFlowerSpring,
   applySwimStroke,
+  awningWallJumpSide,
+  awningWallJumpVelocity,
   canCarpetGlide,
   canFeatherFlutter,
   canFlowerSpring,
   canGhostHover,
+  canParasolHang,
   canSwimStroke,
   carpetGlideVelocity,
   carpetTrailPosition,
@@ -22,6 +25,8 @@ import {
   iceFlashSpawn,
   iceSkatePosition,
   nextTripleJumpStep,
+  parasolHangVelocity,
+  parasolPosition,
   swimStrokeVelocity,
   tripleChainLive,
   tripleJumpVelocity,
@@ -71,6 +76,7 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
   private flowerUsed = false;
   private flowerParkX = 0;
   private flowerParkY = 0;
+  private lastWallJumpSide: -1 | 0 | 1 = 0;
   private tripleChainStep: TripleJumpChain = 0;
   private tripleChainUntil = 0;
   private iceFlashUntil = 0;
@@ -90,6 +96,7 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
   private readonly iceFlash: Phaser.GameObjects.Image;
   private readonly ghostShroud: Phaser.GameObjects.Image;
   private readonly featherLeaf: Phaser.GameObjects.Image;
+  private readonly parasol: Phaser.GameObjects.Image;
   private readonly shadow: Phaser.GameObjects.Ellipse;
   private readonly dust: Phaser.GameObjects.Particles.ParticleEmitter;
   private readonly carpetDust: Phaser.GameObjects.Particles.ParticleEmitter;
@@ -97,6 +104,7 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
   private readonly iceDust: Phaser.GameObjects.Particles.ParticleEmitter;
   private readonly ghostDust: Phaser.GameObjects.Particles.ParticleEmitter;
   private readonly featherDust: Phaser.GameObjects.Particles.ParticleEmitter;
+  private readonly parasolDust: Phaser.GameObjects.Particles.ParticleEmitter;
 
   constructor(scene: Phaser.Scene, x: number, y: number) {
     super(scene, x, y, 'player');
@@ -141,6 +149,10 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
     this.featherLeaf.setDepth(18);
     this.featherLeaf.setVisible(false);
     this.featherLeaf.setAlpha(0);
+    this.parasol = scene.add.image(x, y - 28, 'parasol-a');
+    this.parasol.setDepth(19);
+    this.parasol.setVisible(false);
+    this.parasol.setAlpha(0);
     this.shadow = scene.add.ellipse(x, y + 22, 34, 12, 0x120408, 0.32);
     this.shadow.setDepth(19);
     this.dust = scene.add.particles(0, 0, 'poof-particle', {
@@ -215,6 +227,19 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
       alpha: { start: 0.85, end: 0 },
     });
     this.featherDust.setDepth(17);
+    this.parasolDust = scene.add.particles(0, 0, 'firework-spark', {
+      speed: { min: 10, max: 36 },
+      scale: { start: 0.42, end: 0 },
+      lifespan: { min: 280, max: 480 },
+      emitting: false,
+      frequency: 42,
+      quantity: 1,
+      tint: [0xfff4c4, 0xffc84a, 0x7ad4e8],
+      gravityY: -12,
+      alpha: { start: 0.8, end: 0 },
+      blendMode: Phaser.BlendModes.ADD,
+    });
+    this.parasolDust.setDepth(16);
     this.once('destroy', () => {
       this.view.destroy();
       this.heldShield.destroy();
@@ -224,6 +249,7 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
       this.iceFlash.destroy();
       this.ghostShroud.destroy();
       this.featherLeaf.destroy();
+      this.parasol.destroy();
       this.shadow.destroy();
       this.dust.destroy();
       this.carpetDust.destroy();
@@ -231,6 +257,7 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
       this.iceDust.destroy();
       this.ghostDust.destroy();
       this.featherDust.destroy();
+      this.parasolDust.destroy();
     });
   }
 
@@ -341,6 +368,73 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
     this.squash(0.88, 1.16, 90);
   }
 
+  setCoopAccent(remote: boolean): void {
+    if (remote) {
+      this.view.setTint(0x7ad7ff);
+      return;
+    }
+    if (!this.shielded) {
+      this.view.clearTint();
+    }
+  }
+
+  playTeammateImpact(kind: 'side' | 'head'): void {
+    switch (kind) {
+      case 'side':
+        this.squash(1.18, 0.84, 90);
+        this.dust.emitParticleAt(this.x, this.y + 10, 5);
+        return;
+      case 'head':
+        this.squash(0.82, 1.2, 110);
+        this.dust.emitParticleAt(this.x, this.y - 12, 8);
+        return;
+      default: {
+        const neverKind: never = kind;
+        return neverKind;
+      }
+    }
+  }
+
+  enterSpectating(): void {
+    this.frozen = true;
+    this.arcadeBody.enable = false;
+    this.arcadeBody.allowGravity = false;
+    this.arcadeBody.setVelocity(0, 0);
+    this.view.setVisible(false);
+    this.shadow.setVisible(false);
+    this.hideHeldShield();
+    this.hideAirJumpVisuals();
+  }
+
+  reviveAt(x: number, y: number): void {
+    this.setPosition(x, y);
+    this.frozen = false;
+    this.arcadeBody.enable = true;
+    this.arcadeBody.allowGravity = true;
+    this.arcadeBody.checkCollision.none = false;
+    this.arcadeBody.setVelocity(0, 0);
+    this.grantSafety(1500);
+    this.view.setTexture('player');
+    this.view.setVisible(true);
+    this.view.setAlpha(1);
+    this.view.setAngle(0);
+    this.view.setScale(1);
+    this.shadow.setVisible(true);
+    this.syncView();
+  }
+
+  applyNetworkPose(
+    pose: { x: number; y: number; velocityX: number; velocityY: number; flipX: boolean },
+  ): void {
+    if (!this.active || this.frozen) {
+      return;
+    }
+    this.setPosition(pose.x, pose.y);
+    this.arcadeBody.setVelocity(pose.velocityX, pose.velocityY);
+    this.setFlipX(pose.flipX);
+    this.syncView();
+  }
+
   bossBounce(bossX: number, safeX: number): void {
     const away = Math.sign(safeX - bossX) || Math.sign(this.x - bossX) || 1;
     this.setX(Phaser.Math.Clamp(this.x + away * 18, 24, this.scene.physics.world.bounds.width - 24));
@@ -368,6 +462,23 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
     this.view.setAlpha(1);
     this.hideAirJumpVisuals();
     this.syncView();
+  }
+
+  suckInto(x: number, y: number, onComplete: () => void): void {
+    this.freeze();
+    this.arcadeBody.enable = false;
+    this.scene.tweens.add({
+      targets: [this, this.view],
+      x,
+      y,
+      scaleX: 0.08,
+      scaleY: 0.08,
+      angle: 420,
+      alpha: 0.12,
+      duration: 560,
+      ease: 'Cubic.easeIn',
+      onComplete,
+    });
   }
 
   die(onComplete: () => void): void {
@@ -538,6 +649,7 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
       this.coyoteUntil = now + 90;
       this.swimReadyAt = 0;
       this.flowerUsed = false;
+      this.lastWallJumpSide = 0;
     }
 
     if (grounded && !this.wasGrounded) {
@@ -657,6 +769,33 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
           body.setVelocityY(featherFlutterVelocity(body.velocity.y, now));
         }
         break;
+      case 'parasol-hang':
+        if (canParasolHang({ jumpHeld: input.jump, grounded, velocityY: body.velocity.y })) {
+          body.setVelocityY(parasolHangVelocity(body.velocity.y));
+        }
+        break;
+      case 'awning-wall-jump': {
+        const wallSide = awningWallJumpSide({
+          grounded: onFoot,
+          jumpJust: input.jumpJust,
+          jumpLocked: this.jumpLocked,
+          touchingLeft: body.blocked.left || body.touching.left,
+          touchingRight: body.blocked.right || body.touching.right,
+          lastSide: this.lastWallJumpSide,
+        });
+        if (wallSide !== 0) {
+          const velocity = awningWallJumpVelocity(physics.gravity, wallSide);
+          body.setVelocity(velocity.x, velocity.y);
+          this.lastWallJumpSide = wallSide;
+          this.jumpBufferUntil = 0;
+          this.setFlipX(velocity.x < 0);
+          this.flashTint(0x58e8ff, 180);
+          this.dust.emitParticleAt(this.x + wallSide * 18, this.y + 8, 8);
+          audio.play(this.scene, 'jump');
+          this.squash(0.82, 1.2, 100);
+        }
+        break;
+      }
       case 'triple-jump':
         break;
       default: {
@@ -687,6 +826,7 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
     this.syncIceFlash();
     this.syncGhostShroud(mode === 'ghost-hover' && rideHeld);
     this.syncFeatherLeaf(mode === 'feather-flutter' && rideHeld);
+    this.syncParasol(mode === 'parasol-hang' && rideHeld);
   }
 
   private squash(scaleX: number, scaleY: number, duration: number): void {
@@ -1016,5 +1156,33 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
     this.featherLeaf.setVisible(false);
     this.featherLeaf.setAlpha(0);
     this.featherDust.emitting = false;
+  }
+
+  private syncParasol(visible: boolean): void {
+    const target = visible ? 1 : 0;
+    const alpha = Phaser.Math.Linear(this.parasol.alpha, target, visible ? 0.4 : 0.4);
+    this.parasol.setAlpha(alpha);
+    if (alpha <= 0.04 && !visible) {
+      this.hideParasol();
+      return;
+    }
+
+    const now = this.scene.time.now;
+    const pos = parasolPosition(this.x, this.y, now);
+    this.parasol.setPosition(pos.x, pos.y);
+    this.parasol.setFlipX(this.flipX);
+    this.parasol.setTexture(now % 240 < 120 ? 'parasol-a' : 'parasol-b');
+    this.parasol.setVisible(true);
+    this.shadow.setVisible(false);
+
+    const trail = carpetTrailPosition(this.x, this.y + 8, this.flipX);
+    this.parasolDust.setPosition(trail.x, trail.y);
+    this.parasolDust.emitting = visible;
+  }
+
+  private hideParasol(): void {
+    this.parasol.setVisible(false);
+    this.parasol.setAlpha(0);
+    this.parasolDust.emitting = false;
   }
 }

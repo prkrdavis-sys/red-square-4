@@ -25,7 +25,9 @@ type SfxName =
   | 'enemy-shot'
   | 'firework'
   | 'firework-burst'
-  | 'celebrate';
+  | 'celebrate'
+  | 'teammate-bump'
+  | 'teammate-stomp';
 
 type SafariAudioState = AudioContextState | 'interrupted';
 
@@ -241,6 +243,15 @@ function synth(name: SfxName): void {
       beep(784, 0.055, 'square', 0.038);
       window.setTimeout(() => beep(988, 0.055, 'square', 0.038), 55);
       window.setTimeout(() => beep(1318.5, 0.09, 'triangle', 0.042), 110);
+      break;
+    case 'teammate-bump':
+      beep(190, 0.08, 'triangle', 0.08, -70);
+      noiseBurst(0.045, 0.04, 520);
+      break;
+    case 'teammate-stomp':
+      beep(240, 0.08, 'square', 0.08, 110);
+      window.setTimeout(() => beep(430, 0.09, 'triangle', 0.06, 90), 38);
+      noiseBurst(0.05, 0.045, 850);
       break;
     default: {
       const neverName: never = name;

@@ -1,4 +1,4 @@
-import { ALL_LEVEL_IDS, parseLevelId, type LevelId } from '../config';
+import { CAMPAIGN_LEVEL_IDS, parseLevelId, type LevelId } from '../config';
 
 export interface HeroPalette {
   ink: number;
@@ -28,7 +28,8 @@ export type HeldItem =
   | 'ankh'
   | 'trident'
   | 'keep-blade'
-  | 'liana-crook';
+  | 'liana-crook'
+  | 'conch';
 
 export interface SkinUnlockState {
   cleared: LevelId[];
@@ -70,7 +71,7 @@ interface SkinSeed {
   heldItem?: HeldItem;
 }
 
-/** One seed per level, ordered to match ALL_LEVEL_IDS, tinted after each world's biome. */
+/** One seed per campaign level, ordered to match CAMPAIGN_LEVEL_IDS, tinted after each world's biome. */
 const LEVEL_SKINS: SkinSeed[] = [
   { name: 'Meadow Sprout', body: 0x54c04a, shade: 0x2f7a2c, gloss: 0xa9e79f, ink: 0x102a0e, boot: 0x2a3a18, accessory: 'cap', cost: 10 },
   { name: 'Acorn Scout', body: 0xc8863c, shade: 0x8a5220, gloss: 0xf0c68a, ink: 0x2a1a08, boot: 0x3a2a14, accessory: 'bandana', cost: 10 },
@@ -96,6 +97,14 @@ const LEVEL_SKINS: SkinSeed[] = [
   { name: 'Dart Mosquito', body: 0x8ab03a, shade: 0x4a6a1c, gloss: 0xd4e878, ink: 0x1c2808, boot: 0x2c3a14, accessory: 'antenna', cost: 14 },
   { name: 'Coil Serpent', body: 0x2a6a48, shade: 0x164830, gloss: 0x7ac4a0, ink: 0x0c1c14, boot: 0x1a2c20, accessory: 'scarf', cost: 12 },
   { name: 'Canopy Crown', body: 0x1e4a28, shade: 0x0e2a18, gloss: 0x6ad08a, ink: 0x08140c, boot: 0x142418, accessory: 'crown', heldItem: 'liana-crook' },
+  { name: 'Beachcomber', body: 0x58c9e8, shade: 0x2784a8, gloss: 0xb8f2ff, ink: 0x0b3040, boot: 0xc48a42, accessory: 'visor', cost: 12 },
+  { name: 'Starfish Scout', body: 0xff9b72, shade: 0xc85848, gloss: 0xffd0b8, ink: 0x4a1818, boot: 0x5a3828, accessory: 'bandana', cost: 14 },
+  { name: 'Hermit Hero', body: 0xe8b45e, shade: 0xa86c2c, gloss: 0xffdfa0, ink: 0x402408, boot: 0x704020, accessory: 'cap', cost: 16 },
+  { name: 'Crab Crown', body: 0xe85042, shade: 0x982820, gloss: 0xffa090, ink: 0x3a0c08, boot: 0x4a2018, accessory: 'crown', heldItem: 'conch' },
+  { name: 'Alley Stray', body: 0x59647f, shade: 0x30394f, gloss: 0xaeb9d8, ink: 0x101522, boot: 0x242b3c, accessory: 'scarf', cost: 14 },
+  { name: 'Neon Flyer', body: 0x36b9d4, shade: 0x17677f, gloss: 0x9df1ff, ink: 0x071f2a, boot: 0x182f48, accessory: 'visor', cost: 16 },
+  { name: 'Storm Rider', body: 0xb850d8, shade: 0x682a88, gloss: 0xeda8ff, ink: 0x260b38, boot: 0x30204c, accessory: 'bandana', cost: 18 },
+  { name: 'Underpass Crown', body: 0x3e8a66, shade: 0x194936, gloss: 0x8bd8b1, ink: 0x071b13, boot: 0x132b22, accessory: 'crown', heldItem: 'trident' },
 ];
 
 function skinIdForLevel(level: LevelId): string {
@@ -110,7 +119,7 @@ export const SKINS: SkinDef[] = [
     accessory: 'none',
     heldItem: 'none',
   },
-  ...ALL_LEVEL_IDS.map((level, index) => {
+  ...CAMPAIGN_LEVEL_IDS.map((level, index) => {
     const seed = LEVEL_SKINS[index];
     if (!seed) {
       throw new Error(`Missing skin seed for ${level}`);

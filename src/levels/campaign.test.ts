@@ -1,13 +1,16 @@
 import { describe, expect, it } from 'vitest';
 import {
-  ALL_LEVEL_IDS,
   BOSS_KINDS,
+  CAMPAIGN_LEVEL_IDS,
   GROUND_Y,
   JUMP_HEIGHT_TILES,
   JUMP_REACH_TILES,
   MAP_ROWS,
+  MINI_BOSS_HP,
+  SECRET_LEVEL_IDS,
   STOMP_BOUNCE_HEIGHT_TILES,
   STOMP_BOUNCE_VELOCITY,
+  WORLD_BOSS_HP,
   launchVelocity,
   themePhysics,
   THEMES,
@@ -17,6 +20,8 @@ import {
   enemiesForWorld,
   hazardForTheme,
   parseLevelId,
+  secretBossName,
+  secretLevelId,
   specialForTheme,
   worldBossKind,
   type LevelId,
@@ -49,7 +54,7 @@ import {
 
 describe('late-stage length and checkpoints', () => {
   it('makes stage 3 and 4 longer than the early courses and gives them two flags', () => {
-    for (let world = 1; world <= 6; world += 1) {
+    for (let world = 1; world <= 8; world += 1) {
       const early = [`${world}-1`, `${world}-2`] as LevelId[];
       const late = [`${world}-3`, `${world}-4`] as LevelId[];
       const earlyWidth = Math.max(...early.map((id) => getLevel(id).rows[0]?.length ?? 0));
@@ -68,10 +73,10 @@ describe('late-stage length and checkpoints', () => {
 
   it('packs more enemies into x-3 and x-4 as worlds get later', () => {
     const stageCounts = (stage: 3 | 4) =>
-      ([1, 2, 3, 4, 5, 6] as const).map((world) => getLevel(`${world}-${stage}`).course.enemies.length);
-    expect(stageCounts(3)).toEqual([1, 2, 3, 4, 5, 6].map((world) => lateStageEnemyQuota(world, 3)));
-    expect(stageCounts(4)).toEqual([1, 2, 3, 4, 5, 6].map((world) => lateStageEnemyQuota(world, 4)));
-    for (let world = 1; world <= 6; world += 1) {
+      ([1, 2, 3, 4, 5, 6, 7, 8] as const).map((world) => getLevel(`${world}-${stage}`).course.enemies.length);
+    expect(stageCounts(3)).toEqual([1, 2, 3, 4, 5, 6, 7, 8].map((world) => lateStageEnemyQuota(world, 3)));
+    expect(stageCounts(4)).toEqual([1, 2, 3, 4, 5, 6, 7, 8].map((world) => lateStageEnemyQuota(world, 4)));
+    for (let world = 1; world <= 8; world += 1) {
       expect(getLevel(`${world}-3` as LevelId).course.enemies.length).toBeGreaterThan(
         getLevel(`${world}-2` as LevelId).course.enemies.length,
       );
@@ -86,7 +91,7 @@ describe('late-stage length and checkpoints', () => {
 
 describe('biome campaign compilation', () => {
   it('compiles every course with complete progression features', () => {
-    for (const id of ALL_LEVEL_IDS) {
+    for (const id of CAMPAIGN_LEVEL_IDS) {
       const level = getLevel(id);
       const width = level.rows[0]?.length ?? 0;
 
@@ -106,7 +111,7 @@ describe('biome campaign compilation', () => {
   });
 
   it('uses solid jump-blocks for the hop hills at the arena entrance', () => {
-    for (const id of ALL_LEVEL_IDS) {
+    for (const id of CAMPAIGN_LEVEL_IDS) {
       const level = getLevel(id);
       const bossCh = level.stage < 4 ? 'm' : 'B';
       const bossX = level.rows[GROUND_Y - 1]?.indexOf(bossCh) ?? -1;
@@ -118,7 +123,7 @@ describe('biome campaign compilation', () => {
   });
 
   it('leaves the arena gate as open air the player can walk through', () => {
-    for (const id of ALL_LEVEL_IDS) {
+    for (const id of CAMPAIGN_LEVEL_IDS) {
       const level = getLevel(id);
       const bossCh = level.stage < 4 ? 'm' : 'B';
       const bossX = level.rows[GROUND_Y - 1]?.indexOf(bossCh) ?? -1;
@@ -138,6 +143,8 @@ describe('biome campaign compilation', () => {
     expect(getLevel('4-1').course.special).toBe('bubble-pulse');
     expect(getLevel('5-1').course.special).toBe('shadow-blink');
     expect(getLevel('6-1').course.special).toBe('liana-swing');
+    expect(getLevel('7-1').course.special).toBe('tide-wall');
+    expect(getLevel('8-1').course.special).toBe('lightning-pulse');
     expect(THEMES.map((theme) => specialForTheme(theme))).toEqual([
       'grow',
       'frost-path',
@@ -145,11 +152,13 @@ describe('biome campaign compilation', () => {
       'bubble-pulse',
       'shadow-blink',
       'liana-swing',
+      'tide-wall',
+      'lightning-pulse',
     ]);
   });
 
   it('introduces movement and ranged enemies by stage, then biome traps', () => {
-    for (const id of ALL_LEVEL_IDS) {
+    for (const id of CAMPAIGN_LEVEL_IDS) {
       const level = getLevel(id);
       const roles = new Set(level.course.enemies.map((enemy) => enemyRole(enemy.kind)));
       if (level.stage === 1) {
@@ -167,7 +176,7 @@ describe('biome campaign compilation', () => {
   });
 
   it('keeps spawn, checkpoint, and solid puzzles off ground enemies', () => {
-    for (const id of ALL_LEVEL_IDS) {
+    for (const id of CAMPAIGN_LEVEL_IDS) {
       const level = getLevel(id);
       const spawnX = level.rows[GROUND_Y - 1]?.indexOf('P') ?? 3;
       const groundEnemies = level.course.enemies.filter((enemy) => enemy.tilesUp === 0);
@@ -191,7 +200,8 @@ describe('biome campaign compilation', () => {
           puzzle.kind !== 'ice-wall' &&
           puzzle.kind !== 'sand-wall' &&
           puzzle.kind !== 'shadow-wall' &&
-          puzzle.kind !== 'moss-curtain'
+          puzzle.kind !== 'moss-curtain' &&
+          puzzle.kind !== 'driftwood-wall'
         ) {
           continue;
         }
@@ -216,7 +226,7 @@ describe('biome campaign compilation', () => {
   });
 
   it('keeps spawn and checkpoint outside projectile attack range', () => {
-    for (const id of ALL_LEVEL_IDS) {
+    for (const id of CAMPAIGN_LEVEL_IDS) {
       const level = getLevel(id);
       const spawnX = level.rows[GROUND_Y - 1]?.indexOf('P') ?? 3;
       for (const origin of [spawnX, ...level.course.checkpoints.map((checkpoint) => checkpoint.x)]) {
@@ -237,7 +247,7 @@ describe('biome campaign compilation', () => {
   });
 
   it('keeps each enemy roster exclusive to its biome', () => {
-    for (const id of ALL_LEVEL_IDS) {
+    for (const id of CAMPAIGN_LEVEL_IDS) {
       const { world } = parseLevelId(id);
       const allowed = new Set(enemiesForWorld(world));
       expect(getLevel(id).course.enemies.every((enemy) => allowed.has(enemy.kind))).toBe(true);
@@ -301,7 +311,7 @@ function ceilingTiles(rows: string[]): number {
 
 describe('aerial anti-skip geometry', () => {
   it('interrupts the sky route over every wide pit or lava span', () => {
-    for (const id of ALL_LEVEL_IDS) {
+    for (const id of CAMPAIGN_LEVEL_IDS) {
       const level = getLevel(id);
       for (const gap of wideGroundGaps(level.rows)) {
         expect(skySealed(level.rows, gap.start, gap.width), `${id} gap@${gap.start}w${gap.width}`).toBe(
@@ -312,7 +322,7 @@ describe('aerial anti-skip geometry', () => {
   });
 
   it('keeps a stage-scaled ceiling budget in rows 0–1', () => {
-    for (const id of ALL_LEVEL_IDS) {
+    for (const id of CAMPAIGN_LEVEL_IDS) {
       const level = getLevel(id);
       const needed = CEILING_BUDGET[level.stage] ?? 0;
       expect(ceilingTiles(level.rows), id).toBeGreaterThanOrEqual(needed);
@@ -320,7 +330,7 @@ describe('aerial anti-skip geometry', () => {
   });
 
   it('never seals a playable air column before the arena gate', () => {
-    for (const id of ALL_LEVEL_IDS) {
+    for (const id of CAMPAIGN_LEVEL_IDS) {
       const level = getLevel(id);
       const bossCh = level.stage < 4 ? 'm' : 'B';
       const bossX = level.rows[GROUND_Y - 1]?.indexOf(bossCh) ?? -1;
@@ -567,6 +577,10 @@ describe('boss pacing helpers', () => {
 });
 
 describe('mini-boss looks', () => {
+  it('gives every mini-boss three lives', () => {
+    expect(MINI_BOSS_HP).toBe(3);
+  });
+
   it('gives each biome its own texture family', () => {
     const keys = THEMES.map((theme) => miniBossTextureKey(theme, 1, 'idle'));
     expect(new Set(keys).size).toBe(THEMES.length);
@@ -574,12 +588,72 @@ describe('mini-boss looks', () => {
   });
 });
 
+describe('secret specialty courses', () => {
+  it('parses W-? ids as secret stages', () => {
+    expect(parseLevelId('5-?')).toEqual({ world: 5, stage: 0, secret: true });
+    expect(secretLevelId(3)).toBe('3-?');
+    expect(SECRET_LEVEL_IDS).toHaveLength(6);
+  });
+
+  it('hides a high portal in every world-3 course', () => {
+    for (const id of SECRET_LEVEL_IDS) {
+      const { world } = parseLevelId(id);
+      const stageThree = getLevel(`${world}-3` as LevelId);
+      const portal = stageThree.course.secretPortal;
+      expect(portal, `${world}-3 portal`).toBeDefined();
+      expect(portal?.tilesUp ?? 0).toBeGreaterThan(JUMP_HEIGHT_TILES);
+    }
+  });
+
+  it('compiles six hard specialty courses with grand 5-HP bosses', () => {
+    const names = [
+      'Thorn Trial',
+      'Rime Gauntlet',
+      'Mirage Crucible',
+      'Pressure Vault',
+      'Umbral Spire',
+      'Howler Hollow',
+    ];
+    const bosses = [
+      'Bramble Sovereign',
+      'Rime Colossus',
+      'Mirage Caliph',
+      'Tide Leviathan',
+      'Shade Seneschal',
+      'Moss Titan',
+    ];
+    SECRET_LEVEL_IDS.forEach((id, index) => {
+      const level = getLevel(id);
+      const stageThree = getLevel(`${level.world}-3` as LevelId);
+      expect(level.secret).toBe(true);
+      expect(level.id).toBe(id);
+      expect(level.name).toBe(names[index]);
+      expect(level.isCastle).toBe(false);
+      expect(level.rows[0]?.length ?? 0).toBeGreaterThan(stageThree.rows[0]?.length ?? 0);
+      expect(level.course.secret).toBe(true);
+      expect(level.course.miniVariant).toBeUndefined();
+      expect(level.course.puzzles.length).toBeGreaterThanOrEqual(4);
+      expect(level.course.checkpoints).toHaveLength(2);
+      expect(level.course.traps.length).toBeGreaterThan(0);
+      expect(level.course.enemies.length).toBe(lateStageEnemyQuota(level.world, 3, true));
+      expect(level.rows.join('')).toContain('B');
+      expect(level.rows.join('')).not.toContain('m');
+      expect(secretBossName(level.world)).toBe(bosses[index]);
+    });
+    expect(WORLD_BOSS_HP).toBe(5);
+  });
+});
+
 describe('world bosses', () => {
+  it('gives every world boss five lives', () => {
+    expect(WORLD_BOSS_HP).toBe(5);
+  });
+
   it('ties each world to a unique themed creature', () => {
-    const kinds = [1, 2, 3, 4, 5, 6].map((world) => worldBossKind(world));
-    expect(kinds).toEqual(['piranha', 'walrus', 'scorpion', 'fish', 'gargoyle', 'howler']);
+    const kinds = [1, 2, 3, 4, 5, 6, 7, 8].map((world) => worldBossKind(world));
+    expect(kinds).toEqual(['piranha', 'walrus', 'scorpion', 'fish', 'gargoyle', 'howler', 'crab', 'sewer-croc']);
     expect(new Set(kinds).size).toBe(BOSS_KINDS.length);
-    expect(BOSS_KINDS).toEqual(['piranha', 'walrus', 'scorpion', 'fish', 'gargoyle', 'howler']);
+    expect(BOSS_KINDS).toEqual(['piranha', 'walrus', 'scorpion', 'fish', 'gargoyle', 'howler', 'crab', 'sewer-croc']);
   });
 
   it('gives every world boss its own texture family', () => {

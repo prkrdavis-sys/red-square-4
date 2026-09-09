@@ -726,6 +726,78 @@ const RAINFOREST: Song = {
   ),
 };
 
+const BEACH: Song = {
+  bpm: 126,
+  length: 128,
+  filterHz: 8400,
+  echoMs: 90,
+  echoMix: 0.14,
+  pulse1: {
+    duty: 0.25,
+    gain: 0.094,
+    vibrato: 0.01,
+    notes: `
+      E5/2 G5/2 A5/2 G5/2 E5/2 D5/2 C5/4
+      A5/2 B5/2 C6/2 B5/2 A5/2 G5/2 E5/4
+      C5/2 E5/2 G5/4 A5/2 G5/2 E5/4
+      D5/4 B4/4 C5/4 B4/4
+      E5/2 G5/2 B5/2 G5/2 A5/4 F5/4
+      D5/2 F5/2 A5/4 B5/2 A5/2 G5/4
+      E5/4 C5/2 E5/2 G5/4 E5/4
+      D5/4 B4/4 E5/8
+    `,
+  },
+  pulse2: {
+    duty: 0.5,
+    gain: 0.038,
+    vibrato: 0,
+    notes: [
+      arp(['E3', 'G3', 'B3', 'E4'], 16),
+      arp(['A3', 'C4', 'E4', 'A4'], 16),
+      arp(['F3', 'A3', 'C4', 'F4'], 16),
+      arp(['G3', 'B3', 'D4', 'G4'], 16),
+      arp(['E3', 'G3', 'B3', 'E4'], 16),
+      arp(['D3', 'F3', 'A3', 'D4'], 16),
+      arp(['C3', 'E3', 'G3', 'C4'], 16),
+      arp(['B2', 'E3', 'G3', 'B3'], 16),
+    ].join(' '),
+  },
+  bass: {
+    gain: 0.096,
+    notes: `
+      E2/2 r/2 E2/2 G2/2 A2/4 E2/4
+      A2/2 r/2 A2/2 C3/2 E2/4 A2/4
+      F2/2 r/2 F2/2 A2/2 C3/4 F2/4
+      G2/4 D3/4 E3/4 G2/4
+      E2/2 r/2 G2/2 B2/2 A2/4 F2/4
+      D2/2 r/2 F2/2 A2/2 B2/4 A2/4
+      C2/4 E2/4 G2/4 C2/4
+      B1/4 D2/4 E2/8
+    `,
+  },
+  drums: drums(
+    'k-h-s-hk-h-s-h-h',
+    'k-h-s-h-k-hs-h-h',
+    'k-h-s-hk-h-s-h-h',
+    'k-hc-t-sk-h-s-h-',
+    'k-h-s-hk-h-s-h-h',
+    'k-h-s-h-k-hs-h-h',
+    'k-h-s-hk-h-s-h-h',
+    'k-s-k-s-k-h-s-h-',
+  ),
+};
+
+const NEON_DOWNPOUR: Song = {
+  ...CASTLE,
+  bpm: 118,
+  filterHz: 6100,
+  echoMs: 185,
+  echoMix: 0.28,
+  pulse1: { ...CASTLE.pulse1, duty: 0.25, gain: 0.086, vibrato: 0.016 },
+  pulse2: { ...CASTLE.pulse2, duty: 0.5, gain: 0.044 },
+  bass: { ...CASTLE.bass, gain: 0.12 },
+};
+
 const SONGS: Record<Theme, Song> = {
   grass: GRASS,
   snow: SNOW,
@@ -733,6 +805,8 @@ const SONGS: Record<Theme, Song> = {
   ocean: OCEAN,
   castle: CASTLE,
   rainforest: RAINFOREST,
+  beach: BEACH,
+  'rainy-city': NEON_DOWNPOUR,
 };
 
 const buffers = new WeakMap<AudioContext, Map<Theme, AudioBuffer>>();

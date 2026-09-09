@@ -6,10 +6,12 @@ import {
   getCheckpoint,
   loadSave,
   markCleared,
+  nextLevelId,
   parseSaveRaw,
   purchaseSkin,
   session,
   setCheckpoint,
+  unlockSecretLevel,
   writeSave,
 } from './progress';
 import { isSkinUnlocked, skinForLevel, DEFAULT_SKIN_ID } from './skins';
@@ -147,5 +149,50 @@ describe('coins and skin shop', () => {
     expect(save?.purchasedSkins).toEqual([]);
     expect(save?.coins).toBe(8);
     expect(save && isSkinUnlocked(skinForLevel('1-1')!, save)).toBe(false);
+  });
+});
+
+describe('secret specialty unlocks', () => {
+  beforeEach(() => {
+    resetProgress();
+  });
+
+  it('keeps campaign next-level on numbered courses', () => {
+    expect(nextLevelId('1-3')).toBe('1-4');
+    expect(nextLevelId('1-?')).toBeUndefined();
+    expect(nextLevelId('6-4')).toBe('7-1');
+  });
+
+  it('unlocks a W-? course from the portal without clearing it', () => {
+    writeSave(blankSave({ unlocked: ['1-1', '1-2', '1-3'], cleared: ['1-1', '1-2'] }));
+    unlockSecretLevel('1-?');
+    const save = loadSave();
+    expect(save.unlocked).toContain('1-?');
+    expect(save.cleared).not.toContain('1-?');
+    expect(save.lastPlayed).toBe('1-?');
+    unlockSecretLevel('1-?');
+    expect(loadSave().unlocked.filter((id) => id === '1-?')).toHaveLength(1);
+  });
+
+  it('does not advance the campaign when a secret course is cleared', () => {
+    writeSave(blankSave({ unlocked: ['1-1', '1-2', '1-3', '1-?'], cleared: ['1-1', '1-2'] }));
+    markCleared('1-?');
+    const save = loadSave();
+    expect(save.cleared).toContain('1-?');
+    expect(save.unlocked).not.toContain('1-4');
+    expect(save.lastPlayed).toBe('1-?');
+  });
+
+  it('still unlocks the world boss from clearing 1-3 with enough stars', () => {
+    writeSave(
+      blankSave({
+        unlocked: ['1-1', '1-2', '1-3'],
+        cleared: ['1-1', '1-2'],
+        collectibles: { '1-1': 7, '1-2': 7, '1-3': 3 },
+      }),
+    );
+    markCleared('1-3');
+    expect(loadSave().unlocked).toContain('1-4');
+    expect(loadSave().unlocked).not.toContain('1-?');
   });
 });

@@ -1,4 +1,4 @@
-import { ALL_LEVEL_IDS, parseLevelId, type LevelId } from '../config';
+import { ALL_LEVEL_IDS, CAMPAIGN_LEVEL_IDS, isSecretLevel, parseLevelId, type LevelId } from '../config';
 import { persistReadClient, persistWriteClient } from './persist';
 import {
   DEFAULT_SKIN_ID,
@@ -11,7 +11,7 @@ import {
 const STORAGE_KEY = 'red-square-4-save-v2';
 const LEGACY_STORAGE_KEY = 'red-square-4-save-v1';
 const REMOTE_PATH = '/__save';
-const STARTING_UNLOCKED: LevelId[] = ALL_LEVEL_IDS.filter((id) => parseLevelId(id).stage === 1);
+const STARTING_UNLOCKED: LevelId[] = CAMPAIGN_LEVEL_IDS.filter((id) => parseLevelId(id).stage === 1);
 
 export interface SaveData {
   unlocked: LevelId[];
@@ -71,11 +71,14 @@ function furtherLevel(a: LevelId, b: LevelId): LevelId {
 }
 
 export function nextLevelId(id: LevelId): LevelId | undefined {
-  const index = ALL_LEVEL_IDS.indexOf(id);
-  if (index < 0 || index >= ALL_LEVEL_IDS.length - 1) {
+  if (isSecretLevel(id)) {
     return undefined;
   }
-  return ALL_LEVEL_IDS[index + 1];
+  const index = CAMPAIGN_LEVEL_IDS.indexOf(id);
+  if (index < 0 || index >= CAMPAIGN_LEVEL_IDS.length - 1) {
+    return undefined;
+  }
+  return CAMPAIGN_LEVEL_IDS[index + 1];
 }
 
 function unlockedFrom(cleared: LevelId[], extra: LevelId[]): LevelId[] {
@@ -344,6 +347,19 @@ export function markCleared(id: LevelId): SaveData {
   return save;
 }
 
+export function unlockSecretLevel(id: LevelId): SaveData {
+  if (!isSecretLevel(id)) {
+    return loadSave();
+  }
+  const save = loadSave();
+  if (!save.unlocked.includes(id)) {
+    save.unlocked.push(id);
+  }
+  save.lastPlayed = id;
+  writeSave(save);
+  return save;
+}
+
 export function setEquippedSkin(id: string): SaveData {
   const save = loadSave();
   save.equippedSkin = id;
@@ -389,7 +405,13 @@ export function isUnlocked(id: LevelId): boolean {
 }
 
 export function hasCampaignProgress(save: SaveData = loadSave()): boolean {
-  return save.cleared.length > 0 || save.unlocked.some((id) => parseLevelId(id).stage !== 1);
+  return (
+    save.cleared.length > 0 ||
+    save.unlocked.some((id) => {
+      const parsed = parseLevelId(id);
+      return parsed.secret || parsed.stage !== 1;
+    })
+  );
 }
 
 export function collectibleMask(id: LevelId, save: SaveData = loadSave()): number {

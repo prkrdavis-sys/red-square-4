@@ -5,10 +5,13 @@ import {
   airJumpMode,
   applyFlowerSpring,
   applySwimStroke,
+  awningWallJumpSide,
+  awningWallJumpVelocity,
   canCarpetGlide,
   canFeatherFlutter,
   canFlowerSpring,
   canGhostHover,
+  canParasolHang,
   canSwimStroke,
   carpetGlideVelocity,
   carpetTrailPosition,
@@ -26,8 +29,12 @@ import {
   FLOWER_SPRING_HEIGHT_TILES,
   GHOST_HOVER_DAMP,
   GHOST_HOVER_MAX_FALL,
+  PARASOL_HANG_DAMP,
+  PARASOL_HANG_MAX_FALL,
   ghostHoverVelocity,
   ghostShroudPosition,
+  parasolHangVelocity,
+  parasolPosition,
   iceFlashSpawn,
   iceSkatePosition,
   nextTripleJumpStep,
@@ -49,12 +56,14 @@ describe('airJumpMode', () => {
     expect(airJumpMode('desert')).toBe('carpet-glide');
     expect(airJumpMode('castle')).toBe('ghost-hover');
     expect(airJumpMode('rainforest')).toBe('feather-flutter');
+    expect(airJumpMode('beach')).toBe('parasol-hang');
+    expect(airJumpMode('rainy-city')).toBe('awning-wall-jump');
   });
 
   it('covers every theme', () => {
     for (const theme of THEMES) {
       expect(airJumpMode(theme)).toMatch(
-        /^(flower-spring|triple-jump|carpet-glide|swim-stroke|ghost-hover|feather-flutter)$/,
+        /^(flower-spring|triple-jump|carpet-glide|swim-stroke|ghost-hover|feather-flutter|parasol-hang|awning-wall-jump)$/,
       );
     }
   });
@@ -68,6 +77,8 @@ describe('airJumpHint', () => {
     expect(airJumpHint('desert')).toBe('Hold jump in the air to ride a flying carpet.');
     expect(airJumpHint('castle')).toBe('Hold jump in the air to hover like a ghost.');
     expect(airJumpHint('rainforest')).toBe('Hold jump in the air to flutter down.');
+    expect(airJumpHint('beach')).toBe('Hold jump in the air to hang from a parasol.');
+    expect(airJumpHint('rainy-city')).toBe('Tap jump against a wall or awning to spring upward and away.');
   });
 });
 
@@ -343,5 +354,55 @@ describe('feather flutter', () => {
     expect(rest.x).toBe(100);
     expect(rest.y).toBeGreaterThan(80);
     expect(beat.y).not.toBeCloseTo(rest.y);
+  });
+});
+
+describe('parasol hang', () => {
+  it('only hangs on a held falling jump', () => {
+    expect(canParasolHang({ jumpHeld: true, grounded: false, velocityY: 80 })).toBe(true);
+    expect(canParasolHang({ jumpHeld: false, grounded: false, velocityY: 80 })).toBe(false);
+    expect(canParasolHang({ jumpHeld: true, grounded: true, velocityY: 80 })).toBe(false);
+    expect(canParasolHang({ jumpHeld: true, grounded: false, velocityY: 20 })).toBe(false);
+  });
+
+  it('floats more than castle hover', () => {
+    expect(parasolHangVelocity(-120)).toBe(-120);
+    expect(parasolHangVelocity(80)).toBeCloseTo(80 * PARASOL_HANG_DAMP);
+    expect(parasolHangVelocity(400)).toBe(PARASOL_HANG_MAX_FALL);
+    expect(PARASOL_HANG_DAMP).toBeLessThan(GHOST_HOVER_DAMP);
+    expect(PARASOL_HANG_MAX_FALL).toBeLessThan(GHOST_HOVER_MAX_FALL);
+    expect(PARASOL_HANG_MAX_FALL).toBeGreaterThan(0);
+  });
+
+  it('parks the parasol above the hero', () => {
+    const pos = parasolPosition(100, 80, 0);
+    expect(pos.x).toBe(100);
+    expect(pos.y).toBeLessThan(80);
+  });
+});
+
+describe('awning wall jump', () => {
+  const ready = {
+    grounded: false,
+    jumpJust: true,
+    jumpLocked: false,
+    touchingLeft: true,
+    touchingRight: false,
+    lastSide: 0 as const,
+  };
+
+  it('launches only from a newly touched wall side', () => {
+    expect(awningWallJumpSide(ready)).toBe(-1);
+    expect(awningWallJumpSide({ ...ready, touchingLeft: false, touchingRight: true })).toBe(1);
+    expect(awningWallJumpSide({ ...ready, lastSide: -1 })).toBe(0);
+    expect(awningWallJumpSide({ ...ready, jumpJust: false })).toBe(0);
+    expect(awningWallJumpSide({ ...ready, grounded: true })).toBe(0);
+  });
+
+  it('launches upward and away from the wall', () => {
+    const gravity = themePhysics('rainy-city').gravity;
+    expect(awningWallJumpVelocity(gravity, -1).x).toBeGreaterThan(0);
+    expect(awningWallJumpVelocity(gravity, 1).x).toBeLessThan(0);
+    expect(awningWallJumpVelocity(gravity, -1).y).toBeLessThan(themePhysics('rainy-city').jump);
   });
 });

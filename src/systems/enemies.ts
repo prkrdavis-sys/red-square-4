@@ -405,6 +405,98 @@ function drawDartMosquito(g: Phaser.GameObjects.Graphics, pose: CharacterPose): 
   paintEye(g, cx - 6, cy - 1, pose, 6, 6);
 }
 
+function drawHermitCrab(g: Phaser.GameObjects.Graphics, pose: CharacterPose): void {
+  const p = poseDraw(pose);
+  const cx = 32 + p.lean * 0.2;
+  const cy = 36 + p.dy;
+  inkEllipse(g, cx + 8, cy + 2, 28 * p.squash, 24, 0xc45a28);
+  g.fillStyle(0x8a3014, 1);
+  g.fillEllipse(cx + 10, cy + 6, 16, 12);
+  g.fillStyle(0xf0c48a, 1);
+  g.fillEllipse(cx + 4, cy - 2, 14, 10);
+  for (const side of [-1, 1]) {
+    inkRoundRect(g, cx + side * 10 - 3, cy + 10, 6, 12, 2, 0xe8a05a);
+  }
+  inkEllipse(g, cx - 12, cy + 4, 16, 14, 0xe8a05a);
+  inkTriangle(g, cx - 18, cy, cx - 18, cy + 8, cx - 28, cy + 2, 0xc45a28);
+  inkCircle(g, cx - 8, cy - 4, 4, 0xe8a05a);
+  paintEye(g, cx - 10, cy - 4, pose, 6, 6);
+  paintEye(g, cx - 4, cy - 6, pose, 5, 6);
+}
+
+function drawStarfishSlinger(g: Phaser.GameObjects.Graphics, pose: CharacterPose): void {
+  const p = poseDraw(pose);
+  const cx = 32 + p.lean * 0.2;
+  const cy = 32 + p.dy;
+  const reach = pose === 'attack' ? 6 : 0;
+  for (let i = 0; i < 5; i += 1) {
+    const angle = (Math.PI * 2 * i) / 5 - Math.PI / 2;
+    const tip = 22 + (i === 0 ? reach : 0);
+    inkTriangle(
+      g,
+      cx + Math.cos(angle - 0.4) * 8,
+      cy + Math.sin(angle - 0.4) * 8,
+      cx + Math.cos(angle) * tip,
+      cy + Math.sin(angle) * tip,
+      cx + Math.cos(angle + 0.4) * 8,
+      cy + Math.sin(angle + 0.4) * 8,
+      0xf0714f,
+    );
+  }
+  inkCircle(g, cx, cy, 10, 0xffb49c);
+  g.fillStyle(0xfff4c4, 1);
+  g.fillCircle(cx - 3, cy - 3, 3);
+  paintEye(g, cx - 4, cy - 2, pose, 6, 6);
+  paintEye(g, cx + 4, cy - 2, pose, 6, 6);
+  if (pose === 'attack') {
+    inkCircle(g, cx + 22, cy - 16, 6, 0xf0714f);
+  }
+}
+
+function drawAlleyCat(g: Phaser.GameObjects.Graphics, pose: CharacterPose): void {
+  const p = poseDraw(pose);
+  const cx = 32 + p.lean * 0.25;
+  const cy = 35 + p.dy;
+  const stride = pose === 'move' ? 4 : 0;
+  g.lineStyle(5, 0x1a2030, 1);
+  g.beginPath();
+  g.arc(cx + 19, cy + 1, 15, -1.1, 1.1);
+  g.strokePath();
+  inkEllipse(g, cx, cy + 3, 40 * p.squash, 27, 0x59647f);
+  inkCircle(g, cx - 13, cy - 9, 13, 0x71809a);
+  inkTriangle(g, cx - 24, cy - 17, cx - 18, cy - 31, cx - 10, cy - 19, 0x59647f);
+  inkTriangle(g, cx - 8, cy - 20, cx - 1, cy - 31, cx + 2, cy - 15, 0x59647f);
+  g.fillStyle(0xd84cff, 1);
+  g.fillRect(cx - 22, cy + 9, 35, 4);
+  for (const side of [-1, 1]) {
+    inkRoundRect(g, cx + side * 10 - 4 + side * stride, cy + 13, 8, 13, 3, 0x3b4358);
+  }
+  paintEye(g, cx - 17, cy - 10, pose, 6, 7);
+  paintEye(g, cx - 8, cy - 11, pose, 6, 7);
+}
+
+function drawUmbrellaPigeon(g: Phaser.GameObjects.Graphics, pose: CharacterPose): void {
+  const p = poseDraw(pose);
+  const cx = 32 + p.lean * 0.2;
+  const cy = 36 + p.dy;
+  const wingLift = pose === 'move' || pose === 'attack' ? 8 : 2;
+  inkEllipse(g, cx, cy + 2, 30 * p.squash, 34, 0x66728a);
+  inkTriangle(g, cx - 7, cy + 3, cx - 28, cy - wingLift, cx - 16, cy + 15, 0x8b98b2);
+  inkTriangle(g, cx + 7, cy + 3, cx + 28, cy - wingLift, cx + 16, cy + 15, 0x8b98b2);
+  inkCircle(g, cx, cy - 13, 11, 0x71809a);
+  inkTriangle(g, cx + 8, cy - 14, cx + 20, cy - 10, cx + 8, cy - 7, 0xf0c84a);
+  paintEye(g, cx + 3, cy - 16, pose, 6, 7);
+  g.lineStyle(3, 0x20283a, 1);
+  g.lineBetween(cx, cy - 25, cx, cy - 39);
+  g.fillStyle(0xd84cff, 1);
+  g.fillEllipse(cx, cy - 40, 42, 12);
+  g.fillStyle(0x63e8ff, 0.75);
+  g.fillEllipse(cx - 8, cy - 43, 18, 5);
+  if (pose === 'attack') {
+    inkCircle(g, cx + 20, cy + 17, 7, 0x42bfe8);
+  }
+}
+
 function drawKind(g: Phaser.GameObjects.Graphics, kind: EnemyKind, pose: CharacterPose): void {
   switch (kind) {
     case 'bramble-hopper':
@@ -442,6 +534,18 @@ function drawKind(g: Phaser.GameObjects.Graphics, kind: EnemyKind, pose: Charact
       return;
     case 'dart-mosquito':
       drawDartMosquito(g, pose);
+      return;
+    case 'hermit-crab':
+      drawHermitCrab(g, pose);
+      return;
+    case 'starfish-slinger':
+      drawStarfishSlinger(g, pose);
+      return;
+    case 'alley-cat':
+      drawAlleyCat(g, pose);
+      return;
+    case 'umbrella-pigeon':
+      drawUmbrellaPigeon(g, pose);
       return;
     default: {
       const neverKind: never = kind;

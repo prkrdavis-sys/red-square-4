@@ -1,6 +1,14 @@
 import type { EnemyKind, Theme } from '../config';
 
-export type ProjectileStyle = 'thorn' | 'icicle' | 'cactus' | 'bubble' | 'fireball' | 'boomerang';
+export type ProjectileStyle =
+  | 'thorn'
+  | 'icicle'
+  | 'cactus'
+  | 'bubble'
+  | 'fireball'
+  | 'boomerang'
+  | 'starfish'
+  | 'water-balloon';
 
 export const BUBBLE_SHOT_SPEED = 130;
 export const FIREBALL_SHOT_SPEED = 100;
@@ -29,6 +37,10 @@ export function projectileStyleForTheme(theme: Theme): ProjectileStyle {
       return 'fireball';
     case 'rainforest':
       return 'boomerang';
+    case 'beach':
+      return 'starfish';
+    case 'rainy-city':
+      return 'water-balloon';
     default: {
       const neverTheme: never = theme;
       return neverTheme;
@@ -56,6 +68,12 @@ export function projectileStyleForKind(kind: EnemyKind): ProjectileStyle {
     case 'howler-ape':
     case 'dart-mosquito':
       return 'boomerang';
+    case 'hermit-crab':
+    case 'starfish-slinger':
+      return 'starfish';
+    case 'alley-cat':
+    case 'umbrella-pigeon':
+      return 'water-balloon';
     default: {
       const neverKind: never = kind;
       return neverKind;
@@ -68,6 +86,8 @@ export function usesTerrainArc(style: ProjectileStyle): boolean {
     case 'thorn':
     case 'icicle':
     case 'cactus':
+    case 'starfish':
+    case 'water-balloon':
       return true;
     case 'bubble':
     case 'fireball':
@@ -91,6 +111,8 @@ export function projectileFlightSpeed(style: ProjectileStyle, terrainShot: boole
     case 'thorn':
     case 'icicle':
     case 'cactus':
+    case 'starfish':
+    case 'water-balloon':
       return terrainShot ? 145 : 165;
     default: {
       const neverStyle: never = style;
@@ -108,6 +130,8 @@ export function projectileLifetimeMs(style: ProjectileStyle): number {
     case 'cactus':
     case 'bubble':
     case 'fireball':
+    case 'starfish':
+    case 'water-balloon':
       return DEFAULT_PROJECTILE_LIFETIME_MS;
     default: {
       const neverStyle: never = style;

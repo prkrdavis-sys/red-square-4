@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { ALL_LEVEL_IDS, parseLevelId } from '../config';
+import { CAMPAIGN_LEVEL_IDS, parseLevelId } from '../config';
 import {
   isBossRewardSkin,
   isSkinUnlocked,
@@ -33,8 +33,14 @@ describe('skin shop', () => {
       '6-1': 10,
       '6-2': 14,
       '6-3': 12,
+      '7-1': 12,
+      '7-2': 14,
+      '7-3': 16,
+      '8-1': 14,
+      '8-2': 16,
+      '8-3': 18,
     };
-    for (const id of ALL_LEVEL_IDS) {
+    for (const id of CAMPAIGN_LEVEL_IDS) {
       const skin = skinForLevel(id);
       expect(skin).toBeDefined();
       if (!skin) {

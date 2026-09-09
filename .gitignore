@@ -6,3 +6,4 @@ public/assets/vendor
 .vite
 .red-square-save.json
 .vercel
+functions/lib

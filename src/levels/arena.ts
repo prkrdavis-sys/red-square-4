@@ -75,6 +75,10 @@ function gateSpec(theme: Theme): GateSpec {
       return { pillarW: 2, gap: 3, height: 7 };
     case 'rainforest':
       return { pillarW: 1, gap: 3, height: 6 };
+    case 'beach':
+      return { pillarW: 1, gap: 3, height: 6 };
+    case 'rainy-city':
+      return { pillarW: 1, gap: 4, height: 7 };
     default: {
       const neverTheme: never = theme;
       return neverTheme;
@@ -139,6 +143,10 @@ function merlon(theme: Theme, offset: number): boolean {
       return offset % 2 === 0;
     case 'rainforest':
       return offset % 2 === 0;
+    case 'beach':
+      return offset % 3 !== 1;
+    case 'rainy-city':
+      return offset % 2 === 0;
     default: {
       const neverTheme: never = theme;
       return neverTheme;
@@ -171,6 +179,12 @@ function stampThemeArena(grid: Grid, layout: ArenaLayout, theme: Theme): void {
       break;
     case 'rainforest':
       grid.plat(floorStart + 5, rowAboveGround(low), 3, true);
+      break;
+    case 'beach':
+      grid.plat(floorStart + 4, rowAboveGround(low), 3, true);
+      break;
+    case 'rainy-city':
+      grid.plat(floorStart + 4, rowAboveGround(low), 3, true);
       break;
     default: {
       const neverTheme: never = theme;
@@ -381,6 +395,10 @@ function floorWash(theme: Theme): number {
       return 0x4a1020;
     case 'rainforest':
       return 0x1a3a18;
+    case 'beach':
+      return 0x7a4a18;
+    case 'rainy-city':
+      return 0x172033;
     default: {
       const neverTheme: never = theme;
       return neverTheme;
@@ -424,6 +442,16 @@ function addArenaDust(scene: Phaser.Scene, layout: ArenaLayout, theme: Theme): v
       tint = 0x8ab05a;
       speedY = { min: -16, max: -4 };
       frequency = 240;
+      break;
+    case 'beach':
+      tint = 0xfff4c4;
+      speedY = { min: -10, max: -2 };
+      frequency = 220;
+      break;
+    case 'rainy-city':
+      tint = 0x63e8ff;
+      speedY = { min: 45, max: 90 };
+      frequency = 120;
       break;
     default: {
       const neverTheme: never = theme;

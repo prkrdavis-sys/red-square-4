@@ -1,6 +1,6 @@
 # Red Square 4
 
-Phaser 3 + Vite + TypeScript 2D platformer. Six worlds (`1-1` through `6-4`), Kenney-style art, PWA install.
+Phaser 3 + Vite + TypeScript 2D platformer. Eight worlds (`1-1` through `8-4`), Kenney-style art, PWA install.
 
 ## Commands
 
@@ -28,7 +28,7 @@ Do not commit `public/assets/vendor` or `.red-square-save.json`.
 | `src/systems/` | Audio, HUD, touch, textures, world specials |
 | `src/data/` | Save, settings, skins |
 | `src/ui/` | Shared menu / boss-fight chrome |
-| `scripts/smoke-campaign.mjs` | Playwright smoke across all 24 courses |
+| `scripts/smoke-campaign.mjs` | Playwright smoke across all 32 courses |
 
 Change course layout in `src/levels/worlds.ts` specs. `compileCourse` builds the rows; do not hand-edit compiled tile strings. After level or combat edits, run `npm test` (`src/levels/campaign.test.ts` encodes layout invariants).
 

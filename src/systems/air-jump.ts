@@ -6,7 +6,9 @@ export type AirJumpMode =
   | 'carpet-glide'
   | 'swim-stroke'
   | 'ghost-hover'
-  | 'feather-flutter';
+  | 'feather-flutter'
+  | 'parasol-hang'
+  | 'awning-wall-jump';
 
 export type TripleJumpStep = 1 | 2 | 3;
 export type TripleJumpChain = 0 | TripleJumpStep;
@@ -41,6 +43,13 @@ export const FEATHER_FLUTTER_AMP = 50;
 export const FEATHER_FLUTTER_PERIOD_MS = 200;
 export const FEATHER_LEAF_OFFSET_Y = 26;
 
+/** Parasol hang is floatier than castle ghost hover. */
+export const PARASOL_HANG_DAMP = 0.64;
+export const PARASOL_HANG_MAX_FALL = 58;
+export const PARASOL_OFFSET_Y = -28;
+export const AWNING_WALL_JUMP_HEIGHT_TILES = 3.1;
+export const AWNING_WALL_JUMP_SPEED_X = 390;
+
 export function airJumpMode(theme: Theme): AirJumpMode {
   switch (theme) {
     case 'grass':
@@ -55,6 +64,10 @@ export function airJumpMode(theme: Theme): AirJumpMode {
       return 'ghost-hover';
     case 'rainforest':
       return 'feather-flutter';
+    case 'beach':
+      return 'parasol-hang';
+    case 'rainy-city':
+      return 'awning-wall-jump';
     default: {
       const neverTheme: never = theme;
       return neverTheme;
@@ -77,6 +90,10 @@ export function airJumpHint(theme: Theme): string {
       return 'Hold jump in the air to hover like a ghost.';
     case 'feather-flutter':
       return 'Hold jump in the air to flutter down.';
+    case 'parasol-hang':
+      return 'Hold jump in the air to hang from a parasol.';
+    case 'awning-wall-jump':
+      return 'Tap jump against a wall or awning to spring upward and away.';
     default: {
       const neverMode: never = mode;
       return neverMode;
@@ -244,4 +261,46 @@ export function featherFlutterVelocity(velocityY: number, now: number): number {
 export function featherLeafPosition(x: number, y: number, now: number): { x: number; y: number } {
   const beat = Math.sin((now / FEATHER_FLUTTER_PERIOD_MS) * Math.PI * 2);
   return { x, y: y + FEATHER_LEAF_OFFSET_Y + beat * 3.6 };
+}
+
+export function canParasolHang(args: { jumpHeld: boolean; grounded: boolean; velocityY: number }): boolean {
+  return args.jumpHeld && !args.grounded && args.velocityY > 40;
+}
+
+export function parasolHangVelocity(velocityY: number): number {
+  if (velocityY <= 0) {
+    return velocityY;
+  }
+  return Math.min(velocityY * PARASOL_HANG_DAMP, PARASOL_HANG_MAX_FALL);
+}
+
+export function parasolPosition(x: number, y: number, now: number): { x: number; y: number } {
+  return { x, y: y + PARASOL_OFFSET_Y + Math.sin(now / 180) * 2.2 };
+}
+
+export function awningWallJumpSide(args: {
+  grounded: boolean;
+  jumpJust: boolean;
+  jumpLocked: boolean;
+  touchingLeft: boolean;
+  touchingRight: boolean;
+  lastSide: -1 | 0 | 1;
+}): -1 | 0 | 1 {
+  if (args.grounded || !args.jumpJust || args.jumpLocked) {
+    return 0;
+  }
+  if (args.touchingLeft && args.lastSide !== -1) {
+    return -1;
+  }
+  if (args.touchingRight && args.lastSide !== 1) {
+    return 1;
+  }
+  return 0;
+}
+
+export function awningWallJumpVelocity(gravity: number, wallSide: -1 | 1): { x: number; y: number } {
+  return {
+    x: -wallSide * AWNING_WALL_JUMP_SPEED_X,
+    y: launchVelocity(gravity, AWNING_WALL_JUMP_HEIGHT_TILES),
+  };
 }

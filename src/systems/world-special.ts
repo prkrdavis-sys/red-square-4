@@ -18,6 +18,8 @@ const COOLDOWNS: Record<SpecialKind, number> = {
   'bubble-pulse': 1000,
   'shadow-blink': 1050,
   'liana-swing': 1000,
+  'tide-wall': 1100,
+  'lightning-pulse': 1250,
 };
 
 export class WorldSpecial {
@@ -56,7 +58,7 @@ export class WorldSpecial {
       return false;
     }
     this.readyAt = this.scene.time.now + COOLDOWNS[this.kind];
-    const reach = this.kind === 'bubble-pulse' ? 260 : 190;
+    const reach = this.kind === 'bubble-pulse' ? 260 : this.kind === 'lightning-pulse' ? 300 : 190;
     this.exposeNearbyEnemies(player.x, player.y, reach);
     this.silenceNearbyHazards(player.x, player.y, reach);
 
@@ -79,6 +81,12 @@ export class WorldSpecial {
       case 'liana-swing':
         this.lianaSwing(player, direction);
         break;
+      case 'tide-wall':
+        this.tideWall(player, direction);
+        break;
+      case 'lightning-pulse':
+        this.lightningPulse(player, direction);
+        break;
       default: {
         const neverKind: never = this.kind;
         return neverKind;
@@ -93,6 +101,14 @@ export class WorldSpecial {
     const x = Phaser.Math.Clamp(player.x + direction * ahead, TILE, this.built.widthPx - TILE);
     const y = Phaser.Math.Clamp(player.y + 70, TILE * 2, this.built.heightPx - TILE * 2);
     this.spawnThemedPlatform(x - GROW_LEDGE_WIDTH / 2, y, GROW_LEDGE_WIDTH, 'special-grow-ledge', 2200, 350);
+  }
+
+  private tideWall(player: Player, direction: number): void {
+    this.affectPuzzleTargets(player.x, 'driftwood-wall', 240);
+    const ahead = TILE * 0.75;
+    const x = Phaser.Math.Clamp(player.x + direction * ahead, TILE, this.built.widthPx - TILE);
+    const y = Phaser.Math.Clamp(player.y + 70, TILE * 2, this.built.heightPx - TILE * 2);
+    this.spawnThemedPlatform(x - GROW_LEDGE_WIDTH / 2, y, GROW_LEDGE_WIDTH, 'special-tide-wall', 2200, 350);
   }
 
   private frostPath(player: Player, direction: number): void {
@@ -266,6 +282,38 @@ export class WorldSpecial {
     });
   }
 
+  private lightningPulse(player: Player, direction: number): void {
+    this.affectPuzzleTargets(player.x, 'blackout-gate', 300);
+    this.neutralizeProjectiles(player.x, player.y, 300, direction);
+    for (const child of this.built.baddies.getChildren()) {
+      if (child instanceof Baddie && Phaser.Math.Distance.Between(player.x, player.y, child.x, child.y) <= 300) {
+        child.stunBySpecial();
+      }
+    }
+    player.grantSafety(420);
+    player.flashTint(0x9ff6ff, 420);
+
+    const strikeX = Phaser.Math.Clamp(player.x + direction * 72, TILE, this.built.widthPx - TILE);
+    const bolt = this.scene.add
+      .image(strikeX, player.y - 52, 'special-lightning-strike')
+      .setOrigin(0.5, 1)
+      .setDepth(24);
+    const ring = this.scene.add.image(player.x, player.y, 'special-lightning-glow').setDepth(23);
+    this.scene.tweens.add({
+      targets: ring,
+      scale: 4.2,
+      alpha: 0,
+      duration: 360,
+      onComplete: () => ring.destroy(),
+    });
+    this.scene.tweens.add({
+      targets: bolt,
+      alpha: 0,
+      duration: 260,
+      onComplete: () => bolt.destroy(),
+    });
+  }
+
   private spawnThemedPlatform(
     x: number,
     y: number,
@@ -307,6 +355,12 @@ export class WorldSpecial {
         case 'ice-wall':
         case 'sand-wall':
         case 'moss-curtain':
+        case 'driftwood-wall':
+        case 'blackout-gate':
+          if (kind === 'blackout-gate') {
+            target.setTexture('special-powered-gate');
+            target.setTint(0xb8f8ff);
+          }
           this.scene.tweens.add({
             targets: target,
             scaleY: 0,

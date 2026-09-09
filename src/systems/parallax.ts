@@ -30,6 +30,10 @@ function layoutFor(theme: Theme): BackdropLayout {
       return { cloudY: 12, farY: 140, mountainY: 190, groundY, cloudAlpha: 0.34 };
     case 'rainforest':
       return { cloudY: 10, farY: 126, mountainY: 172, groundY, cloudAlpha: 0.7 };
+    case 'beach':
+      return { cloudY: 6, farY: 122, mountainY: 168, groundY, cloudAlpha: 0.94 };
+    case 'rainy-city':
+      return { cloudY: 10, farY: 132, mountainY: 186, groundY, cloudAlpha: 0.42 };
     default: {
       const neverTheme: never = theme;
       return neverTheme;
@@ -125,6 +129,29 @@ function addSun(scene: Phaser.Scene, theme: Theme): void {
         .setDepth(-47)
         .setAngle(8);
       break;
+    case 'beach':
+      scene.add.circle(1048, 86, 128, 0xffd878, 0.14).setScrollFactor(0).setDepth(-48);
+      scene.add.circle(1048, 86, 78, 0xffc84a, 0.24).setScrollFactor(0).setDepth(-48);
+      scene.add.circle(1048, 86, 36, 0xffe066, 1).setScrollFactor(0).setDepth(-48);
+      scene.add.circle(1042, 80, 10, 0xfff4c4, 0.55).setScrollFactor(0).setDepth(-48);
+      for (const ray of [
+        { a: -24, w: 18, h: 310, al: 0.07 },
+        { a: -6, w: 11, h: 250, al: 0.045 },
+        { a: 14, w: 15, h: 280, al: 0.055 },
+        { a: 30, w: 9, h: 210, al: 0.036 },
+      ]) {
+        scene.add
+          .rectangle(1048, 86, ray.w, ray.h, 0xffe08a, ray.al)
+          .setOrigin(0.5, 0)
+          .setScrollFactor(0)
+          .setDepth(-47)
+          .setAngle(ray.a);
+      }
+      break;
+    case 'rainy-city':
+      scene.add.circle(1080, 78, 26, 0xd8e8ff, 0.55).setScrollFactor(0).setDepth(-48);
+      scene.add.circle(1088, 74, 8, 0x1a2438, 0.28).setScrollFactor(0).setDepth(-47);
+      break;
     default: {
       const neverTheme: never = theme;
       return neverTheme;
@@ -148,8 +175,8 @@ export class Parallax {
   constructor(scene: Phaser.Scene, theme: Theme) {
     const layout = layoutFor(theme);
 
-    if (theme === 'ocean' || theme === 'grass' || theme === 'desert') {
-      const skyFactor = theme === 'ocean' ? 0.05 : theme === 'desert' ? 0.03 : 0.035;
+    if (theme === 'ocean' || theme === 'grass' || theme === 'desert' || theme === 'beach' || theme === 'rainy-city') {
+      const skyFactor = theme === 'ocean' ? 0.05 : theme === 'desert' ? 0.03 : theme === 'rainy-city' ? 0.02 : 0.035;
       this.layers.push({
         image: addStrip(scene, 0, GAME_HEIGHT, skyKey(theme), -50, 1),
         factor: skyFactor,

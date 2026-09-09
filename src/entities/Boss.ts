@@ -91,6 +91,8 @@ const WORLD_BOSS_NAMES: Record<BossKind, string> = {
   fish: 'Abyss Fang',
   gargoyle: 'Keep Gargoyle',
   howler: 'Canopy Howler',
+  crab: 'King Crab',
+  'sewer-croc': 'Sewer Croc',
 };
 
 const MINI_FAMILIES: Record<Theme, string> = {
@@ -100,6 +102,8 @@ const MINI_FAMILIES: Record<Theme, string> = {
   ocean: 'Coral Jester',
   castle: 'Clockwork Page',
   rainforest: 'Leaf Rascal',
+  beach: 'Shell Rascal',
+  'rainy-city': 'Tomcat Gang',
 };
 
 export class Boss extends Phaser.Physics.Arcade.Sprite {
@@ -117,6 +121,7 @@ export class Boss extends Phaser.Physics.Arcade.Sprite {
   private arena: ArenaKeep | undefined;
   private readonly theme: Theme;
   private readonly miniVariant: MiniBossVariant | undefined;
+  private readonly secretName: string | undefined;
   private bossState: BossRhythm = 'waiting';
   private stateUntil = 0;
   private phase = 1;
@@ -132,6 +137,7 @@ export class Boss extends Phaser.Physics.Arcade.Sprite {
     hp: number,
     theme: Theme,
     miniVariant?: MiniBossVariant,
+    secretName?: string,
   ) {
     super(
       scene,
@@ -146,6 +152,7 @@ export class Boss extends Phaser.Physics.Arcade.Sprite {
     this.maxHp = hp;
     this.theme = theme;
     this.miniVariant = miniVariant;
+    this.secretName = secretName;
     this.spawnY = y;
     const body = this.body as Phaser.Physics.Arcade.Body;
     body.setBounce(0, 0);
@@ -153,8 +160,8 @@ export class Boss extends Phaser.Physics.Arcade.Sprite {
     body.setMaxVelocity(360, 1400);
     body.pushable = false;
     this.setDepth(16);
-    if (hp === 1) {
-      this.setScale(1.3 + (miniVariant ?? 1) * 0.08);
+    if (miniVariant) {
+      this.setScale(1.3 + miniVariant * 0.08);
     } else {
       this.applyWorldScale();
     }
@@ -185,6 +192,9 @@ export class Boss extends Phaser.Physics.Arcade.Sprite {
   }
 
   get encounterName(): string {
+    if (this.secretName) {
+      return this.secretName;
+    }
     return this.miniVariant
       ? `${MINI_FAMILIES[this.theme]} ${this.miniVariant}`
       : WORLD_BOSS_NAMES[this.kind];
@@ -338,6 +348,25 @@ export class Boss extends Phaser.Physics.Arcade.Sprite {
     const speedBonus = this.phase * 35 + (this.miniVariant ?? 0) * 18;
     const dir = this.chargeDir;
     this.settleMotion();
+    if (this.theme === 'rainy-city' && this.miniVariant) {
+      switch (this.miniVariant) {
+        case 1:
+          body.setVelocity(dir * (230 + speedBonus), -520);
+          break;
+        case 2:
+          body.setVelocity(dir * (170 + speedBonus), -440);
+          this.launchHairballVolley(player);
+          break;
+        case 3:
+          body.setVelocity(dir * (390 + speedBonus), -80);
+          break;
+        default: {
+          const neverVariant: never = this.miniVariant;
+          return neverVariant;
+        }
+      }
+      return;
+    }
     switch (this.kind) {
       case 'piranha':
         body.setVelocity(dir * (110 + speedBonus), -460 - this.phase * 50);
@@ -365,6 +394,23 @@ export class Boss extends Phaser.Physics.Arcade.Sprite {
         break;
       case 'howler':
         body.setVelocity(dir * (240 + speedBonus), -420 - this.phase * 45);
+        break;
+      case 'crab':
+        body.setVelocity(dir * (280 + speedBonus), this.phase >= 2 ? -280 : -40);
+        break;
+      case 'sewer-croc':
+        if (this.attackIndex % 3 === 2) {
+          const edges = this.edges();
+          this.setAlpha(0.25);
+          if (edges) {
+            this.setX(Phaser.Math.Clamp(player.x - dir * 92, edges.minX, edges.maxX));
+          }
+          body.setVelocity(dir * 120, -560);
+          this.scene.time.delayedCall(120, () => this.active && this.setAlpha(1));
+        } else {
+          body.setVelocity(dir * (310 + speedBonus), this.attackIndex % 3 === 1 ? -390 : -40);
+        }
+        this.spawnFloodSurge(dir);
         break;
       default: {
         const neverKind: never = this.kind;
@@ -410,6 +456,8 @@ export class Boss extends Phaser.Physics.Arcade.Sprite {
       }
       case 'gargoyle':
       case 'howler':
+      case 'crab':
+      case 'sewer-croc':
         if (this.hitWall()) {
           this.finishAttack();
         }
@@ -481,6 +529,10 @@ export class Boss extends Phaser.Physics.Arcade.Sprite {
         return 880;
       case 'howler':
         return 820;
+      case 'crab':
+        return 760;
+      case 'sewer-croc':
+        return 840;
       default: {
         const neverKind: never = this.kind;
         return neverKind;
@@ -502,6 +554,10 @@ export class Boss extends Phaser.Physics.Arcade.Sprite {
         return 580;
       case 'howler':
         return 600;
+      case 'crab':
+        return 620;
+      case 'sewer-croc':
+        return 720;
       default: {
         const neverKind: never = this.kind;
         return neverKind;
@@ -522,6 +578,10 @@ export class Boss extends Phaser.Physics.Arcade.Sprite {
       case 'gargoyle':
         return 980;
       case 'howler':
+        return 940;
+      case 'crab':
+        return 900;
+      case 'sewer-croc':
         return 940;
       default: {
         const neverKind: never = this.kind;
@@ -712,6 +772,8 @@ export class Boss extends Phaser.Physics.Arcade.Sprite {
       case 'walrus':
       case 'gargoyle':
       case 'howler':
+      case 'crab':
+      case 'sewer-croc':
         return true;
       case 'piranha':
       case 'scorpion':
@@ -759,6 +821,12 @@ export class Boss extends Phaser.Physics.Arcade.Sprite {
       case 'howler':
         this.setScale(2.18, 2.22);
         return;
+      case 'crab':
+        this.setScale(2.28, 2.08);
+        return;
+      case 'sewer-croc':
+        this.setScale(2.42, 2.05);
+        return;
       default: {
         const neverKind: never = this.kind;
         return neverKind;
@@ -768,6 +836,40 @@ export class Boss extends Phaser.Physics.Arcade.Sprite {
 
   private swims(): boolean {
     return this.kind === 'fish';
+  }
+
+  private launchHairballVolley(player: Phaser.Physics.Arcade.Sprite): void {
+    for (const offset of [-44, 0, 44]) {
+      const ball = this.scene.add.circle(this.x, this.y - 18, 10, 0x30384a, 1).setDepth(17);
+      ball.setStrokeStyle(3, 0x111827, 1);
+      this.scene.tweens.add({
+        targets: ball,
+        x: player.x + offset,
+        y: player.y + 18,
+        angle: 540,
+        duration: 620,
+        delay: (offset + 44) * 2,
+        onComplete: () => ball.destroy(),
+      });
+    }
+  }
+
+  private spawnFloodSurge(direction: number): void {
+    const arena = this.arena;
+    if (!arena) {
+      return;
+    }
+    const surge = this.scene.add
+      .rectangle(direction > 0 ? arena.left : arena.right, arena.bottom - 9, 120, 20, 0x42bfe8, 0.68)
+      .setOrigin(direction > 0 ? 0 : 1, 1)
+      .setDepth(14);
+    this.scene.tweens.add({
+      targets: surge,
+      x: direction > 0 ? arena.right : arena.left,
+      alpha: 0,
+      duration: 780,
+      onComplete: () => surge.destroy(),
+    });
   }
 
   private settleMotion(): void {
