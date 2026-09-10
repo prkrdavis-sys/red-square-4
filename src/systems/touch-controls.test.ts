@@ -1,12 +1,14 @@
 import { describe, expect, it } from 'vitest';
 import {
   initialMoveFromPress,
+  isActionPointer,
   isPrimaryPointer,
   MOVE_DEADZONE_PX,
   moveDirectionFromDelta,
   pointHitsRect,
   sliderThumbOffset,
   steerMoveAxis,
+  trackingKey,
 } from './touch-controls';
 
 describe('moveDirectionFromDelta', () => {
@@ -71,6 +73,24 @@ describe('isPrimaryPointer', () => {
   it('rejects extra mouse buttons and non-primary pointers', () => {
     expect(isPrimaryPointer({ button: 2, pointerType: 'mouse', isPrimary: true })).toBe(false);
     expect(isPrimaryPointer({ button: 0, pointerType: 'touch', isPrimary: false })).toBe(false);
+  });
+});
+
+describe('isActionPointer', () => {
+  it('accepts a second finger on jump while move is already primary', () => {
+    expect(isActionPointer({ button: 0, pointerType: 'touch', isPrimary: false })).toBe(true);
+    expect(isActionPointer({ button: -1, pointerType: 'touch', isPrimary: false })).toBe(true);
+  });
+
+  it('still rejects extra mouse buttons', () => {
+    expect(isActionPointer({ button: 2, pointerType: 'mouse', isPrimary: true })).toBe(false);
+    expect(isActionPointer({ button: 0, pointerType: 'mouse', isPrimary: false })).toBe(false);
+  });
+});
+
+describe('trackingKey', () => {
+  it('keeps a move pointer and a jump touch from sharing one id', () => {
+    expect(trackingKey('pointer', 1)).not.toBe(trackingKey('touch', 1));
   });
 });
 

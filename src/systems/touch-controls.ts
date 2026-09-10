@@ -15,12 +15,14 @@ export const MOVE_DEADZONE_PX = 18;
 
 const ACTIONS: readonly TouchAction[] = ['jump', 'special'];
 
-const held: Record<TouchAction, Set<number>> = {
+export type PointerSource = 'pointer' | 'touch';
+
+const held: Record<TouchAction, Set<string>> = {
   jump: new Set(),
   special: new Set(),
 };
 
-const tracked = new Map<number, 'move' | TouchAction>();
+const tracked = new Map<string, 'move' | TouchAction>();
 const captured = new Set<number>();
 
 let moveAxis: MoveAxis = null;
@@ -75,6 +77,10 @@ export function pointHitsRect(
   return x >= rect.left - pad && x <= rect.right + pad && y >= rect.top - pad && y <= rect.bottom + pad;
 }
 
+export function trackingKey(source: PointerSource, id: number): string {
+  return `${source}:${id}`;
+}
+
 export function isPrimaryPointer(event: {
   button: number;
   pointerType: string;
@@ -85,6 +91,18 @@ export function isPrimaryPointer(event: {
   }
   if (event.pointerType === 'mouse') {
     return event.button === 0;
+  }
+  return event.button === 0 || event.button === -1;
+}
+
+/** Jump/special while another finger steers. The second finger is never primary. */
+export function isActionPointer(event: {
+  button: number;
+  pointerType: string;
+  isPrimary?: boolean;
+}): boolean {
+  if (event.pointerType === 'mouse') {
+    return event.button === 0 && event.isPrimary !== false;
   }
   return event.button === 0 || event.button === -1;
 }
@@ -229,13 +247,12 @@ function hasTrackedMove(): boolean {
   return false;
 }
 
-function releasePointer(pointerId: number): void {
-  captured.delete(pointerId);
-  const kind = tracked.get(pointerId);
+function releasePointer(key: string): void {
+  const kind = tracked.get(key);
   if (!kind) {
     return;
   }
-  tracked.delete(pointerId);
+  tracked.delete(key);
   if (kind === 'move') {
     if (hasTrackedMove()) {
       return;
@@ -246,8 +263,17 @@ function releasePointer(pointerId: number): void {
     restSlider();
     return;
   }
-  if (held[kind].delete(pointerId)) {
+  if (held[kind].delete(key)) {
     syncPressed(kind);
+  }
+}
+
+function releaseChangedTouches(touches: TouchList): void {
+  for (let i = 0; i < touches.length; i += 1) {
+    const touch = touches[i];
+    if (touch) {
+      releasePointer(trackingKey('touch', touch.identifier));
+    }
   }
 }
 
@@ -276,17 +302,20 @@ function releaseAll(): void {
   }
 }
 
-function press(action: TouchAction, pointerId: number): void {
-  tracked.set(pointerId, action);
-  held[action].add(pointerId);
+function press(action: TouchAction, key: string): void {
+  if (tracked.has(key)) {
+    return;
+  }
+  tracked.set(key, action);
+  held[action].add(key);
   syncPressed(action);
 }
 
-function beginMoveAt(pointerId: number, clientX: number, clientY: number): void {
-  if (tracked.has(pointerId) || hasTrackedMove()) {
+function beginMoveAt(key: string, clientX: number, clientY: number): void {
+  if (tracked.has(key) || hasTrackedMove()) {
     return;
   }
-  tracked.set(pointerId, 'move');
+  tracked.set(key, 'move');
   moveOriginX = clientX;
   moveHeld = initialMoveFromPress(hitArrow(clientX, clientY), clientX, sliderCenterX());
   placeSlider(clientX, clientY);
@@ -295,7 +324,7 @@ function beginMoveAt(pointerId: number, clientX: number, clientY: number): void 
 }
 
 function beginMove(event: PointerEvent): void {
-  beginMoveAt(event.pointerId, event.clientX, event.clientY);
+  beginMoveAt(trackingKey('pointer', event.pointerId), event.clientX, event.clientY);
 }
 
 function bindButton(button: HTMLButtonElement): void {
@@ -305,13 +334,13 @@ function bindButton(button: HTMLButtonElement): void {
   }
 
   button.addEventListener('pointerdown', (event) => {
-    if (!isPrimaryPointer(event) || held[action].size > 0) {
+    if (!isActionPointer(event) || held[action].size > 0) {
       return;
     }
     event.preventDefault();
     event.stopPropagation();
     capturePointer(button, event.pointerId);
-    press(action, event.pointerId);
+    press(action, trackingKey('pointer', event.pointerId));
     lockLandscape();
   });
 
@@ -327,7 +356,7 @@ function bindButton(button: HTMLButtonElement): void {
       }
       event.preventDefault();
       event.stopPropagation();
-      press(action, touch.identifier);
+      press(action, trackingKey('touch', touch.identifier));
       lockLandscape();
     },
     { passive: false },
@@ -360,7 +389,7 @@ function bindMovePad(pad: HTMLElement): void {
         return;
       }
       event.preventDefault();
-      beginMoveAt(touch.identifier, touch.clientX, touch.clientY);
+      beginMoveAt(trackingKey('touch', touch.identifier), touch.clientX, touch.clientY);
       lockLandscape();
     },
     { passive: false },
@@ -373,7 +402,8 @@ function bindMovePad(pad: HTMLElement): void {
 
 function bindGlobalPointers(): void {
   const onEnd = (event: PointerEvent) => {
-    releasePointer(event.pointerId);
+    captured.delete(event.pointerId);
+    releasePointer(trackingKey('pointer', event.pointerId));
   };
 
   window.addEventListener('pointerup', onEnd, true);
@@ -381,7 +411,7 @@ function bindGlobalPointers(): void {
   window.addEventListener(
     'pointermove',
     (event) => {
-      if (!hasTrackedMove()) {
+      if (tracked.get(trackingKey('pointer', event.pointerId)) !== 'move') {
         return;
       }
       applyMoveX(event.clientX);
@@ -391,12 +421,12 @@ function bindGlobalPointers(): void {
   window.addEventListener(
     'touchmove',
     (event) => {
-      if (!hasTrackedMove()) {
-        return;
-      }
-      const touch = event.touches[0];
-      if (touch) {
-        applyMoveX(touch.clientX);
+      for (let i = 0; i < event.touches.length; i += 1) {
+        const touch = event.touches[i];
+        if (tracked.get(trackingKey('touch', touch.identifier)) === 'move') {
+          applyMoveX(touch.clientX);
+          return;
+        }
       }
     },
     { passive: true, capture: true },
@@ -407,12 +437,14 @@ function bindGlobalPointers(): void {
       if (!captured.has(event.pointerId) || event.buttons !== 0) {
         return;
       }
-      releasePointer(event.pointerId);
+      captured.delete(event.pointerId);
+      releasePointer(trackingKey('pointer', event.pointerId));
     },
     true,
   );
 
-  const onTouchesCleared = (event: TouchEvent) => {
+  const onTouchEnd = (event: TouchEvent) => {
+    releaseChangedTouches(event.changedTouches);
     if (event.touches.length !== 0) {
       return;
     }
@@ -431,8 +463,8 @@ function bindGlobalPointers(): void {
     },
     true,
   );
-  window.addEventListener('touchend', onTouchesCleared, true);
-  window.addEventListener('touchcancel', onTouchesCleared, true);
+  window.addEventListener('touchend', onTouchEnd, true);
+  window.addEventListener('touchcancel', onTouchEnd, true);
 
   document.addEventListener('visibilitychange', () => {
     if (document.visibilityState !== 'visible') {
