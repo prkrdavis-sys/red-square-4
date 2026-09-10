@@ -81,6 +81,19 @@ export function nextLevelId(id: LevelId): LevelId | undefined {
   return CAMPAIGN_LEVEL_IDS[index + 1];
 }
 
+export function cycleUnlockedLevel(
+  current: LevelId,
+  unlocked: readonly LevelId[],
+  direction: -1 | 1,
+): LevelId {
+  if (unlocked.length === 0) {
+    return current;
+  }
+  const index = unlocked.indexOf(current);
+  const from = index >= 0 ? index : 0;
+  return unlocked[(from + direction + unlocked.length) % unlocked.length] ?? current;
+}
+
 function unlockedFrom(cleared: LevelId[], extra: LevelId[]): LevelId[] {
   const nextIds = cleared.flatMap((id) => {
     const next = nextLevelId(id);

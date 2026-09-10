@@ -1,3 +1,5 @@
+export { parseRuntimeMessage, type BossPose, type PlayerPose, type RuntimeMessage } from './protocol';
+export { isPlayerId, otherRole, type CoopRole, type PlayerId } from './role';
 export { getFirebaseServices, type FirebaseServices } from './firebase-client';
 export {
   observeFriends,

@@ -1,9 +1,9 @@
 import { describe, expect, it, vi } from 'vitest';
+import { parseRuntimeMessage } from './protocol';
 import {
   clearActiveCoopSession,
   getActiveCoopSession,
   otherRole,
-  parseRuntimeMessage,
   setActiveCoopSession,
   type CoopRuntimeSession,
   type RuntimeMessage,

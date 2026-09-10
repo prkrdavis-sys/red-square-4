@@ -1,6 +1,6 @@
 import Phaser from 'phaser';
 import { GAME_HEIGHT, GAME_WIDTH, type LevelId } from '../config';
-import { loadSave, resetSessionLives, resumeLevelId } from '../data/progress';
+import { cycleUnlockedLevel, loadSave, resetSessionLives, resumeLevelId } from '../data/progress';
 import { applySettings } from '../data/settings';
 import {
   ensureAnonymousIdentity,
@@ -43,6 +43,8 @@ export class CoopScene extends Phaser.Scene {
   private readonly presenceUnsubscribers = new Set<() => void>();
   private dynamic: Phaser.GameObjects.GameObject[] = [];
   private nav?: MenuNav;
+  private levelButton?: MenuButton;
+  private inviteButtons: Array<{ button: MenuButton; online: boolean }> = [];
 
   constructor() {
     super('CoopScene');
@@ -126,6 +128,8 @@ export class CoopScene extends Phaser.Scene {
   private render(): void {
     this.nav?.destroy();
     this.nav = undefined;
+    this.levelButton = undefined;
+    this.inviteButtons = [];
     this.dynamic.forEach((object) => object.destroy());
     this.dynamic = [];
     const buttons: MenuButton[] = [];
@@ -161,15 +165,14 @@ export class CoopScene extends Phaser.Scene {
       addButton(800, 175, 'ADD FRIEND', () => void this.addFriend(), 200);
     }
 
-    const unlocked = loadSave().unlocked;
-    const levelButton = addButton(360, 236, `HOST LEVEL  ${this.selectedLevel}`, () => undefined, 360);
-    levelButton.onAdjust = (direction) => {
-      const current = Math.max(0, unlocked.indexOf(this.selectedLevel));
-      const next = (current + direction + unlocked.length) % unlocked.length;
-      this.selectedLevel = unlocked[next] ?? '1-1';
-      levelButton.setLabel(`HOST LEVEL  ${this.selectedLevel}`);
-      audio.play(this, 'map');
-    };
+    const previousLevel = addButton(188, 236, '◀', () => this.cycleHostLevel(-1), 72);
+    this.levelButton = addButton(430, 236, this.hostLevelLabel(), () => this.cycleHostLevel(1), 360);
+    const nextLevel = addButton(672, 236, '▶', () => this.cycleHostLevel(1), 72);
+    const adjustHostLevel = (direction: -1 | 1): void => this.cycleHostLevel(direction, true);
+    previousLevel.onAdjust = adjustHostLevel;
+    this.levelButton.onAdjust = adjustHostLevel;
+    nextLevel.onAdjust = adjustHostLevel;
+    addText(900, 236, 'TAP OR ← →', '16px', UI.muted);
 
     let y = 294;
     const request = this.requests[0];
@@ -202,10 +205,11 @@ export class CoopScene extends Phaser.Scene {
         const invite = addButton(
           800,
           y,
-          isOnline ? `INVITE TO ${this.selectedLevel}` : 'OFFLINE',
+          this.inviteLabel(isOnline),
           () => void this.sendInvitation(friend),
           320,
         );
+        this.inviteButtons.push({ button: invite, online: isOnline });
         if (!isOnline || this.connecting) {
           invite.disableInteractive();
           invite.setTone('muted');
@@ -216,6 +220,36 @@ export class CoopScene extends Phaser.Scene {
     addButton(GAME_WIDTH / 2, 656, 'BACK', () => this.scene.start('TitleScene'), 240);
     this.nav = new MenuNav(this, buttons, () => this.scene.start('TitleScene'));
     this.nav.setEnabled(!this.connecting);
+  }
+
+  private hostLevelLabel(): string {
+    return `HOST LEVEL  ${this.selectedLevel}`;
+  }
+
+  private inviteLabel(online: boolean): string {
+    return online ? `INVITE TO ${this.selectedLevel}` : 'OFFLINE';
+  }
+
+  private cycleHostLevel(direction: -1 | 1, playMoveSound = false): void {
+    if (this.connecting) {
+      return;
+    }
+    const next = cycleUnlockedLevel(this.selectedLevel, loadSave().unlocked, direction);
+    if (next === this.selectedLevel) {
+      return;
+    }
+    this.selectedLevel = next;
+    this.applySelectedLevel();
+    if (playMoveSound) {
+      audio.play(this, 'map');
+    }
+  }
+
+  private applySelectedLevel(): void {
+    this.levelButton?.setLabel(this.hostLevelLabel());
+    for (const { button, online } of this.inviteButtons) {
+      button.setLabel(this.inviteLabel(online));
+    }
   }
 
   private async copyFriendCode(): Promise<void> {
@@ -315,7 +349,7 @@ export class CoopScene extends Phaser.Scene {
         // The other peer may have completed this shared transition first.
       }
       const remoteName = this.friends.find((friend) => friend.profile.uid === remoteUid)?.profile.displayName ?? 'Teammate';
-      setActiveCoopSession({
+      const link = {
         role,
         levelId: session.levelId,
         localPlayerId: this.identity.uid,
@@ -323,11 +357,12 @@ export class CoopScene extends Phaser.Scene {
         localName: this.identity.displayName,
         remoteName,
         transport,
-      });
+      };
+      setActiveCoopSession(link);
       resetSessionLives();
       this.scene.start('PlayScene', {
         levelId: session.levelId,
-        coop: true,
+        session: link,
         skipControlsHint: true,
       });
     } catch (error) {

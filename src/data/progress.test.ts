@@ -3,6 +3,7 @@ import {
   addCoins,
   checkpointForLevelStart,
   clearCheckpoint,
+  cycleUnlockedLevel,
   getCheckpoint,
   loadSave,
   markCleared,
@@ -194,5 +195,24 @@ describe('secret specialty unlocks', () => {
     markCleared('1-3');
     expect(loadSave().unlocked).toContain('1-4');
     expect(loadSave().unlocked).not.toContain('1-?');
+  });
+});
+
+describe('cycleUnlockedLevel', () => {
+  it('wraps through unlocked courses in both directions', () => {
+    const unlocked = ['1-1', '2-1', '3-1'] as const;
+    expect(cycleUnlockedLevel('1-1', unlocked, 1)).toBe('2-1');
+    expect(cycleUnlockedLevel('3-1', unlocked, 1)).toBe('1-1');
+    expect(cycleUnlockedLevel('1-1', unlocked, -1)).toBe('3-1');
+  });
+
+  it('starts from the first unlocked course when the current id is missing', () => {
+    const unlocked = ['1-1', '2-1'] as const;
+    expect(cycleUnlockedLevel('8-4', unlocked, 1)).toBe('2-1');
+    expect(cycleUnlockedLevel('8-4', unlocked, -1)).toBe('2-1');
+  });
+
+  it('keeps the current course when nothing is unlocked', () => {
+    expect(cycleUnlockedLevel('1-1', [], 1)).toBe('1-1');
   });
 });

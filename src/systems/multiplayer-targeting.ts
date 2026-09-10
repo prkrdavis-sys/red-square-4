@@ -1,4 +1,4 @@
-import type { PlayerId } from '../network/protocol';
+import type { PlayerId } from '../network/role';
 
 export interface TargetPoint {
   id: PlayerId;

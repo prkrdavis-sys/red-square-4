@@ -20,7 +20,7 @@ export function installCoopSmokeApi(game: Phaser.Game): void {
   window.__rs4CoopSmoke = {
     start(role: CoopRole, channelName: string, levelId: LevelId): void {
       const transport = new BroadcastRuntimeTransport(channelName);
-      setActiveCoopSession({
+      const link = {
         role,
         levelId,
         localPlayerId: role,
@@ -28,8 +28,9 @@ export function installCoopSmokeApi(game: Phaser.Game): void {
         localName: role === 'host' ? 'Host' : 'Guest',
         remoteName: role === 'host' ? 'Guest' : 'Host',
         transport,
-      });
-      game.scene.start('PlayScene', { levelId, coop: true, skipControlsHint: true });
+      };
+      setActiveCoopSession(link);
+      game.scene.start('PlayScene', { levelId, session: link, skipControlsHint: true });
     },
   };
 }

@@ -1,6 +1,11 @@
 import Phaser from 'phaser';
 import { launchVelocity, STOMP_BOUNCE_HEIGHT_TILES, type Theme, themePhysics } from '../config';
 import { maybeShake } from '../data/settings';
+import type { PlayerId } from '../network/role';
+import type { PlayerInput } from './player-input';
+
+export type { PlayerInput } from './player-input';
+export { EMPTY_PLAYER_INPUT } from './player-input';
 import {
   airJumpMode,
   applyFlowerSpring,
@@ -41,17 +46,6 @@ import { audio } from '../systems/audio';
 import { DEATH_BLAST_MS, spawnDeathBlast } from '../systems/explosion';
 import { heldShieldPosition } from './held-shield';
 
-export interface PlayerInput {
-  left: boolean;
-  right: boolean;
-  jump: boolean;
-  jumpJust: boolean;
-  down: boolean;
-  downJust: boolean;
-  special: boolean;
-  specialJust: boolean;
-}
-
 type HeroFrame =
   | 'player'
   | 'player-blink'
@@ -62,6 +56,7 @@ type HeroFrame =
   | 'player-dead';
 
 export class Player extends Phaser.Physics.Arcade.Sprite {
+  role?: PlayerId;
   coyoteUntil = 0;
   jumpBufferUntil = 0;
   droppingUntil = 0;

@@ -67,6 +67,37 @@ describe('co-op team reducer', () => {
     expect(ended.players.guest.status).toBe('eliminated');
   });
 
+  it('marks one player down without spending a life', () => {
+    const downed = reduceCoopTeam(team(), {
+      type: 'player-down',
+      eventId: 'down-guest',
+      playerId: 'guest',
+    });
+    expect(downed.lives).toBe(3);
+    expect(downed.players.guest.status).toBe('eliminated');
+    expect(downed.players.host.status).toBe('active');
+  });
+
+  it('revives only downed players when a checkpoint is taken', () => {
+    const downed = reduceCoopTeam(team(), {
+      type: 'player-down',
+      eventId: 'down-host',
+      playerId: 'host',
+    });
+    const revived = reduceCoopTeam(downed, {
+      type: 'activate-checkpoint',
+      eventId: 'checkpoint-2',
+      checkpoint: { id: 'mid', order: 2, x: 640, y: 320 },
+    });
+    expect(revived.players.host).toMatchObject({
+      status: 'active',
+      spawnX: 640,
+      spawnY: 320,
+      revivalToken: 1,
+    });
+    expect(revived.players.guest.revivalToken).toBe(0);
+  });
+
   it('deduplicates rewards by reward id even across distinct event packets', () => {
     const once = reduceCoopTeam(team(), {
       type: 'grant-reward',

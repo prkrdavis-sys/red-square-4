@@ -39,19 +39,15 @@ import { EnemyProjectile } from '../entities/EnemyProjectile';
 import { TerrainHazard } from '../entities/TerrainHazard';
 import { hazardThreatensTile, type TerrainHazardSpawn } from '../entities/terrain-hazard';
 import { FlakFragment } from '../entities/FlakFragment';
-import { Player, type PlayerInput } from '../entities/Player';
+import { EMPTY_PLAYER_INPUT, Player, type PlayerInput } from '../entities/Player';
 import { buildLevel, type BuiltLevel } from '../levels/builder';
 import { bossSafeLandingX } from '../levels/arena';
 import { getLevel } from '../levels/worlds';
-import {
-  clearActiveCoopSession,
-  getActiveCoopSession,
-  type CoopRuntimeSession,
-  type BossPose,
-  type PlayerPose,
-  type RuntimeMessage,
-} from '../network/runtime-session';
+import type { PlayerPose } from '../network/protocol';
+import type { PlayerId } from '../network/role';
+import { clearActiveCoopSession, type CoopRuntimeSession } from '../network/runtime-session';
 import { smoothPredictionCorrection } from '../network/snapshot';
+import { CoopRuntime, type CoopRuntimeEvent } from '../systems/coop-runtime';
 import { audio } from '../systems/audio';
 import {
   checkpointPlaneX,
@@ -100,19 +96,8 @@ interface PlayData {
   levelId?: LevelId;
   skipControlsHint?: boolean;
   fromDeath?: boolean;
-  coop?: boolean;
+  session?: CoopRuntimeSession;
 }
-
-const EMPTY_INPUT: PlayerInput = {
-  left: false,
-  right: false,
-  jump: false,
-  jumpJust: false,
-  down: false,
-  downJust: false,
-  special: false,
-  specialJust: false,
-};
 
 function playerFromCollider(
   object:
@@ -225,20 +210,15 @@ export class PlayScene extends Phaser.Scene {
   private coins!: Phaser.Physics.Arcade.Group;
   private retainFlak = false;
   private special!: WorldSpecial;
-  private coop?: CoopRuntimeSession;
+  private link?: CoopRuntimeSession;
+  private runtime?: CoopRuntime;
   private players: Player[] = [];
   private localPlayer!: Player;
   private remotePlayer?: Player;
-  private remoteInput: PlayerInput = EMPTY_INPUT;
-  private playerAlive = new Map<Player, boolean>();
-  private networkSequence = 0;
-  private lastSnapshotAt = 0;
-  private lastInputSentAt = 0;
   private collisionCooldowns: CollisionCooldowns = {};
-  private stopTransport?: () => void;
+  private stopRuntime?: () => void;
   private cameraTarget?: Phaser.GameObjects.Zone;
   private hudSpectating?: Phaser.GameObjects.Text;
-  private appliedRewardEvents = new Set<string>();
 
   constructor() {
     super('PlayScene');
@@ -246,8 +226,11 @@ export class PlayScene extends Phaser.Scene {
 
   init(data: PlayData): void {
     this.levelId = data.levelId ?? '1-1';
-    const session = getActiveCoopSession();
-    this.coop = data.coop === true && session?.levelId === this.levelId ? session : undefined;
+    this.link = data.session;
+    if (this.link) {
+      this.link.levelId = this.levelId;
+    }
+    this.runtime = undefined;
     this.paused = false;
     this.controlsHintOpen = false;
     this.skipControlsHint = data.skipControlsHint === true;
@@ -260,13 +243,7 @@ export class PlayScene extends Phaser.Scene {
     this.threatsLive = false;
     this.retainFlak = false;
     this.players = [];
-    this.remoteInput = EMPTY_INPUT;
-    this.playerAlive.clear();
-    this.networkSequence = 0;
-    this.lastSnapshotAt = 0;
-    this.lastInputSentAt = 0;
     this.collisionCooldowns = {};
-    this.appliedRewardEvents.clear();
   }
 
   create(): void {
@@ -277,23 +254,25 @@ export class PlayScene extends Phaser.Scene {
     this.cameras.main.setBackgroundColor(themeSky(def.theme));
     this.built = buildLevel(this, def.rows, def.theme, def.world, def.course);
     const hostPlayer = this.built.player;
+    hostPlayer.role = this.link ? 'host' : undefined;
     this.players = [hostPlayer];
-    if (this.coop) {
+    if (this.link) {
       const guestPlayer = new Player(this, hostPlayer.x + 48, hostPlayer.y);
+      guestPlayer.role = 'guest';
       guestPlayer.applyTheme(def.theme);
-      hostPlayer.setData('playerId', this.coop.role === 'host' ? this.coop.localPlayerId : this.coop.remotePlayerId);
-      guestPlayer.setData('playerId', this.coop.role === 'guest' ? this.coop.localPlayerId : this.coop.remotePlayerId);
       hostPlayer.setCoopAccent(false);
       guestPlayer.setCoopAccent(true);
       this.players.push(guestPlayer);
-      this.localPlayer = this.coop.role === 'host' ? hostPlayer : guestPlayer;
-      this.remotePlayer = this.coop.role === 'host' ? guestPlayer : hostPlayer;
-      this.stopTransport = this.coop.transport.subscribe((message) => this.onRuntimeMessage(message));
+      this.localPlayer = this.link.role === 'host' ? hostPlayer : guestPlayer;
+      this.remotePlayer = this.link.role === 'host' ? guestPlayer : hostPlayer;
+      this.runtime = new CoopRuntime(this.link, {
+        lives: session.lives,
+        x: hostPlayer.x,
+        y: hostPlayer.y,
+      });
+      this.stopRuntime = this.runtime.subscribe((event) => this.applyCoopEvent(event));
     } else {
       this.localPlayer = hostPlayer;
-    }
-    for (const player of this.players) {
-      this.playerAlive.set(player, true);
     }
     this.parallax = new Parallax(this, def.theme);
     this.foreground = new Foreground(this, def.theme, this.built.widthPx, def.world, def.stage);
@@ -308,35 +287,9 @@ export class PlayScene extends Phaser.Scene {
     this.physics.world.setBounds(0, 0, this.built.widthPx, this.built.heightPx + 400);
     this.physics.world.TILE_BIAS = TILE;
 
-    const {
-      player,
-      solids,
-      oneways,
-      hazards,
-      baddies,
-      traps,
-      trapBeams,
-      projectiles,
-      collectibles,
-      shields,
-      checkpoints,
-      puzzleTargets,
-      miniBoss,
-      worldBoss,
-      secretPortal,
-      bossFences,
-    } = this.built;
+    const { solids, oneways, hazards, baddies, projectiles, collectibles, miniBoss, worldBoss, bossFences } =
+      this.built;
 
-    this.physics.add.collider(player, solids);
-    this.physics.add.collider(
-      player,
-      puzzleTargets,
-      undefined,
-      (objectA, objectB) => {
-        const target = objectA === player ? objectB : objectA;
-        return 'getData' in target && target.getData('solid') === true;
-      },
-    );
     this.physics.add.collider(baddies, solids);
     this.physics.add.collider(baddies, oneways);
     this.physics.add.collider(projectiles, solids, (objectA, objectB) => {
@@ -360,61 +313,6 @@ export class PlayScene extends Phaser.Scene {
       }
     }
 
-    this.physics.add.collider(
-      player,
-      oneways,
-      undefined,
-      (objectA, objectB) => this.oneWayProcess(objectA, objectB),
-    );
-
-    this.physics.add.collider(player, baddies, (objectA, objectB) => {
-      this.onBaddieCollide(objectA as Player, objectB as Baddie);
-    });
-
-    if (miniBoss) {
-      this.bindBossCombat(player, miniBoss, false);
-    }
-    if (worldBoss) {
-      this.bindBossCombat(player, worldBoss, true);
-    }
-
-    this.physics.add.overlap(player, hazards, () => this.killPlayer('hazard'));
-    this.physics.add.overlap(player, traps, () => this.killPlayer('hazard'));
-    this.physics.add.overlap(player, trapBeams, () => this.killPlayer('hazard'));
-    this.physics.add.overlap(player, projectiles, (objectA, objectB) => {
-      const projectile = objectA instanceof EnemyProjectile ? objectA : objectB instanceof EnemyProjectile ? objectB : undefined;
-      if (!projectile || projectile.neutralized) {
-        return;
-      }
-      projectile.destroy();
-      this.killPlayer('baddie');
-    });
-    this.physics.add.overlap(player, collectibles, (objectA, objectB) => {
-      const pickup = objectA === player ? objectB : objectA;
-      if ('getData' in pickup) {
-        this.collectPickup(pickup as Phaser.Physics.Arcade.Sprite);
-      }
-    });
-    this.physics.add.overlap(player, shields, (objectA, objectB) => {
-      const pickup = objectA === player ? objectB : objectA;
-      if ('destroy' in pickup) {
-        player.giveShield();
-        audio.play(this, 'select');
-        (pickup as Phaser.GameObjects.GameObject).destroy();
-      }
-    });
-    this.physics.add.overlap(player, checkpoints, (objectA, objectB) => {
-      const checkpoint = objectA === player ? objectB : objectA;
-      if ('getData' in checkpoint) {
-        this.activateCheckpoint(checkpoint as Phaser.Physics.Arcade.Sprite);
-      }
-    });
-    if (secretPortal) {
-      for (const actor of this.players) {
-        this.physics.add.overlap(actor, secretPortal, () => this.enterSecretPortal(secretPortal));
-      }
-    }
-
     const mask = collectibleMask(this.levelId);
     for (const child of collectibles.getChildren()) {
       const pickup = child as Phaser.Physics.Arcade.Sprite;
@@ -435,9 +333,6 @@ export class PlayScene extends Phaser.Scene {
       (objectA, objectB) => this.flakOneWayProcess(objectA, objectB),
     );
     this.physics.add.collider(this.flak, this.flak);
-    this.physics.add.collider(player, this.flak, (objectA, objectB) => {
-      this.onFlakBump(objectA, objectB);
-    });
     this.physics.add.overlap(this.flak, hazards, (objectA, objectB) => {
       const frag = flakFromCollider(objectA) ?? flakFromCollider(objectB);
       frag?.destroy();
@@ -451,21 +346,15 @@ export class PlayScene extends Phaser.Scene {
       undefined,
       (objectA, objectB) => this.coinOneWayProcess(objectA, objectB),
     );
-    this.physics.add.overlap(player, this.coins, (objectA, objectB) => {
-      const coin = coinFromCollider(objectA) ?? coinFromCollider(objectB);
-      if (coin) {
-        this.collectCoin(coin);
-      }
-    });
 
-    for (const coopPlayer of this.players.slice(1)) {
-      this.bindAdditionalPlayerPhysics(coopPlayer);
+    for (const actor of this.players) {
+      this.bindPlayerPhysics(actor);
     }
     if (this.players.length === 2) {
       this.physics.add.collider(this.players[0], this.players[1], () => this.onPlayersCollide());
     }
 
-    this.cameraTarget = this.add.zone(player.x, player.y, 2, 2);
+    this.cameraTarget = this.add.zone(hostPlayer.x, hostPlayer.y, 2, 2);
     this.cameras.main.startFollow(this.cameraTarget, true, 0.14, 0.14);
     this.cameras.main.setDeadzone(90, 160);
     this.cameras.main.setBounds(0, 0, this.built.widthPx, Math.max(GAME_HEIGHT, this.built.heightPx));
@@ -607,73 +496,44 @@ export class PlayScene extends Phaser.Scene {
       if (!this.retainFlak) {
         forgetFlak();
       }
-      this.stopTransport?.();
-      this.stopTransport = undefined;
+      this.stopRuntime?.();
+      this.stopRuntime = undefined;
     });
   }
 
   update(): void {
     if (!this.paused && !this.controlsHintOpen) {
       this.cullFlak();
-      if (this.isAuthority) {
+      if (this.canMutateWorld) {
         for (const player of this.livingPlayers()) {
           this.tryActivateCheckpoints(player);
         }
       }
     }
-    if ((this.paused && !this.coop) || this.completing || this.controlsHintOpen) {
+    if ((this.paused && this.pausesWorld) || this.completing || this.controlsHintOpen) {
       return;
     }
 
     const def = getLevel(this.levelId);
-    const input = this.paused ? EMPTY_INPUT : this.readInput();
+    const input = this.paused ? EMPTY_PLAYER_INPUT : this.readInput();
+    const remoteInput = this.runtime?.peekRemoteInput() ?? EMPTY_PLAYER_INPUT;
     const { baddies, miniBoss, worldBoss } = this.built;
 
     this.refreshNoJumpZone(this.localPlayer);
     this.localPlayer.tick(input, def.theme);
-    if (this.coop?.role === 'guest') {
-      if (this.time.now >= this.lastInputSentAt + 33 || input.jumpJust || input.downJust || input.specialJust) {
-        this.lastInputSentAt = this.time.now;
-        this.coop.transport.send({ type: 'input', sequence: ++this.networkSequence, input });
-      }
-    } else if (this.remotePlayer && this.playerAlive.get(this.remotePlayer)) {
+    if (this.runtime && !this.runtime.isAuthority) {
+      this.runtime.maybeSendInput(this.time.now, input);
+    } else if (this.remotePlayer && this.isLiving(this.remotePlayer)) {
+      const remoteTick = this.runtime?.takeRemoteInput() ?? EMPTY_PLAYER_INPUT;
       this.refreshNoJumpZone(this.remotePlayer);
-      this.remotePlayer.tick(this.remoteInput, def.theme);
-      const remoteSpecialDirection = this.remotePlayer.flipX ? -1 : 1;
-      if (
-        this.remoteInput.specialJust &&
-        this.special.activate(this.remotePlayer, remoteSpecialDirection)
-      ) {
-        audio.play(this, 'special');
-        this.coop?.transport.send({
-          type: 'special',
-          playerId: String(this.remotePlayer.getData('playerId') ?? ''),
-          direction: remoteSpecialDirection,
-        });
-      }
-      this.remoteInput = {
-        ...this.remoteInput,
-        jumpJust: false,
-        downJust: false,
-        specialJust: false,
-      };
+      this.remotePlayer.tick(remoteTick, def.theme);
+      this.tryActivateSpecial(this.remotePlayer, remoteTick);
     }
-    const localSpecialDirection = this.localPlayer.flipX ? -1 : 1;
-    if (input.specialJust && this.isAuthority && this.special.activate(this.localPlayer, localSpecialDirection)) {
-      audio.play(this, 'special');
-      this.coop?.transport.send({
-        type: 'special',
-        playerId: String(this.localPlayer.getData('playerId') ?? ''),
-        direction: localSpecialDirection,
-      });
-    }
-    if (this.isAuthority) {
-      this.tryActivateCheckpoints(this.localPlayer);
-    }
+    this.tryActivateSpecial(this.localPlayer, input);
 
     if (
       !this.threatsLive &&
-      (input.left || input.right || this.remoteInput.left || this.remoteInput.right)
+      (input.left || input.right || remoteInput.left || remoteInput.right)
     ) {
       this.threatsLive = true;
       for (const child of baddies.getChildren()) {
@@ -718,7 +578,7 @@ export class PlayScene extends Phaser.Scene {
       this.tickBoss(worldBoss, bossTarget);
     }
 
-    if (this.isAuthority) {
+    if (this.canMutateWorld) {
       for (const player of this.livingPlayers()) {
         if (player.y > this.built.heightPx + 20) {
           this.killPlayer('pit', player);
@@ -750,25 +610,61 @@ export class PlayScene extends Phaser.Scene {
     }
   }
 
-  private get isAuthority(): boolean {
-    return !this.coop || this.coop.role === 'host';
+  private get canMutateWorld(): boolean {
+    return this.runtime?.isAuthority ?? true;
+  }
+
+  private get pausesWorld(): boolean {
+    return this.runtime?.pausesWorld ?? true;
+  }
+
+  private isLiving(player: Player): boolean {
+    return player.active && (player.role ? this.runtime?.isActive(player.role) !== false : true);
   }
 
   private livingPlayers(): Player[] {
-    return this.players.filter((player) => player.active && this.playerAlive.get(player) !== false);
+    return this.players.filter((player) => this.isLiving(player));
+  }
+
+  private playerWithRole(role: PlayerId): Player | undefined {
+    return this.players.find((player) => player.role === role);
+  }
+
+  private continueWithSession(levelId: LevelId, extra: Partial<PlayData> = {}): PlayData {
+    this.runtime?.setLevelId(levelId);
+    return {
+      levelId,
+      session: this.link,
+      skipControlsHint: true,
+      ...extra,
+    };
   }
 
   private closestLivingPlayer(x: number): Player | undefined {
     const target = selectMultiplayerTarget(
       { x, y: 0 },
-      this.players.map((player, index) => ({
-        id: index === 0 ? 'host' as const : 'guest' as const,
+      this.players.map((player) => ({
+        id: player.role ?? 'host',
         x: player.x,
         y: player.y,
-        targetable: this.playerAlive.get(player) !== false,
+        targetable: this.isLiving(player),
       })),
     );
-    return target ? this.players[target.id === 'host' ? 0 : 1] : undefined;
+    return target ? this.playerWithRole(target.id) ?? this.players[0] : undefined;
+  }
+
+  private tryActivateSpecial(player: Player, input: PlayerInput): void {
+    if (!input.specialJust || !this.canMutateWorld) {
+      return;
+    }
+    const direction = player.flipX ? -1 : 1;
+    if (!this.special.activate(player, direction)) {
+      return;
+    }
+    audio.play(this, 'special');
+    if (player.role) {
+      this.runtime?.sendSpecial(player.role, direction);
+    }
   }
 
   private playerPose(player: Player): PlayerPose {
@@ -778,53 +674,43 @@ export class PlayScene extends Phaser.Scene {
       velocityX: player.arcadeBody.velocity.x,
       velocityY: player.arcadeBody.velocity.y,
       flipX: player.flipX,
-      alive: this.playerAlive.get(player) !== false,
-    };
-  }
-
-  private bossPose(boss: Boss): BossPose {
-    return {
-      x: boss.x,
-      y: boss.y,
-      velocityX: boss.arcadeBody.velocity.x,
-      velocityY: boss.arcadeBody.velocity.y,
-      hp: boss.hp,
-      engaged: boss.engaged,
-      active: boss.active && !boss.dying,
+      alive: this.isLiving(player),
     };
   }
 
   private broadcastSnapshot(): void {
-    if (this.coop?.role !== 'host' || this.players.length !== 2 || this.time.now < this.lastSnapshotAt + 50) {
+    const host = this.playerWithRole('host');
+    const guest = this.playerWithRole('guest');
+    if (!this.runtime || !host || !guest) {
       return;
     }
-    const host = this.players[0];
-    const guest = this.players[1];
-    if (!host || !guest) {
-      return;
-    }
-    this.lastSnapshotAt = this.time.now;
     const boss = this.built.worldBoss ?? this.built.miniBoss;
-    this.coop.transport.send({
-      type: 'snapshot',
-      sequence: ++this.networkSequence,
+    this.runtime.maybeBroadcastSnapshot(this.time.now, {
       host: this.playerPose(host),
       guest: this.playerPose(guest),
       lives: session.lives,
-      boss: boss ? this.bossPose(boss) : undefined,
+      boss: boss
+        ? {
+            x: boss.x,
+            y: boss.y,
+            velocityX: boss.arcadeBody.velocity.x,
+            velocityY: boss.arcadeBody.velocity.y,
+            hp: boss.hp,
+            engaged: boss.engaged,
+            active: boss.active && !boss.dying,
+          }
+        : undefined,
     });
   }
 
   private applyRemotePose(player: Player, pose: PlayerPose, reconcile: boolean): void {
     if (!pose.alive) {
-      if (this.playerAlive.get(player) !== false) {
-        this.playerAlive.set(player, false);
+      if (!player.frozen) {
         player.enterSpectating();
       }
       return;
     }
-    if (this.playerAlive.get(player) === false) {
-      this.playerAlive.set(player, true);
+    if (player.frozen) {
       player.reviveAt(pose.x, pose.y);
     }
     const corrected = reconcile
@@ -843,33 +729,22 @@ export class PlayScene extends Phaser.Scene {
     player.applyNetworkPose({ ...pose, ...corrected });
   }
 
-  private onRuntimeMessage(message: RuntimeMessage): void {
-    if (!this.coop) {
-      return;
-    }
-    switch (message.type) {
-      case 'input':
-        if (this.coop.role === 'host') {
-          this.remoteInput = message.input;
-        }
-        return;
+  private applyCoopEvent(event: CoopRuntimeEvent): void {
+    switch (event.type) {
       case 'snapshot': {
-        if (this.coop.role !== 'guest') {
-          return;
-        }
-        const host = this.players[0];
-        const guest = this.players[1];
+        const host = this.playerWithRole('host');
+        const guest = this.playerWithRole('guest');
         if (host && guest) {
-          this.applyRemotePose(host, message.host, false);
-          this.applyRemotePose(guest, message.guest, true);
-          session.lives = message.lives;
+          this.applyRemotePose(host, event.host, false);
+          this.applyRemotePose(guest, event.guest, true);
+          session.lives = event.lives;
           const boss = this.built.worldBoss ?? this.built.miniBoss;
-          if (boss && message.boss) {
-            boss.setPosition(message.boss.x, message.boss.y);
-            boss.arcadeBody.setVelocity(message.boss.velocityX, message.boss.velocityY);
-            boss.hp = message.boss.hp;
-            boss.engaged = message.boss.engaged;
-            if (!message.boss.active && boss.active) {
+          if (boss && event.boss) {
+            boss.setPosition(event.boss.x, event.boss.y);
+            boss.arcadeBody.setVelocity(event.boss.velocityX, event.boss.velocityY);
+            boss.hp = event.boss.hp;
+            boss.engaged = event.boss.engaged;
+            if (!event.boss.active && boss.active) {
               boss.poofAway();
             }
           }
@@ -877,59 +752,42 @@ export class PlayScene extends Phaser.Scene {
         return;
       }
       case 'checkpoint':
-        setCheckpoint(this.levelId, message.x, message.y);
-        this.reviveSpectators(message.x, message.y, false);
+        setCheckpoint(this.levelId, event.x, event.y);
+        this.reviveSpectators(event.x, event.y);
         return;
-      case 'player-impact': {
-        const first = this.players[0];
-        const second = this.players[1];
-        if (!first || !second) {
-          return;
-        }
-        first.playTeammateImpact(message.kind);
-        second.playTeammateImpact(message.kind);
-        audio.play(this, message.kind === 'head' ? 'teammate-stomp' : 'teammate-bump');
+      case 'player-impact':
+        this.playImpact(event.kind);
         return;
-      }
-      case 'player-died': {
-        const player = this.players.find((candidate) => candidate.getData('playerId') === message.playerId);
-        if (player && this.playerAlive.get(player) !== false) {
-          this.playerAlive.set(player, false);
+      case 'player-down': {
+        const player = this.playerWithRole(event.playerId);
+        if (player && !player.frozen) {
           player.die(() => player.enterSpectating());
         }
         return;
       }
       case 'special': {
-        if (this.coop.role === 'guest') {
-          const player = this.players.find((candidate) => candidate.getData('playerId') === message.playerId);
-          if (player && this.special.activate(player, message.direction)) {
-            audio.play(this, 'special');
-          }
+        const player = this.playerWithRole(event.playerId);
+        if (player && this.special.activate(player, event.direction)) {
+          audio.play(this, 'special');
         }
         return;
       }
-      case 'reward':
-        if (this.appliedRewardEvents.has(message.eventId)) {
-          return;
-        }
-        this.appliedRewardEvents.add(message.eventId);
-        if (message.reward === 'coin') {
-          this.syncHudCoins(addCoins(1).coins);
-        } else if (typeof message.index === 'number') {
-          collectStar(this.levelId, message.index);
-          for (const child of this.built.collectibles.getChildren()) {
-            if (Number((child as Phaser.GameObjects.GameObject).getData('index')) === message.index) {
-              child.destroy();
-            }
+      case 'reward-coin':
+        this.syncHudCoins(addCoins(1).coins);
+        return;
+      case 'reward-star':
+        collectStar(this.levelId, event.index);
+        for (const child of this.built.collectibles.getChildren()) {
+          if (Number((child as Phaser.GameObjects.GameObject).getData('index')) === event.index) {
+            child.destroy();
           }
         }
         return;
       case 'team-restart':
-        this.coop.levelId = message.levelId;
-        this.scene.restart({ levelId: message.levelId, skipControlsHint: true, fromDeath: true, coop: true });
+        this.scene.restart(this.continueWithSession(event.levelId, { fromDeath: true }));
         return;
       case 'level-complete':
-        if (this.coop.role === 'guest' && message.levelId === this.levelId && !this.completing) {
+        if (event.levelId === this.levelId && !this.completing) {
           this.completing = true;
           markCleared(this.levelId);
           this.showCompleteMenu('CO-OP CLEAR!');
@@ -938,7 +796,7 @@ export class PlayScene extends Phaser.Scene {
       case 'leave':
         if (!this.completing) {
           this.completing = true;
-          const returningToLobby = message.reason === 'team-game-over' || message.reason === 'return-to-lobby';
+          const returningToLobby = event.reason === 'team-game-over' || event.reason === 'return-to-lobby';
           this.showBanner(returningToLobby ? 'RETURNING TO LOBBY' : 'TEAMMATE LEFT', () => {
             clearActiveCoopSession('peer-left');
             this.scene.start(returningToLobby ? 'CoopScene' : 'TitleScene');
@@ -946,10 +804,15 @@ export class PlayScene extends Phaser.Scene {
         }
         return;
       default: {
-        const neverMessage: never = message;
-        return neverMessage;
+        const neverEvent: never = event;
+        return neverEvent;
       }
     }
+  }
+
+  private playImpact(kind: 'side' | 'head'): void {
+    this.players.forEach((player) => player.playTeammateImpact(kind));
+    audio.play(this, kind === 'head' ? 'teammate-stomp' : 'teammate-bump');
   }
 
   private updateCoopCamera(): void {
@@ -958,13 +821,13 @@ export class PlayScene extends Phaser.Scene {
       return;
     }
     const goal = sharedCameraGoal(
-      this.players.map((player, index) => ({
-        id: index === 0 ? 'host' as const : 'guest' as const,
+      this.players.map((player) => ({
+        id: player.role ?? 'host',
         x: player.x,
         y: player.y,
         velocityX: player.arcadeBody.velocity.x,
         velocityY: player.arcadeBody.velocity.y,
-        active: this.playerAlive.get(player) !== false,
+        active: this.isLiving(player),
       })),
       {
         viewportWidth: GAME_WIDTH,
@@ -988,20 +851,20 @@ export class PlayScene extends Phaser.Scene {
     target.setPosition(smoothed.x, smoothed.y);
     this.cameras.main.zoom = smoothed.zoom;
     const living = this.livingPlayers();
-    if (this.isAuthority && living.length === 2 && Math.abs(living[0]!.x - living[1]!.x) > 900) {
+    if (this.canMutateWorld && living.length === 2 && Math.abs(living[0]!.x - living[1]!.x) > 900) {
       const left = living[0]!.x < living[1]!.x ? living[0]! : living[1]!;
       const right = left === living[0] ? living[1]! : living[0]!;
       left.arcadeBody.setVelocityX(Math.max(left.arcadeBody.velocity.x, 80));
       right.arcadeBody.setVelocityX(Math.min(right.arcadeBody.velocity.x, -80));
     }
-    const spectating = this.playerAlive.get(this.localPlayer) === false;
+    const spectating = !this.isLiving(this.localPlayer);
     this.hudSpectating?.setVisible(spectating);
     if (spectating) {
-      this.hudSpectating?.setText(`SPECTATING ${this.coop?.remoteName.toUpperCase() ?? 'TEAMMATE'}`);
+      this.hudSpectating?.setText(`SPECTATING ${this.runtime?.remoteName.toUpperCase() ?? 'TEAMMATE'}`);
     }
   }
 
-  private bindAdditionalPlayerPhysics(player: Player): void {
+  private bindPlayerPhysics(player: Player): void {
     this.physics.add.collider(player, this.built.solids);
     this.physics.add.collider(
       player,
@@ -1019,9 +882,7 @@ export class PlayScene extends Phaser.Scene {
       (objectA, objectB) => this.oneWayProcess(objectA, objectB),
     );
     this.physics.add.collider(player, this.built.baddies, (objectA, objectB) => {
-      if (this.isAuthority) {
-        this.onBaddieCollide(objectA as Player, objectB as Baddie);
-      }
+      this.onBaddieCollide(objectA as Player, objectB as Baddie);
     });
     if (this.built.miniBoss) {
       this.bindBossCombat(player, this.built.miniBoss, false);
@@ -1034,7 +895,7 @@ export class PlayScene extends Phaser.Scene {
     this.physics.add.overlap(player, this.built.traps, die);
     this.physics.add.overlap(player, this.built.trapBeams, die);
     this.physics.add.overlap(player, this.built.projectiles, (objectA, objectB) => {
-      if (!this.isAuthority) {
+      if (!this.canMutateWorld) {
         return;
       }
       const projectile = objectA instanceof EnemyProjectile ? objectA : objectB instanceof EnemyProjectile ? objectB : undefined;
@@ -1044,16 +905,13 @@ export class PlayScene extends Phaser.Scene {
       }
     });
     this.physics.add.overlap(player, this.built.collectibles, (objectA, objectB) => {
-      if (!this.isAuthority) {
-        return;
-      }
       const pickup = objectA === player ? objectB : objectA;
       if ('getData' in pickup) {
         this.collectPickup(pickup as Phaser.Physics.Arcade.Sprite);
       }
     });
     this.physics.add.overlap(player, this.built.shields, (objectA, objectB) => {
-      if (!this.isAuthority) {
+      if (!this.canMutateWorld) {
         return;
       }
       const pickup = objectA === player ? objectB : objectA;
@@ -1064,19 +922,18 @@ export class PlayScene extends Phaser.Scene {
       }
     });
     this.physics.add.overlap(player, this.built.checkpoints, (objectA, objectB) => {
-      if (!this.isAuthority) {
-        return;
-      }
       const checkpoint = objectA === player ? objectB : objectA;
       if ('getData' in checkpoint) {
         this.activateCheckpoint(checkpoint as Phaser.Physics.Arcade.Sprite);
       }
     });
+    if (this.built.secretPortal) {
+      this.physics.add.overlap(player, this.built.secretPortal, () => {
+        this.enterSecretPortal(this.built.secretPortal!);
+      });
+    }
     this.physics.add.collider(player, this.flak, (objectA, objectB) => this.onFlakBump(objectA, objectB));
     this.physics.add.overlap(player, this.coins, (objectA, objectB) => {
-      if (!this.isAuthority) {
-        return;
-      }
       const coin = coinFromCollider(objectA) ?? coinFromCollider(objectB);
       if (coin) {
         this.collectCoin(coin);
@@ -1085,21 +942,21 @@ export class PlayScene extends Phaser.Scene {
   }
 
   private onPlayersCollide(): void {
+    const first = this.playerWithRole('host');
+    const second = this.playerWithRole('guest');
     if (
-      !this.isAuthority ||
-      this.players.length !== 2 ||
-      !isPlayerCollisionReady(this.collisionCooldowns, 'host', 'guest', this.time.now)
+      !this.canMutateWorld ||
+      !first ||
+      !second ||
+      !this.isLiving(first) ||
+      !this.isLiving(second) ||
+      !isPlayerCollisionReady(this.collisionCooldowns, first.role ?? 'host', second.role ?? 'guest', this.time.now)
     ) {
-      return;
-    }
-    const first = this.players[0];
-    const second = this.players[1];
-    if (!first || !second || !this.playerAlive.get(first) || !this.playerAlive.get(second)) {
       return;
     }
     const collision = classifyPlayerCollision(
       {
-        id: 'host',
+        id: first.role ?? 'host',
         x: first.x,
         y: first.y,
         width: first.arcadeBody.width,
@@ -1108,7 +965,7 @@ export class PlayScene extends Phaser.Scene {
         velocityY: first.arcadeBody.velocity.y,
       },
       {
-        id: 'guest',
+        id: second.role ?? 'guest',
         x: second.x,
         y: second.y,
         width: second.arcadeBody.width,
@@ -1119,8 +976,8 @@ export class PlayScene extends Phaser.Scene {
     );
     this.collisionCooldowns = startPlayerCollisionCooldown(
       this.collisionCooldowns,
-      'host',
-      'guest',
+      first.role ?? 'host',
+      second.role ?? 'guest',
       this.time.now,
       playerCollisionCooldownMs(collision.kind),
     );
@@ -1129,25 +986,16 @@ export class PlayScene extends Phaser.Scene {
     }
     if (collision.kind === 'host-stomps-guest' || collision.kind === 'guest-stomps-host') {
       const upper = collision.kind === 'host-stomps-guest' ? first : second;
-      const lower = upper === first ? second : first;
       upper.bounce();
-      lower.playTeammateImpact('head');
-      upper.playTeammateImpact('head');
-      audio.play(this, 'teammate-stomp');
-      this.coop?.transport.send({
-        type: 'player-impact',
-        kind: 'head',
-        upperPlayerId: String(upper.getData('playerId') ?? ''),
-      });
+      this.playImpact('head');
+      this.runtime?.sendImpact('head', upper.role);
       return;
     }
     const direction = Math.sign(second.x - first.x) || 1;
     first.arcadeBody.setVelocityX(-direction * 190);
     second.arcadeBody.setVelocityX(direction * 190);
-    first.playTeammateImpact('side');
-    second.playTeammateImpact('side');
-    audio.play(this, 'teammate-bump');
-    this.coop?.transport.send({ type: 'player-impact', kind: 'side' });
+    this.playImpact('side');
+    this.runtime?.sendImpact('side');
   }
 
   private tickBoss(boss: Boss | undefined, player: Player): void {
@@ -1239,7 +1087,7 @@ export class PlayScene extends Phaser.Scene {
     const jumpJust = jump && !this.wasJump;
     const downJust = down && !this.wasDown;
     const specialJust = special && !this.wasSpecial;
-    if (downJust && (this.built.player.arcadeBody.blocked.down || this.built.player.arcadeBody.touching.down)) {
+    if (downJust && (this.localPlayer.arcadeBody.blocked.down || this.localPlayer.arcadeBody.touching.down)) {
       audio.play(this, 'drop');
     }
     this.wasJump = jump;
@@ -1343,7 +1191,7 @@ export class PlayScene extends Phaser.Scene {
   }
 
   private onBaddieCollide(player: Player, baddie: Baddie): void {
-    if (!this.isAuthority || !baddie.active || baddie.dying || player.frozen) {
+    if (!this.canMutateWorld || !baddie.active || baddie.dying || player.frozen) {
       return;
     }
     if (isFallingStomp(stompBox(player.arcadeBody), stompBox(baddie.arcadeBody))) {
@@ -1355,7 +1203,7 @@ export class PlayScene extends Phaser.Scene {
       }
       return;
     }
-    this.killPlayer('baddie');
+    this.killPlayer('baddie', player);
   }
 
   private bindBossCombat(player: Player, boss: Boss, worldBoss: boolean): void {
@@ -1369,7 +1217,7 @@ export class PlayScene extends Phaser.Scene {
   }
 
   private enterSecretPortal(portal: Phaser.Physics.Arcade.Sprite): void {
-    if (!this.isAuthority || this.completing || this.paused || this.controlsHintOpen) {
+    if (!this.canMutateWorld || this.completing || this.paused || this.controlsHintOpen) {
       return;
     }
     const parsed = parseLevelId(this.levelId);
@@ -1385,29 +1233,22 @@ export class PlayScene extends Phaser.Scene {
     const traveler = this.localPlayer ?? this.built.player;
     traveler.suckInto(portal.x, portal.y, () => {
       this.cameras.main.once('camerafadeoutcomplete', () => {
-        if (this.coop) {
-          this.coop.levelId = target;
-          this.coop.transport.send({ type: 'team-restart', levelId: target });
-        }
-        this.scene.start('PlayScene', {
-          levelId: target,
-          skipControlsHint: true,
-          coop: Boolean(this.coop),
-        });
+        this.runtime?.sendTeamRestart(target);
+        this.scene.start('PlayScene', this.continueWithSession(target));
       });
       this.cameras.main.fadeOut(320, 0, 0, 0);
     });
   }
 
   private canStompBoss(player: Player, boss: Boss): boolean {
-    if (!this.isAuthority || !boss.active || boss.dying || player.frozen) {
+    if (!this.canMutateWorld || !boss.active || boss.dying || player.frozen) {
       return false;
     }
     return isFallingStomp(stompBox(player.arcadeBody), stompBox(boss.arcadeBody));
   }
 
   private onBossHeadStomp(player: Player, boss: Boss, worldBoss: boolean): void {
-    if (!this.isAuthority || !boss.active || boss.dying || player.frozen) {
+    if (!this.canMutateWorld || !boss.active || boss.dying || player.frozen) {
       return;
     }
     const result = boss.takeStomp();
@@ -1423,14 +1264,14 @@ export class PlayScene extends Phaser.Scene {
   }
 
   private onBossBodyHit(player: Player, boss: Boss): void {
-    if (!this.isAuthority || !boss.active || boss.dying || player.frozen) {
+    if (!this.canMutateWorld || !boss.active || boss.dying || player.frozen) {
       return;
     }
     if (this.canStompBoss(player, boss)) {
       return;
     }
     if (!boss.isInvulnerable) {
-      this.killPlayer('baddie');
+      this.killPlayer('baddie', player);
     }
   }
 
@@ -1440,11 +1281,10 @@ export class PlayScene extends Phaser.Scene {
     this.players.forEach((player) => player.freeze());
     const firstClear = !loadSave().cleared.includes(this.levelId);
     markCleared(this.levelId);
-    this.coop?.transport.send({
-      type: 'level-complete',
-      levelId: this.levelId,
-      completionId: `${this.coop.localPlayerId}:${this.levelId}:${Date.now()}`,
-    });
+    this.runtime?.sendLevelComplete(
+      this.levelId,
+      `${this.link?.localPlayerId ?? 'solo'}:${this.levelId}:${Date.now()}`,
+    );
     audio.play(this, 'poof');
     const def = getLevel(this.levelId);
     const message = worldBoss ? `WORLD ${def.world} CLEARED!` : `${this.levelId}  CLEAR!`;
@@ -1456,8 +1296,8 @@ export class PlayScene extends Phaser.Scene {
     });
   }
 
-  private killPlayer(reason: 'pit' | 'hazard' | 'baddie', player = this.built.player): void {
-    if (!this.isAuthority || this.completing || player.frozen || this.playerAlive.get(player) === false) {
+  private killPlayer(reason: 'pit' | 'hazard' | 'baddie', player: Player): void {
+    if (!this.canMutateWorld || this.completing || player.frozen || !this.isLiving(player)) {
       return;
     }
     if (reason === 'baddie' && !player.canBeHurt()) {
@@ -1467,17 +1307,17 @@ export class PlayScene extends Phaser.Scene {
       audio.play(this, 'hurt');
       return;
     }
-    if (this.coop) {
-      this.playerAlive.set(player, false);
+    if (this.runtime && player.role) {
+      const outcome = this.runtime.markPlayerDown(player.role);
+      if (outcome === 'ignored') {
+        return;
+      }
       audio.play(this, 'hurt');
-      this.coop.transport.send({
-        type: 'player-died',
-        playerId: String(player.getData('playerId') ?? ''),
-      });
+      session.lives = this.runtime.lives;
       player.die(() => {
         player.enterSpectating();
-        if (this.livingPlayers().length === 0) {
-          this.restartCoopTeam();
+        if (outcome === 'team-wipe') {
+          this.restartCoopTeam(player.role ?? 'host');
         }
       });
       return;
@@ -1486,7 +1326,7 @@ export class PlayScene extends Phaser.Scene {
     this.syncTouchHud();
     session.lives -= 1;
     audio.play(this, 'hurt');
-    this.built.player.die(() => {
+    player.die(() => {
       if (session.lives <= 0) {
         forgetFlak();
         clearCheckpoint(this.levelId);
@@ -1502,13 +1342,18 @@ export class PlayScene extends Phaser.Scene {
     });
   }
 
-  private restartCoopTeam(): void {
-    if (!this.coop || !this.isAuthority || this.completing) {
+  private restartCoopTeam(causedBy: PlayerId): void {
+    if (!this.runtime || !this.canMutateWorld || this.completing) {
       return;
     }
     this.completing = true;
-    session.lives -= 1;
-    if (session.lives <= 0) {
+    const outcome = this.runtime.spendTeamLife(causedBy);
+    if (outcome === 'ignored') {
+      this.completing = false;
+      return;
+    }
+    session.lives = this.runtime.lives;
+    if (outcome === 'game-over') {
       clearCheckpoint(this.levelId);
       this.showBanner('TEAM GAME OVER', () => {
         resetSessionLives();
@@ -1519,26 +1364,22 @@ export class PlayScene extends Phaser.Scene {
     }
     rememberFlak(this.levelId, this.flak, this.built.heightPx + 160);
     this.retainFlak = true;
-    this.coop.transport.send({ type: 'team-restart', levelId: this.levelId });
-    this.scene.restart({ levelId: this.levelId, skipControlsHint: true, fromDeath: true, coop: true });
+    this.runtime.sendTeamRestart(this.levelId);
+    this.scene.restart(this.continueWithSession(this.levelId, { fromDeath: true }));
   }
 
-  private reviveSpectators(x: number, y: number, broadcast: boolean): void {
+  private reviveSpectators(x: number, y: number): void {
     let revived = false;
     this.players.forEach((player, index) => {
-      if (this.playerAlive.get(player) !== false) {
+      if (!player.frozen) {
         return;
       }
-      this.playerAlive.set(player, true);
       player.reviveAt(x + index * 48, y);
-      player.setCoopAccent(index === 1);
+      player.setCoopAccent(player.role === 'guest');
       revived = true;
     });
     if (revived) {
       audio.play(this, 'firework-burst');
-    }
-    if (broadcast && this.coop) {
-      this.coop.transport.send({ type: 'checkpoint', x, y });
     }
   }
 
@@ -1572,16 +1413,12 @@ export class PlayScene extends Phaser.Scene {
   }
 
   private collectCoin(coin: Coin): void {
-    if (!this.isAuthority || !coin.active || coin.isCollecting) {
+    if (!this.canMutateWorld || !coin.active || coin.isCollecting) {
       return;
     }
     coin.beginCollect();
     this.syncHudCoins(addCoins(1).coins);
-    this.coop?.transport.send({
-      type: 'reward',
-      reward: 'coin',
-      eventId: `${this.levelId}:coin:${this.networkSequence++}`,
-    });
+    this.runtime?.grantCoin(`${this.levelId}:coin:${coin.x}:${coin.y}:${this.time.now}`);
     this.punchHudCoins();
     audio.play(this, 'coin');
     this.tweens.add({
@@ -1595,17 +1432,12 @@ export class PlayScene extends Phaser.Scene {
   }
 
   private collectPickup(pickup: Phaser.Physics.Arcade.Sprite): void {
-    if (!this.isAuthority || !pickup.active) {
+    if (!this.canMutateWorld || !pickup.active) {
       return;
     }
     const index = Number(pickup.getData('index'));
     collectStar(this.levelId, index);
-    this.coop?.transport.send({
-      type: 'reward',
-      reward: 'star',
-      index,
-      eventId: `${this.levelId}:star:${index}`,
-    });
+    this.runtime?.grantStar(`${this.levelId}:star:${index}`, index);
     audio.play(this, 'collect');
     this.tweens.add({
       targets: pickup,
@@ -1663,7 +1495,7 @@ export class PlayScene extends Phaser.Scene {
   }
 
   private activateCheckpoint(checkpoint: Phaser.Physics.Arcade.Sprite): void {
-    if (!this.isAuthority || checkpoint.getData('active') === true) {
+    if (!this.canMutateWorld || checkpoint.getData('active') === true) {
       return;
     }
     const incomingX = checkpointPlaneX(checkpoint);
@@ -1674,17 +1506,17 @@ export class PlayScene extends Phaser.Scene {
     checkpoint.setData('active', true);
     const flag = checkpointFlag(checkpoint) ?? checkpoint;
     flag.setTint(0x9be36e);
-    setCheckpoint(
-      this.levelId,
-      Number(checkpoint.getData('spawnX')),
-      Number(checkpoint.getData('spawnY')),
-    );
+    const spawnX = Number(checkpoint.getData('spawnX'));
+    const spawnY = Number(checkpoint.getData('spawnY'));
+    setCheckpoint(this.levelId, spawnX, spawnY);
     spawnCheckpointFireworks(this, flag);
-    this.reviveSpectators(
-      Number(checkpoint.getData('spawnX')),
-      Number(checkpoint.getData('spawnY')),
-      true,
-    );
+    this.runtime?.noteCheckpoint({
+      id: `${this.levelId}:checkpoint:${incomingX}`,
+      order: incomingX,
+      x: spawnX,
+      y: spawnY,
+    });
+    this.reviveSpectators(spawnX, spawnY);
   }
 
   private createHud(name: string): void {
@@ -1784,9 +1616,9 @@ export class PlayScene extends Phaser.Scene {
       this,
       GAME_WIDTH / 2,
       428,
-      this.coop ? 'CO-OP LOBBY' : 'WORLD MAP',
+      this.runtime ? 'CO-OP LOBBY' : 'WORLD MAP',
       () => {
-        if (this.coop) {
+        if (this.runtime) {
           clearActiveCoopSession('return-to-lobby');
           this.scene.start('CoopScene');
         } else {
@@ -1865,7 +1697,7 @@ export class PlayScene extends Phaser.Scene {
     this.paused = !this.paused;
     this.pauseOverlay.setVisible(this.paused);
     this.pauseNav.setEnabled(this.paused);
-    this.physics.world.isPaused = this.paused && !this.coop;
+    this.physics.world.isPaused = this.paused && this.pausesWorld;
     audio.setMusicDuck(this.paused ? 0.38 : 1);
     this.syncTouchHud();
   }
@@ -1878,19 +1710,16 @@ export class PlayScene extends Phaser.Scene {
 
     const next = isSecretLevel(this.levelId) ? undefined : nextLevelId(this.levelId);
     const items: Array<{ label: string; action: () => void }> = [];
-    if (next && (!this.coop || this.coop.role === 'host')) {
+    if (next && this.canMutateWorld) {
       items.push({
         label: 'NEXT LEVEL',
         action: () => {
-          if (this.coop) {
-            this.coop.levelId = next;
-            this.coop.transport.send({ type: 'team-restart', levelId: next });
-          }
-          this.scene.start('PlayScene', { levelId: next, coop: Boolean(this.coop) });
+          this.runtime?.sendTeamRestart(next);
+          this.scene.start('PlayScene', this.continueWithSession(next));
         },
       });
     }
-    if (this.coop) {
+    if (this.runtime) {
       items.push({
         label: 'CO-OP LOBBY',
         action: () => {

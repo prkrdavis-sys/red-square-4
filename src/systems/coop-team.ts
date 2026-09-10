@@ -1,4 +1,4 @@
-import type { PlayerId } from '../network/protocol';
+import type { PlayerId } from '../network/role';
 
 export interface TeamCheckpoint {
   id: string;
@@ -18,6 +18,7 @@ export interface TeamPlayerState {
 export interface TeamReward {
   id: string;
   coins: number;
+  starIndex?: number;
 }
 
 export interface CoopTeamState {
@@ -35,6 +36,11 @@ export type CoopTeamAction =
       type: 'activate-checkpoint';
       eventId: string;
       checkpoint: TeamCheckpoint;
+    }
+  | {
+      type: 'player-down';
+      eventId: string;
+      playerId: PlayerId;
     }
   | {
       type: 'team-death';
@@ -97,6 +103,14 @@ function revivePlayer(
   };
 }
 
+function reviveIfDown(player: TeamPlayerState, checkpoint: TeamCheckpoint): TeamPlayerState {
+  return player.status === 'active' ? player : revivePlayer(player, checkpoint, true);
+}
+
+export function bothPlayersDown(state: CoopTeamState): boolean {
+  return state.players.host.status === 'eliminated' && state.players.guest.status === 'eliminated';
+}
+
 export function reduceCoopTeam(state: CoopTeamState, action: CoopTeamAction): CoopTeamState {
   if (state.processedEventIds.includes(action.eventId)) {
     return state;
@@ -107,12 +121,37 @@ export function reduceCoopTeam(state: CoopTeamState, action: CoopTeamAction): Co
       if (action.checkpoint.order <= state.checkpoint.order) {
         return {
           ...state,
+          players: {
+            host: reviveIfDown(state.players.host, state.checkpoint),
+            guest: reviveIfDown(state.players.guest, state.checkpoint),
+          },
           processedEventIds: withProcessedEvent(state, action.eventId),
         };
       }
       return {
         ...state,
         checkpoint: action.checkpoint,
+        players: {
+          host: reviveIfDown(state.players.host, action.checkpoint),
+          guest: reviveIfDown(state.players.guest, action.checkpoint),
+        },
+        processedEventIds: withProcessedEvent(state, action.eventId),
+      };
+    }
+    case 'player-down': {
+      const player = state.players[action.playerId];
+      if (player.status === 'eliminated') {
+        return {
+          ...state,
+          processedEventIds: withProcessedEvent(state, action.eventId),
+        };
+      }
+      return {
+        ...state,
+        players: {
+          ...state.players,
+          [action.playerId]: { ...player, status: 'eliminated' },
+        },
         processedEventIds: withProcessedEvent(state, action.eventId),
       };
     }

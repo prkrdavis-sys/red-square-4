@@ -1,4 +1,5 @@
-import { parseRuntimeMessage, type RuntimeMessage, type RuntimeTransport } from './runtime-session';
+import { parseRuntimeMessage, type RuntimeMessage } from './protocol';
+import type { RuntimeTransport } from './runtime-session';
 
 export class BroadcastRuntimeTransport implements RuntimeTransport {
   private readonly channel: BroadcastChannel;

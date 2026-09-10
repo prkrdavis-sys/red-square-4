@@ -34,7 +34,7 @@ try {
   });
   await Promise.all([host, guest].map((page) => page.waitForFunction(() => {
     const scene = window.__rs4.scene.getScene('PlayScene');
-    return scene.playerAlive.get(scene.players[1]) === false;
+    return scene.runtime?.isActive(scene.players[1].role) === false;
   })));
   const spectatingVisible = await guest.evaluate(() => {
     const scene = window.__rs4.scene.getScene('PlayScene');
@@ -51,7 +51,7 @@ try {
   });
   await Promise.all([host, guest].map((page) => page.waitForFunction(() => {
     const scene = window.__rs4.scene.getScene('PlayScene');
-    return scene.playerAlive.get(scene.players[1]) === true;
+    return scene.runtime?.isActive(scene.players[1].role) === true && !scene.players[1].frozen;
   })));
 
   const bounced = await host.evaluate(() => {

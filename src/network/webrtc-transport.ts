@@ -1,9 +1,5 @@
-import {
-  parseRuntimeMessage,
-  type CoopRole,
-  type RuntimeMessage,
-  type RuntimeTransport,
-} from './runtime-session';
+import { parseRuntimeMessage, type RuntimeMessage } from './protocol';
+import type { CoopRole, RuntimeTransport } from './runtime-session';
 
 export type SignalMessage =
   | { type: 'offer'; description: RTCSessionDescriptionInit }
