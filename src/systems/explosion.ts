@@ -1,6 +1,15 @@
 import Phaser from 'phaser';
 import { GAME_HEIGHT, GAME_WIDTH } from '../config';
 import { maybeShake } from '../data/settings';
+import {
+  BOSS_BLAST_CORE_PEAK,
+  BOSS_BLAST_RING_PEAK,
+  BOSS_DEATH_BLAST_MS,
+  BOSS_FLAK_INDEXES,
+  bossFlakCentroid,
+  scaleBossFlakPoly,
+  type BossFlakPoint,
+} from './boss-flak';
 import { spawnFlakBurst } from './flak';
 
 export const DEATH_BLAST_MS = 1500;
@@ -21,9 +30,10 @@ function burst(
   texture: string,
   config: Phaser.Types.GameObjects.Particles.ParticleEmitterConfig,
   count: number,
+  depth = 44,
 ): void {
   const emitter = scene.add.particles(x, y, texture, { ...config, emitting: false });
-  emitter.setDepth(44);
+  emitter.setDepth(depth);
   track(bits, emitter);
   emitter.explode(count);
 }
@@ -255,4 +265,345 @@ export function spawnDeathBlast(scene: Phaser.Scene, x: number, y: number, flipX
 
   scene.time.delayedCall(90, () => maybeShake(scene, 420, 0.018));
   scene.time.delayedCall(DEATH_BLAST_MS + 80, cleanup);
+}
+
+function pathPoly(ctx: CanvasRenderingContext2D, poly: readonly BossFlakPoint[]): void {
+  const first = poly[0];
+  if (!first) {
+    return;
+  }
+  ctx.beginPath();
+  ctx.moveTo(first.x, first.y);
+  for (let i = 1; i < poly.length; i += 1) {
+    const point = poly[i];
+    if (!point) {
+      continue;
+    }
+    ctx.lineTo(point.x, point.y);
+  }
+  ctx.closePath();
+}
+
+function drawableSource(source: unknown): CanvasImageSource | undefined {
+  if (source instanceof HTMLCanvasElement || source instanceof HTMLImageElement) {
+    return source;
+  }
+  if (typeof ImageBitmap !== 'undefined' && source instanceof ImageBitmap) {
+    return source;
+  }
+  return undefined;
+}
+
+function polyBounds(poly: readonly BossFlakPoint[]): { x: number; y: number; w: number; h: number } {
+  let minX = Infinity;
+  let minY = Infinity;
+  let maxX = -Infinity;
+  let maxY = -Infinity;
+  for (const point of poly) {
+    minX = Math.min(minX, point.x);
+    minY = Math.min(minY, point.y);
+    maxX = Math.max(maxX, point.x);
+    maxY = Math.max(maxY, point.y);
+  }
+  const pad = 2;
+  const x = Math.max(0, Math.floor(minX - pad));
+  const y = Math.max(0, Math.floor(minY - pad));
+  return {
+    x,
+    y,
+    w: Math.max(4, Math.ceil(maxX + pad) - x),
+    h: Math.max(4, Math.ceil(maxY + pad) - y),
+  };
+}
+
+function opaqueBox(
+  source: CanvasImageSource,
+  cutX: number,
+  cutY: number,
+  width: number,
+  height: number,
+): { x: number; y: number; w: number; h: number } {
+  const canvas = document.createElement('canvas');
+  canvas.width = width;
+  canvas.height = height;
+  const ctx = canvas.getContext('2d');
+  if (!ctx) {
+    return { x: 0, y: 0, w: width, h: height };
+  }
+  ctx.drawImage(source, cutX, cutY, width, height, 0, 0, width, height);
+  const pixels = ctx.getImageData(0, 0, width, height).data;
+  let minX = width;
+  let minY = height;
+  let maxX = 0;
+  let maxY = 0;
+  for (let y = 0; y < height; y += 1) {
+    for (let x = 0; x < width; x += 1) {
+      if (pixels[(y * width + x) * 4 + 3] <= 12) {
+        continue;
+      }
+      minX = Math.min(minX, x);
+      minY = Math.min(minY, y);
+      maxX = Math.max(maxX, x);
+      maxY = Math.max(maxY, y);
+    }
+  }
+  if (minX > maxX) {
+    return { x: 0, y: 0, w: width, h: height };
+  }
+  return { x: minX, y: minY, w: maxX - minX + 1, h: maxY - minY + 1 };
+}
+
+function stampBossShard(
+  scene: Phaser.Scene,
+  key: string,
+  source: CanvasImageSource,
+  cutX: number,
+  cutY: number,
+  width: number,
+  height: number,
+  poly: readonly BossFlakPoint[],
+  crop: { x: number; y: number; w: number; h: number },
+): boolean {
+  if (scene.textures.exists(key)) {
+    scene.textures.remove(key);
+  }
+  const texture = scene.textures.createCanvas(key, crop.w, crop.h);
+  if (!texture) {
+    return false;
+  }
+  const ctx = texture.getContext();
+  ctx.clearRect(0, 0, crop.w, crop.h);
+  ctx.imageSmoothingEnabled = false;
+  ctx.save();
+  ctx.translate(-crop.x, -crop.y);
+  pathPoly(ctx, poly);
+  ctx.clip();
+  ctx.drawImage(source, cutX, cutY, width, height, 0, 0, width, height);
+  ctx.restore();
+  texture.refresh();
+  return true;
+}
+
+function spawnBossShards(
+  scene: Phaser.Scene,
+  bits: Phaser.GameObjects.GameObject[],
+  sprite: Phaser.GameObjects.Sprite,
+): void {
+  const frame = sprite.frame;
+  const source = drawableSource(sprite.texture.getSourceImage());
+  const width = Math.max(8, Math.round(frame.cutWidth || frame.width));
+  const height = Math.max(8, Math.round(frame.cutHeight || frame.height));
+  const raw =
+    source === undefined
+      ? { x: 0, y: 0, w: width, h: height }
+      : opaqueBox(source, frame.cutX, frame.cutY, width, height);
+  const inset = Math.round(Math.min(raw.w, raw.h) * 0.14);
+  const art = {
+    x: raw.x + inset,
+    y: raw.y + inset,
+    w: Math.max(8, raw.w - inset * 2),
+    h: Math.max(8, raw.h - inset * 2),
+  };
+  const keys: string[] = [];
+  const dropKeys = (): void => {
+    for (const key of keys) {
+      if (scene.textures.exists(key)) {
+        scene.textures.remove(key);
+      }
+    }
+    keys.length = 0;
+  };
+  scene.events.once(Phaser.Scenes.Events.SHUTDOWN, dropKeys);
+
+  for (const index of BOSS_FLAK_INDEXES) {
+    const key = `boss-flak-${scene.time.now}-${index}`;
+    const poly = scaleBossFlakPoly(index, art.w, art.h).map((point) => ({
+      x: point.x + art.x,
+      y: point.y + art.y,
+    }));
+    const crop = polyBounds(poly);
+    const stamped =
+      source !== undefined &&
+      stampBossShard(scene, key, source, frame.cutX, frame.cutY, width, height, poly, crop);
+    if (stamped) {
+      keys.push(key);
+    }
+    const localX = crop.x + crop.w / 2 - width / 2;
+    const localY = crop.y + crop.h / 2 - height / 2;
+    const shard = track(
+      bits,
+      scene.add
+        .image(
+          sprite.x + (sprite.flipX ? -localX : localX) * sprite.scaleX,
+          sprite.y + localY * sprite.scaleY,
+          stamped ? key : sprite.texture.key,
+          stamped ? undefined : sprite.frame.name,
+        )
+        .setDepth(22)
+        .setScale(stamped ? sprite.scaleX : sprite.scaleX * 0.4, stamped ? sprite.scaleY : sprite.scaleY * 0.4)
+        .setFlipX(sprite.flipX)
+        .setOrigin(0.5, 0.5),
+    );
+    const center = bossFlakCentroid(index, art.w, art.h);
+    const nx = (center.x / art.w - 0.5) * (sprite.flipX ? -2 : 2);
+    const ny = center.y / art.h - 0.5;
+    const dist = 70 + Math.abs(nx) * 28;
+    const lift = 42 + Math.random() * 24;
+    scene.tweens.add({
+      targets: shard,
+      x: shard.x + nx * dist,
+      angle: nx * 150 + (Math.random() - 0.5) * 80,
+      duration: 980,
+      ease: 'Cubic.easeOut',
+    });
+    scene.tweens.add({
+      targets: shard,
+      y: shard.y + ny * 22 - lift,
+      duration: 240,
+      ease: 'Cubic.easeOut',
+      onComplete: () => {
+        if (!shard.active) {
+          return;
+        }
+        scene.tweens.add({
+          targets: shard,
+          y: shard.y + 140 + Math.abs(ny) * 30,
+          alpha: 0,
+          duration: 720,
+          ease: 'Cubic.easeIn',
+        });
+      },
+    });
+  }
+
+  scene.time.delayedCall(BOSS_DEATH_BLAST_MS + 80, dropKeys);
+}
+
+export function spawnBossDeathBlast(scene: Phaser.Scene, sprite: Phaser.GameObjects.Sprite): void {
+  const bits: Phaser.GameObjects.GameObject[] = [];
+  const cleanup = (): void => {
+    for (const bit of bits) {
+      bit.destroy();
+    }
+    bits.length = 0;
+  };
+  scene.events.once(Phaser.Scenes.Events.SHUTDOWN, cleanup);
+
+  const x = sprite.x;
+  const y = sprite.y;
+  spawnBossShards(scene, bits, sprite);
+  sprite.setVisible(false);
+
+  maybeShake(scene, 200, 0.007);
+
+  const core = track(
+    bits,
+    scene.add
+      .image(x, y, 'blast-core')
+      .setDepth(24)
+      .setScale(0.12)
+      .setBlendMode(Phaser.BlendModes.ADD),
+  );
+  scene.tweens.add({
+    targets: core,
+    scale: BOSS_BLAST_CORE_PEAK,
+    duration: 140,
+    ease: 'Cubic.easeOut',
+    onComplete: () => {
+      if (!core.active) {
+        return;
+      }
+      scene.tweens.add({
+        targets: core,
+        scale: BOSS_BLAST_CORE_PEAK * 1.18,
+        alpha: 0,
+        duration: 420,
+        ease: 'Quad.easeIn',
+      });
+    },
+  });
+
+  const ring = track(
+    bits,
+    scene.add.image(x, y, 'blast-ring').setDepth(23).setScale(0.1).setAlpha(0.9),
+  );
+  scene.tweens.add({
+    targets: ring,
+    scale: BOSS_BLAST_RING_PEAK,
+    alpha: 0,
+    duration: 480,
+    ease: 'Cubic.easeOut',
+  });
+
+  const stem = track(
+    bits,
+    scene.add.image(x, y + 8, 'blast-smoke').setDepth(21).setScale(0.28, 0.34).setTint(0x5a4030),
+  );
+  scene.tweens.add({
+    targets: stem,
+    y: y - 52,
+    scaleX: 0.55,
+    scaleY: 1.15,
+    alpha: 0,
+    duration: 820,
+    ease: 'Cubic.easeOut',
+  });
+  for (let i = 0; i < 4; i += 1) {
+    const spread = i - 1.5;
+    const cap = track(
+      bits,
+      scene.add
+        .image(x + spread * 10, y - 10, 'blast-smoke')
+        .setDepth(22)
+        .setScale(0.22)
+        .setTint(i % 2 === 0 ? 0xff9966 : 0x6a6058),
+    );
+    scene.tweens.add({
+      targets: cap,
+      x: x + spread * 38,
+      y: y - 64 - Math.abs(spread) * 6,
+      scale: 0.72 + Math.abs(spread) * 0.08,
+      alpha: 0,
+      duration: 880,
+      delay: 30 + i * 24,
+      ease: 'Cubic.easeOut',
+    });
+  }
+
+  burst(
+    scene,
+    bits,
+    x,
+    y,
+    'blast-core',
+    {
+      speed: { min: 40, max: 180 },
+      scale: { start: 0.22, end: 0.04 },
+      lifespan: { min: 280, max: 520 },
+      blendMode: Phaser.BlendModes.ADD,
+      tint: [0xffffff, 0xffee88, 0xff6622],
+      gravityY: -40,
+    },
+    14,
+    24,
+  );
+  burst(
+    scene,
+    bits,
+    x,
+    y,
+    'blast-spark',
+    {
+      speed: { min: 80, max: 240 },
+      scale: { start: 0.55, end: 0.08 },
+      lifespan: { min: 260, max: 480 },
+      blendMode: Phaser.BlendModes.ADD,
+      gravityY: 280,
+      rotate: { min: -80, max: 80 },
+    },
+    12,
+    24,
+  );
+
+  scene.time.delayedCall(BOSS_DEATH_BLAST_MS + 80, cleanup);
 }

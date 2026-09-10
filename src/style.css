@@ -273,9 +273,9 @@ body.touch-play #touch-controls {
 }
 
 .touch-cluster-right {
-  /* Game Boy A/B: jump (A) sits up-right, special (B) down-left, ~33°. */
+  /* Game Boy A/B: jump (A) sits up-right, special (B) down-left. Keep jump low enough for thumbs. */
   --touch-shift-x: calc(var(--touch-btn-size) * 0.78 + var(--touch-btn-gap));
-  --touch-shift-y: calc(var(--touch-btn-size) * 0.46 + var(--touch-btn-gap));
+  --touch-shift-y: calc(var(--touch-btn-size) * 0.28 + var(--touch-btn-gap));
   top: auto;
   right: calc(4px + env(safe-area-inset-right, 0px));
   width: calc(var(--touch-btn-size) + var(--touch-shift-x));

@@ -10,6 +10,18 @@ export const JUMP_REACH_TILES = 2;
 /** Peak after stomping an enemy. */
 export const STOMP_BOUNCE_HEIGHT_TILES = 4;
 
+/** Riding platforms are a thin plate so the player reads their top edge clearly. */
+export const MOVER_HEIGHT = 26;
+
+/** Downward speed cap while pressing into a wall in mid-air. */
+export const WALL_SLIDE_MAX_VY = 190;
+/** Peak of a wall kick. Slightly under a ground jump so shafts still take several kicks. */
+export const WALL_JUMP_HEIGHT_TILES = 2.2;
+/** Horizontal kick away from the wall, as a fraction of the theme's max run speed. */
+export const WALL_JUMP_KICK = 0.92;
+/** Steering is ignored for this long after a kick so the player actually clears the wall. */
+export const WALL_JUMP_LOCK_MS = 150;
+
 /** Upward velocity that peaks at `heightTiles` under `gravity`. */
 export function launchVelocity(gravity: number, heightTiles: number): number {
   return -Math.sqrt(2 * gravity * heightTiles * TILE);

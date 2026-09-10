@@ -5,6 +5,8 @@ import type { ArenaKeep } from '../levels/arena';
 import { liftOntoFloor } from '../levels/colliders';
 import { audio } from '../systems/audio';
 import { miniBossTextureKey, worldBossTextureKey, type CharacterPose } from '../systems/characters';
+import { spawnBossDeathBlast } from '../systems/explosion';
+import { celebrateLevelClear } from '../systems/fireworks';
 import {
   aerialLungeCeiling,
   crownGuardLayout,
@@ -250,6 +252,7 @@ export class Boss extends Phaser.Physics.Arcade.Sprite {
     this.setTintFill(0xffffff);
     this.scene.time.delayedCall(80, () => this.clearTint());
     if (this.hp <= 0) {
+      this.dying = true;
       return 'dead';
     }
     this.scene.tweens.add({
@@ -263,29 +266,18 @@ export class Boss extends Phaser.Physics.Arcade.Sprite {
   }
 
   poofAway(): void {
+    if (!this.active) {
+      return;
+    }
     this.dying = true;
     this.syncCrownGuard();
     this.present('dead');
     this.arcadeBody.enable = false;
     const scene = this.scene;
-    const particles = scene.add.particles(this.x, this.y, 'poof-particle', {
-      speed: { min: 40, max: 220 },
-      scale: { start: 1.4, end: 0 },
-      lifespan: 520,
-      quantity: 28,
-      emitting: false,
-    });
-    particles.explode(32);
-    scene.tweens.add({
-      targets: this,
-      scale: 0,
-      alpha: 0,
-      angle: 40,
-      duration: 280,
-      ease: 'Back.easeIn',
-      onComplete: () => this.destroy(),
-    });
-    scene.time.delayedCall(500, () => particles.destroy());
+    audio.play(scene, 'boss-death');
+    celebrateLevelClear(scene);
+    spawnBossDeathBlast(scene, this);
+    this.destroy();
   }
 
   chase(player: Phaser.Physics.Arcade.Sprite, solids: Phaser.Physics.Arcade.StaticGroup): void {

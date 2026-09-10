@@ -1,5 +1,14 @@
 import Phaser from 'phaser';
-import { TERRAIN_HAZARD_KINDS, THEMES, TILE, enemiesForWorld, type BossKind, type TerrainHazardKind, type Theme } from '../config';
+import {
+  MOVER_HEIGHT,
+  TERRAIN_HAZARD_KINDS,
+  THEMES,
+  TILE,
+  enemiesForWorld,
+  type BossKind,
+  type TerrainHazardKind,
+  type Theme,
+} from '../config';
 import { loadSave } from '../data/progress';
 import { projectileStyleForKind, type ProjectileStyle } from './projectile-style';
 import {
@@ -974,6 +983,45 @@ function drawOnewayTile(scene: Phaser.Scene, theme: Theme): void {
   g.fillStyle(0x000000, 0.18);
   g.fillRect(4, 14, TILE - 8, 4);
   commit(g, `tile-${theme}-oneway`, TILE, 22);
+}
+
+/** Riding platform. Bolted plate so it reads as machinery rather than terrain. */
+function drawMoverTile(scene: Phaser.Scene, theme: Theme): void {
+  const c = tileColors(theme);
+  const g = gfx(scene);
+  g.fillStyle(c.dark, 1);
+  g.fillRect(0, 0, TILE, MOVER_HEIGHT);
+  g.fillStyle(c.mid, 1);
+  g.fillRect(2, 2, TILE - 4, MOVER_HEIGHT - 6);
+  g.fillStyle(c.top, 1);
+  g.fillRect(4, 3, TILE - 8, 9);
+  g.fillStyle(0x000000, 0.22);
+  g.fillRect(0, MOVER_HEIGHT - 4, TILE, 4);
+  g.fillStyle(0xf4e2b8, 0.85);
+  g.fillCircle(9, MOVER_HEIGHT / 2, 3);
+  g.fillCircle(TILE - 9, MOVER_HEIGHT / 2, 3);
+  commit(g, `tile-${theme}-mover`, TILE, MOVER_HEIGHT);
+}
+
+/** Breakable brick. Mortar lines make it read as destructible next to plain solids. */
+function drawBrickTile(scene: Phaser.Scene, theme: Theme): void {
+  const c = tileColors(theme);
+  const g = gfx(scene);
+  g.fillStyle(c.dirt, 1);
+  g.fillRect(0, 0, TILE, TILE);
+  g.fillStyle(c.mid, 1);
+  for (let row = 0; row < 4; row += 1) {
+    const y = row * 16;
+    const offset = row % 2 === 0 ? 0 : -16;
+    for (let col = -1; col < 3; col += 1) {
+      g.fillRect(col * 32 + offset + 2, y + 2, 28, 12);
+    }
+  }
+  g.fillStyle(c.top, 0.5);
+  g.fillRect(0, 0, TILE, 3);
+  g.lineStyle(2, c.dark, 0.9);
+  g.strokeRect(1, 1, TILE - 2, TILE - 2);
+  commit(g, `tile-${theme}-brick`, TILE, TILE);
 }
 
 function drawTerrainHazards(scene: Phaser.Scene): void {
@@ -3082,6 +3130,8 @@ export function createGameTextures(scene: Phaser.Scene): void {
     drawSolidTile(scene, theme);
     drawFillTile(scene, theme);
     drawOnewayTile(scene, theme);
+    drawMoverTile(scene, theme);
+    drawBrickTile(scene, theme);
     drawArenaTile(scene, theme);
     drawArenaGateTile(scene, theme);
     drawArenaWallTile(scene, theme);
@@ -3102,6 +3152,14 @@ export function fillTileKey(theme: Theme): string {
 
 export function onewayTileKey(theme: Theme): string {
   return `tile-${theme}-oneway`;
+}
+
+export function moverTileKey(theme: Theme): string {
+  return `tile-${theme}-mover`;
+}
+
+export function brickTileKey(theme: Theme): string {
+  return `tile-${theme}-brick`;
 }
 
 export function arenaTileKey(theme: Theme): string {

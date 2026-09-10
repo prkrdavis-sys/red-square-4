@@ -7,6 +7,9 @@ import {
   FIREWORK_ARC_HEIGHT,
   FIREWORK_ARC_WIDTH,
   FIREWORK_SIDES,
+  LEVEL_CLEAR_MENU_DELAY_MS,
+  VICTORY_FIREWORK_COUNT,
+  victoryLaunch,
 } from './fireworks-path';
 
 const FLAG = {
@@ -69,5 +72,26 @@ describe('checkpoint fireworks', () => {
     expect(right.x).toBeGreaterThan(0);
     expect(left.x).toBeCloseTo(-right.x);
     expect(left.y).toBeCloseTo(right.y);
+  });
+});
+
+describe('victory fireworks', () => {
+  it('holds the post-clear menu for 2.5 seconds', () => {
+    expect(LEVEL_CLEAR_MENU_DELAY_MS).toBe(2500);
+  });
+
+  it('launches a spread of rockets from below the screen', () => {
+    const launches = Array.from({ length: VICTORY_FIREWORK_COUNT }, (_, index) => victoryLaunch(index));
+    expect(launches).toHaveLength(6);
+    const xs = launches.map((launch) => launch.x);
+    expect(Math.min(...xs)).toBeGreaterThan(0);
+    expect(Math.max(...xs)).toBeLessThan(1280);
+    for (const launch of launches) {
+      expect(launch.y).toBeGreaterThanOrEqual(720);
+      const end = fireworkArcPoint(launch.x, launch.y, launch.side, 1, launch.arc);
+      expect(end.y).toBeLessThan(launch.y - 300);
+      const start = fireworkArcTangent(launch.x, launch.y, launch.side, 0, launch.arc);
+      expect(start.y).toBeLessThan(0);
+    }
   });
 });

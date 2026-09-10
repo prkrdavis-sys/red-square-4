@@ -30,7 +30,7 @@ export function rowAboveGround(tilesUp: number): number {
 }
 
 function isSolidAirCell(ch: string | undefined): boolean {
-  return ch === '#' || ch === 'W' || ch === 'G' || ch === '@';
+  return ch === '#' || ch === 'W' || ch === 'G' || ch === '@' || ch === 'b';
 }
 
 /** True when every air row in the column is a solid, so the player cannot pass. */
@@ -202,6 +202,32 @@ export class Grid {
   }
 }
 
+export interface MoverSpec {
+  /** Left tile of the plate at the midpoint of its travel. */
+  x: number;
+  tilesUp: number;
+  w: number;
+  axis: 'x' | 'y';
+  /** Peak-to-peak travel in tiles. */
+  span: number;
+  periodMs: number;
+  /** 0-1 offset into the cycle, so neighbouring plates can run out of step. */
+  phase?: number;
+  oneWay?: boolean;
+}
+
+/** A mover with every optional field resolved, ready for the scene to build. */
+export interface MoverSpawn {
+  x: number;
+  tilesUp: number;
+  w: number;
+  axis: 'x' | 'y';
+  span: number;
+  periodMs: number;
+  phase: number;
+  oneWay: boolean;
+}
+
 export interface CourseSpec {
   width: number;
   playerX?: number;
@@ -218,6 +244,10 @@ export interface CourseSpec {
   /** Hanging ceiling: [x, width] fills rows 0–1 so fly-through cannot skip the span. */
   hangs?: [number, number][];
   stairs?: [number, number, number?][];
+  /** Riding platforms. Not tile chars, so they never affect collider merging or sky seals. */
+  movers?: MoverSpec[];
+  /** Breakable blocks: [x, tilesAboveGround, width]. Destroyed by a head-bump from below. */
+  bricks?: [number, number, number][];
   enemies?: number[];
   /** [x, tilesAboveGround] — stands on a ledge of that height. */
   airEnemies?: [number, number][];
@@ -255,6 +285,7 @@ export interface PuzzleFeature {
 export interface CompiledCourse {
   rows: string[];
   enemies: EnemySpawn[];
+  movers: MoverSpawn[];
   traps: TerrainHazardSpawn[];
   checkpoints: CoursePickup[];
   collectibles: [CoursePickup, CoursePickup, CoursePickup];
@@ -271,16 +302,36 @@ export function checkpointFractionsForStage(stage: number, secret = false): read
   return secret || stage >= 3 ? [0.32, 0.62] : [0.5];
 }
 
+/**
+ * Platforming difficulty tier, 0 at 1-1 and rising to the campaign peak at 8-4.
+ * Within a world the order is stage 1 < 2 < 3 < 4 < the hidden `W-?` gauntlet.
+ */
+export function courseDifficulty(world: number, stage: number, secret = false): number {
+  const stageStep = secret ? 1.6 : (stage - 1) * 0.4;
+  return Math.min(10, (world - 1) * 1.05 + stageStep);
+}
+
+/** Widest floor gap, in tiles, that a course at `tier` is allowed to ask for. */
+export function maxGapForTier(tier: number): number {
+  if (tier >= 6) {
+    return 4;
+  }
+  if (tier >= 2) {
+    return 3;
+  }
+  return 2;
+}
+
 /** Stage 3–4 gauntlets add enemies as worlds get later. Specs are the floor. */
 export function lateStageEnemyQuota(world: number, stage: number, secret = false): number {
   if (secret) {
-    return 16 + world;
+    return 17 + world;
   }
   if (stage === 3) {
     return 12 + world;
   }
   if (stage === 4) {
-    return 7 + world;
+    return 14 + world;
   }
   return 0;
 }
@@ -427,6 +478,9 @@ export function buildCourse(spec: CourseSpec, theme: Theme = 'grass'): string[] 
   }
   for (const [x, tilesUp, w] of spec.plats ?? []) {
     grid.plat(x, rowAboveGround(tilesUp), w, true);
+  }
+  for (const [x, tilesUp, w] of spec.bricks ?? []) {
+    grid.plat(x, rowAboveGround(tilesUp), w, false, 'b');
   }
   for (const [x, w] of spec.hangs ?? []) {
     grid.hang(x, w);
@@ -755,9 +809,15 @@ export function compileCourse(world: number, stage: number, spec: CourseSpec, th
     facing: hazardFacing(kind),
     tilesHigh: hillHeightAt(hills, x),
   }));
+  const movers: MoverSpawn[] = (spec.movers ?? []).map((mover) => ({
+    ...mover,
+    phase: mover.phase ?? 0,
+    oneWay: mover.oneWay ?? false,
+  }));
   return {
     rows,
     enemies,
+    movers,
     traps,
     checkpoints,
     collectibles: [

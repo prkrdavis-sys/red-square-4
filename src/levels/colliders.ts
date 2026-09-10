@@ -2,10 +2,15 @@ import { TILE } from '../config';
 
 export const ONEWAY_HEIGHT = 18;
 
-const SOLID_CELLS = new Set(['#', '@', 'G', 'W']);
+const SOLID_CELLS = new Set(['#', '@', 'G', 'W', 'b']);
 
 export function isSolidCell(cell: string | undefined): boolean {
   return SOLID_CELLS.has(cell ?? '');
+}
+
+/** Breakable blocks block movement but each needs its own body so one can be destroyed. */
+export function isBrickCell(cell: string | undefined): boolean {
+  return cell === 'b';
 }
 
 /** True when the tile's top face is open to air, so it should keep a grass/snow cap. */
@@ -80,6 +85,9 @@ export function colliderBox(run: ColliderRun): ColliderBox {
 }
 
 function cellKind(cell: string): ColliderRun['kind'] | undefined {
+  if (isBrickCell(cell)) {
+    return undefined;
+  }
   if (isSolidCell(cell)) {
     return 'solid';
   }

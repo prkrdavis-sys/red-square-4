@@ -27,7 +27,8 @@ type SfxName =
   | 'firework-burst'
   | 'celebrate'
   | 'teammate-bump'
-  | 'teammate-stomp';
+  | 'teammate-stomp'
+  | 'boss-death';
 
 type SafariAudioState = AudioContextState | 'interrupted';
 
@@ -146,6 +147,97 @@ function noiseBurst(duration: number, gainPeak: number, freq = 900): void {
   src.start();
 }
 
+function beastGroan(): void {
+  const scaled = peak(0.4);
+  const context = ctx();
+  if (scaled <= 0 || !context) {
+    return;
+  }
+  const now = context.currentTime;
+  const dur = 1.12;
+  const master = context.createGain();
+  master.gain.setValueAtTime(0.0001, now);
+  master.gain.exponentialRampToValueAtTime(scaled, now + 0.05);
+  master.gain.exponentialRampToValueAtTime(scaled * 0.62, now + 0.42);
+  master.gain.exponentialRampToValueAtTime(0.0001, now + dur);
+  master.connect(context.destination);
+
+  const filter = context.createBiquadFilter();
+  filter.type = 'lowpass';
+  filter.frequency.setValueAtTime(480, now);
+  filter.frequency.exponentialRampToValueAtTime(86, now + dur);
+  filter.Q.setValueAtTime(2.6, now);
+  filter.connect(master);
+
+  const throat = context.createOscillator();
+  throat.type = 'sawtooth';
+  throat.frequency.setValueAtTime(122, now);
+  throat.frequency.exponentialRampToValueAtTime(44, now + dur);
+
+  const formant = context.createOscillator();
+  formant.type = 'triangle';
+  formant.frequency.setValueAtTime(184, now);
+  formant.frequency.exponentialRampToValueAtTime(58, now + dur);
+
+  const chest = context.createOscillator();
+  chest.type = 'sine';
+  chest.frequency.setValueAtTime(72, now);
+  chest.frequency.exponentialRampToValueAtTime(30, now + dur);
+
+  const throatGain = context.createGain();
+  throatGain.gain.value = 0.52;
+  const formantGain = context.createGain();
+  formantGain.gain.value = 0.36;
+  const chestGain = context.createGain();
+  chestGain.gain.value = 0.48;
+  throat.connect(throatGain);
+  throatGain.connect(filter);
+  formant.connect(formantGain);
+  formantGain.connect(filter);
+  chest.connect(chestGain);
+  chestGain.connect(master);
+
+  const lfo = context.createOscillator();
+  lfo.type = 'sine';
+  lfo.frequency.setValueAtTime(5.4, now);
+  lfo.frequency.linearRampToValueAtTime(3.1, now + dur);
+  const lfoGain = context.createGain();
+  lfoGain.gain.value = 10;
+  lfo.connect(lfoGain);
+  lfoGain.connect(throat.frequency);
+  lfoGain.connect(formant.frequency);
+
+  const gritSize = Math.floor(context.sampleRate * 0.5);
+  const grit = context.createBuffer(1, gritSize, context.sampleRate);
+  const gritData = grit.getChannelData(0);
+  for (let i = 0; i < gritSize; i += 1) {
+    gritData[i] = Math.random() * 2 - 1;
+  }
+  const gritSrc = context.createBufferSource();
+  gritSrc.buffer = grit;
+  const gritFilter = context.createBiquadFilter();
+  gritFilter.type = 'bandpass';
+  gritFilter.frequency.setValueAtTime(220, now);
+  gritFilter.frequency.exponentialRampToValueAtTime(90, now + 0.7);
+  const gritGain = context.createGain();
+  gritGain.gain.setValueAtTime(scaled * 0.22, now);
+  gritGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.7);
+  gritSrc.connect(gritFilter);
+  gritFilter.connect(gritGain);
+  gritGain.connect(master);
+
+  throat.start(now);
+  formant.start(now);
+  chest.start(now);
+  lfo.start(now);
+  gritSrc.start(now);
+  throat.stop(now + dur + 0.02);
+  formant.stop(now + dur + 0.02);
+  chest.stop(now + dur + 0.02);
+  lfo.stop(now + dur + 0.02);
+  gritSrc.stop(now + 0.72);
+}
+
 function synth(name: SfxName): void {
   switch (name) {
     case 'jump':
@@ -222,10 +314,31 @@ function synth(name: SfxName): void {
       beep(330, 0.09, 'square', 0.045, -120);
       break;
     case 'victory':
-      beep(523.25, 0.12, 'square', 0.09);
-      window.setTimeout(() => beep(659.25, 0.12, 'square', 0.09), 110);
-      window.setTimeout(() => beep(783.99, 0.12, 'square', 0.09), 220);
-      window.setTimeout(() => beep(1046.5, 0.28, 'square', 0.11), 340);
+      beep(523.25, 0.13, 'square', 0.09);
+      beep(261.63, 0.28, 'triangle', 0.055);
+      window.setTimeout(() => {
+        beep(659.25, 0.13, 'square', 0.09);
+        beep(329.63, 0.18, 'triangle', 0.04);
+      }, 110);
+      window.setTimeout(() => {
+        beep(783.99, 0.13, 'square', 0.1);
+        beep(392.0, 0.22, 'sawtooth', 0.045);
+      }, 220);
+      window.setTimeout(() => {
+        beep(1046.5, 0.24, 'square', 0.12);
+        beep(523.25, 0.3, 'triangle', 0.06);
+      }, 330);
+      window.setTimeout(() => beep(783.99, 0.1, 'square', 0.08), 560);
+      window.setTimeout(() => beep(1046.5, 0.1, 'square', 0.09), 660);
+      window.setTimeout(() => {
+        beep(1318.51, 0.42, 'square', 0.12);
+        beep(659.25, 0.48, 'triangle', 0.07);
+        beep(523.25, 0.5, 'sine', 0.05);
+        noiseBurst(0.07, 0.035, 2600);
+      }, 760);
+      break;
+    case 'boss-death':
+      beastGroan();
       break;
     case 'firework':
       noiseBurst(0.14, 0.04, 1100);
@@ -267,7 +380,7 @@ function emit(scene: Phaser.Scene, name: SfxName): void {
   }
   const cacheKey = `sfx-${name}`;
   if (scene.cache.audio.exists(cacheKey) && !scene.sound.locked) {
-    const base = name === 'victory' || name === 'explode' ? 0.7 : 0.45;
+    const base = name === 'victory' || name === 'explode' || name === 'boss-death' ? 0.7 : 0.45;
     scene.sound.play(cacheKey, { volume: base * settings.volume });
     return;
   }

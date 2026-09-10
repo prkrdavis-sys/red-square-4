@@ -1,5 +1,11 @@
 import Phaser from 'phaser';
-import { launchVelocity, STOMP_BOUNCE_HEIGHT_TILES, type Theme, themePhysics } from '../config';
+import {
+  launchVelocity,
+  STOMP_BOUNCE_HEIGHT_TILES,
+  WALL_JUMP_LOCK_MS,
+  type Theme,
+  themePhysics,
+} from '../config';
 import { maybeShake } from '../data/settings';
 import type { PlayerId } from '../network/role';
 import type { PlayerInput } from './player-input';
@@ -44,6 +50,13 @@ import {
 } from '../systems/air-jump';
 import { audio } from '../systems/audio';
 import { DEATH_BLAST_MS, spawnDeathBlast } from '../systems/explosion';
+import {
+  canWallJump,
+  wallContactSide,
+  wallJumpVelocity,
+  wallSlideVelocity,
+  type WallSide,
+} from '../systems/wall-jump';
 import { heldShieldPosition } from './held-shield';
 
 type HeroFrame =
@@ -71,7 +84,9 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
   private flowerUsed = false;
   private flowerParkX = 0;
   private flowerParkY = 0;
-  private lastWallJumpSide: -1 | 0 | 1 = 0;
+  private lastWallJumpSide: WallSide = 0;
+  private steerLockUntil = 0;
+  private wallSliding = false;
   private tripleChainStep: TripleJumpChain = 0;
   private tripleChainUntil = 0;
   private iceFlashUntil = 0;
@@ -441,6 +456,8 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
   freeze(): void {
     this.frozen = true;
     this.swinging = false;
+    this.wallSliding = false;
+    this.steerLockUntil = 0;
     this.arcadeBody.checkCollision.none = false;
     this.arcadeBody.setVelocity(0, 0);
     this.arcadeBody.allowGravity = false;
@@ -479,6 +496,8 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
   die(onComplete: () => void): void {
     this.frozen = true;
     this.swinging = false;
+    this.wallSliding = false;
+    this.steerLockUntil = 0;
     this.arcadeBody.checkCollision.none = false;
     this.arcadeBody.setVelocity(0, 0);
     this.arcadeBody.allowGravity = false;
@@ -645,6 +664,7 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
       this.swimReadyAt = 0;
       this.flowerUsed = false;
       this.lastWallJumpSide = 0;
+      this.steerLockUntil = 0;
     }
 
     if (grounded && !this.wasGrounded) {
@@ -668,7 +688,7 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
       accel = physics.accel;
       this.setFlipX(false);
     }
-    body.setAccelerationX(accel);
+    body.setAccelerationX(now < this.steerLockUntil ? 0 : accel);
 
     if (grounded && accel === 0) {
       body.setDragX(physics.groundDrag);
@@ -714,6 +734,35 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
     }
 
     const onFoot = grounded || now < this.coyoteUntil;
+
+    this.wallSliding = false;
+    // Rainy-city keeps its stronger awning kick below instead of the standard one.
+    if (mode !== 'awning-wall-jump') {
+      const wallSide = wallContactSide({
+        grounded: onFoot,
+        touchingLeft: body.blocked.left || body.touching.left,
+        touchingRight: body.blocked.right || body.touching.right,
+        holdLeft: input.left,
+        holdRight: input.right,
+      });
+      if (wallSide !== 0) {
+        body.setVelocityY(wallSlideVelocity(body.velocity.y));
+      }
+      if (canWallJump({ jumpLocked: this.jumpLocked, jumpJust: input.jumpJust, side: wallSide, lastSide: this.lastWallJumpSide })) {
+        const kick = wallJumpVelocity(physics.gravity, physics.maxSpeed, wallSide as -1 | 1);
+        body.setVelocity(kick.x, kick.y);
+        this.lastWallJumpSide = wallSide;
+        this.steerLockUntil = now + WALL_JUMP_LOCK_MS;
+        this.jumpBufferUntil = 0;
+        this.jumpHeld = true;
+        this.setFlipX(kick.x < 0);
+        this.dust.emitParticleAt(this.x + wallSide * 18, this.y + 8, 6);
+        audio.play(this.scene, 'jump');
+        this.squash(0.84, 1.18, 100);
+      }
+      this.wallSliding = wallSide !== 0 && body.velocity.y > 0;
+    }
+
     switch (mode) {
       case 'swim-stroke':
         if (
@@ -852,7 +901,9 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
     }
 
     let frame: HeroFrame = 'player';
-    if (now < this.blinkUntil) {
+    if (this.wallSliding && !grounded) {
+      frame = 'player-jump';
+    } else if (now < this.blinkUntil) {
       frame = 'player-blink';
     } else if (vy < -90) {
       frame = 'player-jump';

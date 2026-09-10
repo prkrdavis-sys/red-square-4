@@ -34,7 +34,9 @@ import { colliderBox, colliderRuns, enableOneWayCollision, liftOntoFloor, ONEWAY
 import {
   airColumnSealed,
   buildCourse,
+  courseDifficulty,
   lateStageEnemyQuota,
+  maxGapForTier,
   NO_JUMP_ZONE_RUNUP,
   NO_JUMP_ZONE_WIDTH,
   placeNoJumpZone,
@@ -83,9 +85,50 @@ describe('late-stage length and checkpoints', () => {
     }
     expect(lateStageEnemyQuota(1, 3)).toBe(13);
     expect(lateStageEnemyQuota(6, 3)).toBe(18);
-    expect(lateStageEnemyQuota(1, 4)).toBe(8);
-    expect(lateStageEnemyQuota(6, 4)).toBe(13);
+    expect(lateStageEnemyQuota(1, 4)).toBe(15);
+    expect(lateStageEnemyQuota(6, 4)).toBe(20);
     expect(lateStageEnemyQuota(3, 1)).toBe(0);
+  });
+
+  it('climbs the enemy quota through each world and tops out on the secret gauntlet', () => {
+    for (let world = 1; world <= 8; world += 1) {
+      expect(lateStageEnemyQuota(world, 3)).toBeLessThan(lateStageEnemyQuota(world, 4));
+      expect(lateStageEnemyQuota(world, 4)).toBeLessThan(lateStageEnemyQuota(world, 3, true));
+      if (world > 1) {
+        expect(lateStageEnemyQuota(world, 4)).toBeGreaterThan(lateStageEnemyQuota(world - 1, 4));
+      }
+    }
+    expect(lateStageEnemyQuota(8, 4)).toBe(22);
+  });
+});
+
+describe('difficulty curve', () => {
+  it('rises through every world and stage, peaking at 8-4', () => {
+    for (let world = 1; world <= 8; world += 1) {
+      for (let stage = 1; stage < 4; stage += 1) {
+        expect(courseDifficulty(world, stage)).toBeLessThan(courseDifficulty(world, stage + 1));
+      }
+      expect(courseDifficulty(world, 4)).toBeLessThan(courseDifficulty(world, 3, true));
+      if (world > 1) {
+        expect(courseDifficulty(world, 1)).toBeGreaterThan(courseDifficulty(world - 1, 1));
+      }
+    }
+    expect(courseDifficulty(1, 1)).toBe(0);
+    const peak = courseDifficulty(8, 4);
+    for (let world = 1; world <= 8; world += 1) {
+      for (const stage of [1, 2, 3, 4]) {
+        if (world === 8 && stage === 4) {
+          continue;
+        }
+        expect(courseDifficulty(world, stage)).toBeLessThan(peak);
+      }
+    }
+  });
+
+  it('only unlocks the widest gaps in the late worlds', () => {
+    expect(maxGapForTier(courseDifficulty(1, 1))).toBe(2);
+    expect(maxGapForTier(courseDifficulty(4, 2))).toBe(3);
+    expect(maxGapForTier(courseDifficulty(8, 4))).toBe(4);
   });
 });
 

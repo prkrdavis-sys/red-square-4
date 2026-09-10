@@ -28,7 +28,7 @@ import {
   setLastPlayed,
   unlockSecretLevel,
 } from '../data/progress';
-import { applySettings } from '../data/settings';
+import { applySettings, maybeShake } from '../data/settings';
 import { isBossRewardSkin, skinForLevel, type SkinDef } from '../data/skins';
 import { Baddie } from '../entities/Baddie';
 import { Boss } from '../entities/Boss';
@@ -36,6 +36,7 @@ import { Coin } from '../entities/Coin';
 import { shouldDropCoin } from '../systems/coin-drop';
 import { isFallingStomp, stompBox } from '../entities/boss-combat';
 import { EnemyProjectile } from '../entities/EnemyProjectile';
+import { MovingPlatform } from '../entities/MovingPlatform';
 import { TerrainHazard } from '../entities/TerrainHazard';
 import { hazardThreatensTile, type TerrainHazardSpawn } from '../entities/terrain-hazard';
 import { FlakFragment } from '../entities/FlakFragment';
@@ -57,7 +58,7 @@ import {
   playerLeadX,
   reachedCheckpointPlane,
 } from '../systems/checkpoint-plane';
-import { spawnCheckpointFireworks } from '../systems/fireworks';
+import { celebrateLevelClear, LEVEL_CLEAR_MENU_DELAY_MS, resetLevelClearCelebrate, spawnCheckpointFireworks } from '../systems/fireworks';
 import { forgetFlak, rememberFlak, restoreFlak, setFlakGroup } from '../systems/flak';
 import { Foreground } from '../systems/foreground';
 import { selectMultiplayerTarget } from '../systems/multiplayer-targeting';
@@ -236,6 +237,7 @@ export class PlayScene extends Phaser.Scene {
     this.skipControlsHint = data.skipControlsHint === true;
     this.fromDeath = data.fromDeath === true;
     this.completing = false;
+    resetLevelClearCelebrate(this);
     this.wasJump = false;
     this.wasDown = false;
     this.wasSpecial = false;
@@ -292,6 +294,8 @@ export class PlayScene extends Phaser.Scene {
 
     this.physics.add.collider(baddies, solids);
     this.physics.add.collider(baddies, oneways);
+    this.physics.add.collider(baddies, this.built.bricks);
+    this.physics.add.collider(baddies, this.built.movers);
     this.physics.add.collider(projectiles, solids, (objectA, objectB) => {
       const projectile = objectA instanceof EnemyProjectile ? objectA : objectB instanceof EnemyProjectile ? objectB : undefined;
       projectile?.destroy();
@@ -501,7 +505,7 @@ export class PlayScene extends Phaser.Scene {
     });
   }
 
-  update(): void {
+  update(_time: number, delta: number): void {
     if (!this.paused && !this.controlsHintOpen) {
       this.cullFlak();
       if (this.canMutateWorld) {
@@ -519,6 +523,7 @@ export class PlayScene extends Phaser.Scene {
     const remoteInput = this.runtime?.peekRemoteInput() ?? EMPTY_PLAYER_INPUT;
     const { baddies, miniBoss, worldBoss } = this.built;
 
+    this.tickMovers(delta);
     this.refreshNoJumpZone(this.localPlayer);
     this.localPlayer.tick(input, def.theme);
     if (this.runtime && !this.runtime.isAuthority) {
@@ -790,7 +795,10 @@ export class PlayScene extends Phaser.Scene {
         if (event.levelId === this.levelId && !this.completing) {
           this.completing = true;
           markCleared(this.levelId);
-          this.showCompleteMenu('CO-OP CLEAR!');
+          celebrateLevelClear(this);
+          this.time.delayedCall(LEVEL_CLEAR_MENU_DELAY_MS, () => {
+            this.showCompleteMenu('CO-OP CLEAR!');
+          });
         }
         return;
       case 'leave':
@@ -880,6 +888,22 @@ export class PlayScene extends Phaser.Scene {
       this.built.oneways,
       undefined,
       (objectA, objectB) => this.oneWayProcess(objectA, objectB),
+    );
+    this.physics.add.collider(player, this.built.bricks, (objectA, objectB) => {
+      const brick = objectA === player ? objectB : objectA;
+      this.tryBreakBrick(player, brick as Phaser.Physics.Arcade.Sprite);
+    });
+    this.physics.add.collider(
+      player,
+      this.built.movers,
+      undefined,
+      (objectA, objectB) => {
+        const mover = objectA instanceof MovingPlatform ? objectA : objectB;
+        if (!(mover instanceof MovingPlatform) || !mover.spec.oneWay) {
+          return true;
+        }
+        return this.oneWayProcess(objectA, objectB);
+      },
     );
     this.physics.add.collider(player, this.built.baddies, (objectA, objectB) => {
       this.onBaddieCollide(objectA as Player, objectB as Baddie);
@@ -1096,6 +1120,47 @@ export class PlayScene extends Phaser.Scene {
     return { left, right, jump, jumpJust, down, downJust, special, specialJust };
   }
 
+  /** Blocks shatter when the player rises into them from below, as in Mario. */
+  private tryBreakBrick(player: Player, brick: Phaser.Physics.Arcade.Sprite): void {
+    if (!this.canMutateWorld || !player.arcadeBody.blocked.up) {
+      return;
+    }
+    const x = brick.x + TILE / 2;
+    const y = brick.y + TILE / 2;
+    brick.destroy();
+    audio.play(this, 'explode');
+    maybeShake(this, 90, 0.006);
+    for (let i = 0; i < 6; i += 1) {
+      const shard = this.add.rectangle(x, y, 14, 14, 0xc98d5a).setDepth(15);
+      this.tweens.add({
+        targets: shard,
+        x: x + (i % 2 === 0 ? -1 : 1) * (24 + i * 9),
+        y: y - 40 + i * 16,
+        angle: 180 + i * 40,
+        alpha: 0,
+        duration: 420,
+        ease: 'Cubic.easeIn',
+        onComplete: () => shard.destroy(),
+      });
+    }
+  }
+
+  /** Servo every plate onto its path, then drag whoever is standing on it along. */
+  private tickMovers(deltaMs: number): void {
+    const riders = this.livingPlayers();
+    for (const child of this.built.movers.getChildren()) {
+      if (!(child instanceof MovingPlatform)) {
+        continue;
+      }
+      const moved = child.tick(this.time.now, deltaMs);
+      for (const rider of riders) {
+        if (child.carries(rider.arcadeBody)) {
+          rider.setPosition(rider.x + moved.dx, rider.y + moved.dy);
+        }
+      }
+    }
+  }
+
   private oneWayProcess(
     objectA:
       | Phaser.Types.Physics.Arcade.GameObjectWithBody
@@ -1285,13 +1350,11 @@ export class PlayScene extends Phaser.Scene {
       this.levelId,
       `${this.link?.localPlayerId ?? 'solo'}:${this.levelId}:${Date.now()}`,
     );
-    audio.play(this, 'poof');
     const def = getLevel(this.levelId);
     const message = worldBoss ? `WORLD ${def.world} CLEARED!` : `${this.levelId}  CLEAR!`;
     const unlockedSkin = firstClear ? skinForLevel(this.levelId) : undefined;
     boss.poofAway();
-    this.time.delayedCall(500, () => {
-      audio.play(this, 'victory');
+    this.time.delayedCall(LEVEL_CLEAR_MENU_DELAY_MS, () => {
       this.showCompleteMenu(message, unlockedSkin);
     });
   }

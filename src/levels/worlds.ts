@@ -1,5 +1,28 @@
-import { parseLevelId, type LevelId, type Theme, worldBossKind } from '../config';
-import { compileCourse, LEDGE, type CompiledCourse, type CourseSpec } from './grid';
+import {
+  JUMP_HEIGHT_TILES,
+  launchVelocity,
+  parseLevelId,
+  themePhysics,
+  TILE,
+  type LevelId,
+  type Theme,
+  worldBossKind,
+} from '../config';
+import { compileCourse, courseDifficulty, LEDGE, type CompiledCourse, type CourseSpec } from './grid';
+import {
+  brickCeilingRun,
+  floatingIslandChain,
+  GAP,
+  gapForReach,
+  merge,
+  moverCrossing,
+  pitLedgeRhythm,
+  staircaseGap,
+  stepTower,
+  wallJumpShaft,
+  type GapWidth,
+  type Motif,
+} from './motifs';
 
 const { hop, low, mid, high, lid } = LEDGE;
 
@@ -40,12 +63,110 @@ function worldTheme(world: number): Theme {
   }
 }
 
+/** Clear space each puzzle needs, so two motifs never stamp over one another. */
+const PUZZLE_GAP = 4;
+const PUZZLE_FIRST_X = 26;
+
+/**
+ * Pick the NSMB motif for slot `index`. The kit grows with the difficulty tier, so
+ * early worlds only see staircases and island hops while late worlds get chimneys
+ * and riding plates on top of them.
+ */
+function motifForTier(tier: number, gap: GapWidth, allowPits: boolean, index: number, x: number): Motif {
+  const kit: Array<(at: number) => Motif> = [
+    (at) => floatingIslandChain(at, 3, gap, low, allowPits),
+  ];
+  if (allowPits) {
+    kit.push((at) => staircaseGap(at, 2, gap));
+  }
+  if (tier >= 1.5 && allowPits) {
+    kit.push((at) => pitLedgeRhythm(at, 2, gap));
+  }
+  if (tier >= 3) {
+    kit.push((at) => brickCeilingRun(at, 4));
+    kit.push((at) => stepTower(at, 3));
+  }
+  if (tier >= 4.5) {
+    kit.push((at) => wallJumpShaft(at, mid));
+  }
+  if (tier >= 6 && allowPits) {
+    kit.push((at) => moverCrossing(at, index % 2 === 0 ? 'x' : 'y', (index % 3) / 3));
+  }
+  // Newest unlock leads, so each course opens by teaching its hardest shape.
+  kit.reverse();
+  return (kit[index % kit.length] ?? kit[0]!)(x);
+}
+
+/** Tiles of blocked floor around each existing pit, so motifs never widen one. */
+const PIT_CLEARANCE = 3;
+
+function overlapsExistingPit(spec: CourseSpec, x: number, width: number): boolean {
+  for (const [pitX, pitW] of [...(spec.pits ?? []), ...(spec.lava ?? [])]) {
+    if (x < pitX + pitW + PIT_CLEARANCE && pitX < x + width + PIT_CLEARANCE) {
+      return true;
+    }
+  }
+  return false;
+}
+
+/**
+ * Lay a band of NSMB-derived puzzles through the walkable stretch of a course and
+ * fold them into the spec. Puzzle count and gap width both scale with the tier, so
+ * `W-1` teaches two easy shapes and `W-?` runs a long chain of the hardest ones.
+ */
+function withPuzzles(world: number, stage: number, spec: CourseSpec, secret: boolean): CourseSpec {
+  const tier = courseDifficulty(world, stage, secret);
+  const theme = worldTheme(world);
+  const physics = themePhysics(theme);
+  const reach =
+    (physics.maxSpeed * ((2 * Math.abs(launchVelocity(physics.gravity, JUMP_HEIGHT_TILES))) / physics.gravity)) /
+    TILE;
+  const gap = gapForReach(reach, tier >= 6 ? GAP.expert : tier >= 2 ? GAP.standard : GAP.trivial);
+  // Ocean courses are already mostly open water; more pits would leave nowhere to stand.
+  const allowPits = theme !== 'ocean';
+  const fightX = spec.boss ?? spec.mini ?? spec.width;
+  const limit = fightX - 30;
+  const wanted = 2 + Math.floor(tier / 1.5);
+
+  const motifs: Motif[] = [];
+  let cursor = PUZZLE_FIRST_X;
+  while (motifs.length < wanted && cursor < limit) {
+    const next = motifForTier(tier, gap, allowPits, motifs.length, cursor);
+    if (cursor + next.width >= limit) {
+      break;
+    }
+    if (overlapsExistingPit(spec, cursor, next.width)) {
+      cursor += 2;
+      continue;
+    }
+    motifs.push(next);
+    cursor += next.width + PUZZLE_GAP;
+  }
+  if (motifs.length === 0) {
+    return spec;
+  }
+  const band = merge(...motifs);
+  return {
+    ...spec,
+    pits: [...(spec.pits ?? []), ...band.pits],
+    plats: [...(spec.plats ?? []), ...band.plats],
+    solids: [...(spec.solids ?? []), ...band.solids],
+    hills: [...(spec.hills ?? []), ...band.hills],
+    walls: [...(spec.walls ?? []), ...band.walls],
+    hangs: [...(spec.hangs ?? []), ...band.hangs],
+    stairs: [...(spec.stairs ?? []), ...band.stairs],
+    bricks: [...(spec.bricks ?? []), ...band.bricks],
+    movers: [...(spec.movers ?? []), ...band.movers],
+  };
+}
+
 function course(world: number, stage: number, spec: CourseSpec): CompiledCourse {
-  return compileCourse(world, stage, spec, worldTheme(world));
+  return compileCourse(world, stage, withPuzzles(world, stage, spec, false), worldTheme(world));
 }
 
 function secretCourse(world: number, spec: CourseSpec): CompiledCourse {
-  return compileCourse(world, 3, { ...spec, secret: true }, worldTheme(world));
+  const spread = withPuzzles(world, 3, spec, true);
+  return compileCourse(world, 3, { ...spread, secret: true }, worldTheme(world));
 }
 
 const COURSES: Record<LevelId, CompiledCourse> = {
@@ -1248,6 +1369,8 @@ const COURSES: Record<LevelId, CompiledCourse> = {
       [88, low, 4],
       [93, mid, 3],
       [98, low, 4],
+      // Stepping stone: beach physics cannot clear this pit in one leap.
+      [105, hop, 2],
       [134, low, 3],
       [140, mid, 3],
       [146, high, 4],

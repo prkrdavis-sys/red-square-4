@@ -2,6 +2,7 @@ import Phaser from 'phaser';
 import { GROUND_Y, MAP_ROWS, MINI_BOSS_HP, TILE, WORLD_BOSS_HP, secretBossName, type Theme } from '../config';
 import { Baddie } from '../entities/Baddie';
 import { Boss } from '../entities/Boss';
+import { MovingPlatform } from '../entities/MovingPlatform';
 import { Star } from '../entities/Star';
 import { Player } from '../entities/Player';
 import { SecretPortal } from '../entities/SecretPortal';
@@ -10,6 +11,7 @@ import {
   arenaGateTileKey,
   arenaTileKey,
   arenaWallTileKey,
+  brickTileKey,
   fillTileKey,
   kenneyArenaGateKey,
   kenneyArenaWallKey,
@@ -36,6 +38,8 @@ export interface BuiltLevel {
   oneways: Phaser.Physics.Arcade.StaticGroup;
   hazards: Phaser.Physics.Arcade.StaticGroup;
   baddies: Phaser.Physics.Arcade.Group;
+  bricks: Phaser.Physics.Arcade.StaticGroup;
+  movers: Phaser.Physics.Arcade.Group;
   traps: Phaser.Physics.Arcade.StaticGroup;
   trapBeams: Phaser.Physics.Arcade.StaticGroup;
   projectiles: Phaser.Physics.Arcade.Group;
@@ -66,6 +70,24 @@ function addColliderRun(group: Phaser.Physics.Arcade.StaticGroup, run: ColliderR
   if (run.kind === 'oneway') {
     enableOneWayCollision(body);
   }
+}
+
+/** One body per block, so a head-bump can destroy exactly the tile that was hit. */
+function addBrick(
+  scene: Phaser.Scene,
+  group: Phaser.Physics.Arcade.StaticGroup,
+  x: number,
+  y: number,
+  theme: Theme,
+): void {
+  const key = pickTile(scene, brickTileKey(theme), `kenney-${theme}-brick`);
+  const sprite = group.create(x, y, key) as Phaser.Physics.Arcade.Sprite;
+  sprite.setOrigin(0, 0);
+  sprite.setDisplaySize(TILE, TILE);
+  sprite.setDepth(12);
+  const body = sprite.body as Phaser.Physics.Arcade.StaticBody;
+  body.setSize(TILE, TILE);
+  body.updateFromGameObject();
 }
 
 function addHazard(
@@ -126,6 +148,8 @@ export function buildLevel(
   const oneways = scene.physics.add.staticGroup();
   const hazards = scene.physics.add.staticGroup();
   const baddies = scene.physics.add.group({ runChildUpdate: false, allowGravity: true });
+  const bricks = scene.physics.add.staticGroup();
+  const movers = scene.physics.add.group({ runChildUpdate: false, allowGravity: false });
   const traps = scene.physics.add.staticGroup();
   const trapBeams = scene.physics.add.staticGroup();
   const projectiles = scene.physics.add.group({ runChildUpdate: false, allowGravity: false });
@@ -159,6 +183,9 @@ export function buildLevel(
           break;
         case '=':
           addTileImage(scene, px, py, pickTile(scene, onewayTileKey(theme), `kenney-${theme}-oneway`), true);
+          break;
+        case 'b':
+          addBrick(scene, bricks, px, py, theme);
           break;
         case '~':
           addHazard(hazards, px, py, theme === 'rainy-city' ? 'tile-traffic' : 'tile-lava');
@@ -218,6 +245,10 @@ export function buildLevel(
     const y = (GROUND_Y - 1 - spawn.tilesUp) * TILE + TILE / 2;
     const baddie = new Baddie(scene, spawn.x * TILE + TILE / 2, y, spawn.kind, 60 + (spawn.x % 3) * 12);
     baddies.add(baddie);
+  }
+
+  for (const spawn of course.movers) {
+    movers.add(new MovingPlatform(scene, spawn, theme));
   }
 
   for (const spawn of course.traps) {
@@ -282,6 +313,8 @@ export function buildLevel(
     oneways,
     hazards,
     baddies,
+    bricks,
+    movers,
     traps,
     trapBeams,
     projectiles,

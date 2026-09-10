@@ -8,6 +8,7 @@ const CONTROL_ROWS: ReadonlyArray<{ action: string; keys: string }> = [
   { action: 'Move', keys: 'Arrows  or  A / D' },
   { action: 'Jump', keys: 'Up, W, or Space' },
   { action: 'Drop through', keys: 'Down or S' },
+  { action: 'Wall jump', keys: 'Hold into a wall, then Jump' },
   { action: 'Pause', keys: 'P, Esc, or Pause' },
 ];
 
