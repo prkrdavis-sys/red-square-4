@@ -30,6 +30,7 @@ import {
 } from './flak-pieces';
 import { createForegroundTextures } from './foreground';
 import { createLandscapeTextures } from './landscapes';
+import { createWorldMapTextures } from './world-map-art';
 import { createMiniBossTextures } from './mini-bosses';
 import { createWorldBossTextures, worldBossTextureKey } from './world-bosses';
 
@@ -3064,6 +3065,63 @@ function drawLockedNode(scene: Phaser.Scene): void {
   commit(g, 'map-node-locked', 32, 32);
 }
 
+function drawCastleNode(scene: Phaser.Scene, locked: boolean): void {
+  const g = gfx(scene);
+  const ink = locked ? 0x111111 : 0x222222;
+  const stone = locked ? 0x666666 : 0xc8b48a;
+  const roof = locked ? 0x4a4450 : 0x8a3038;
+  g.fillStyle(ink, 1);
+  g.fillRoundedRect(2, 10, 28, 20, 3);
+  g.fillStyle(stone, 1);
+  g.fillRoundedRect(4, 12, 24, 16, 2);
+  g.fillStyle(roof, 1);
+  g.fillTriangle(4, 14, 16, 2, 28, 14);
+  g.fillStyle(locked ? 0x333333 : 0x3a1020, 1);
+  g.fillRect(13, 18, 6, 10);
+  commit(g, locked ? 'map-node-castle-locked' : 'map-node-castle', 32, 32);
+}
+
+function drawSecretNode(scene: Phaser.Scene): void {
+  const g = gfx(scene);
+  g.fillStyle(0x140828, 1);
+  g.fillCircle(16, 16, 16);
+  g.fillStyle(0x6a2cff, 1);
+  g.fillCircle(16, 16, 13);
+  g.fillStyle(0xf7f0ff, 1);
+  g.fillCircle(16, 16, 10);
+  g.lineStyle(2.5, 0x3a1460, 1);
+  g.beginPath();
+  g.arc(16, 12, 4, Math.PI * 0.15, Math.PI * 1.15, false);
+  g.strokePath();
+  g.lineBetween(16, 16, 16, 20);
+  g.fillStyle(0x3a1460, 1);
+  g.fillCircle(16, 23, 1.4);
+  commit(g, 'map-node-secret', 32, 32);
+}
+
+function drawDock(scene: Phaser.Scene): void {
+  const g = gfx(scene);
+  g.fillStyle(0x6b4423, 1);
+  g.fillRoundedRect(4, 8, 24, 20, 3);
+  g.fillStyle(0xc68642, 1);
+  g.fillRoundedRect(6, 10, 20, 16, 2);
+  g.lineStyle(2, 0x4a2e14, 1);
+  g.lineBetween(8, 14, 24, 14);
+  g.lineBetween(8, 20, 24, 20);
+  commit(g, 'map-dock', 32, 32);
+}
+
+function drawMapBoat(scene: Phaser.Scene): void {
+  const g = gfx(scene);
+  g.fillStyle(0x6b4423, 1);
+  g.fillEllipse(20, 18, 32, 12);
+  g.fillStyle(0xc68642, 1);
+  g.fillEllipse(20, 16, 28, 8);
+  g.fillStyle(0xf5e6c8, 1);
+  g.fillTriangle(20, 4, 20, 16, 30, 16);
+  commit(g, 'map-boat', 40, 28);
+}
+
 function drawSecretPortal(scene: Phaser.Scene): void {
   const g = gfx(scene);
   const cx = 32;
@@ -3120,9 +3178,15 @@ export function createGameTextures(scene: Phaser.Scene): void {
   drawFlyingCarpets(scene);
   drawAirJumpProps(scene);
   createLandscapeTextures(scene);
+  createWorldMapTextures(scene);
   createForegroundTextures(scene);
   drawNode(scene);
   drawLockedNode(scene);
+  drawCastleNode(scene, false);
+  drawCastleNode(scene, true);
+  drawSecretNode(scene);
+  drawDock(scene);
+  drawMapBoat(scene);
   drawSecretPortal(scene);
 
   for (const theme of THEMES) {
