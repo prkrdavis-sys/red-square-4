@@ -262,9 +262,49 @@ export function applyForcedLandscape(physical: ViewportBox): ViewportBox {
   return state.stage;
 }
 
+function stageParentSize(parent: HTMLElement): { width: number; height: number } {
+  return {
+    width: Math.max(1, parent.offsetWidth || state.stage.width),
+    height: Math.max(1, parent.offsetHeight || state.stage.height),
+  };
+}
+
 export function bindForcedLandscapeInput(game: Phaser.Game): void {
   const scale = game.scale;
   const input = game.input;
+
+  const origGetParentBounds = scale.getParentBounds.bind(scale);
+  scale.getParentBounds = () => {
+    if (!state.forced) {
+      return origGetParentBounds();
+    }
+    const parent = scale.parent;
+    if (!parent) {
+      return false;
+    }
+    const next = stageParentSize(parent);
+    if (scale.parentSize.width !== next.width || scale.parentSize.height !== next.height) {
+      scale.parentSize.setSize(next.width, next.height);
+      return true;
+    }
+    return false;
+  };
+
+  const origUpdateCenter = scale.updateCenter.bind(scale);
+  scale.updateCenter = () => {
+    if (!state.forced) {
+      origUpdateCenter();
+      return;
+    }
+    const canvas = scale.canvas;
+    const width = Math.max(1, canvas.offsetWidth);
+    const height = Math.max(1, canvas.offsetHeight);
+    const offsetX = Math.floor((scale.parentSize.width - width) / 2);
+    const offsetY = Math.floor((scale.parentSize.height - height) / 2);
+    canvas.style.marginLeft = `${offsetX}px`;
+    canvas.style.marginTop = `${offsetY}px`;
+  };
+
   const origUpdateBounds = scale.updateBounds.bind(scale);
   scale.updateBounds = () => {
     if (!state.forced) {
