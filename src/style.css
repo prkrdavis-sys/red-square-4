@@ -3,13 +3,23 @@
   --touch-btn-size: 104px;
   --touch-btn-gap: 14px;
   --game-font: 'Nunito', 'Trebuchet MS', sans-serif;
+  --vv-phys-width: 100%;
+  --vv-phys-height: 100%;
+  --safe-phys-top: env(safe-area-inset-top, 0px);
+  --safe-phys-right: env(safe-area-inset-right, 0px);
+  --safe-phys-bottom: env(safe-area-inset-bottom, 0px);
+  --safe-phys-left: env(safe-area-inset-left, 0px);
+  --safe-top: var(--safe-phys-top);
+  --safe-right: var(--safe-phys-right);
+  --safe-bottom: var(--safe-phys-bottom);
+  --safe-left: var(--safe-phys-left);
 }
 
 html {
   margin: 0;
   padding: 0;
-  width: 100%;
-  height: 100%;
+  width: var(--vv-phys-width, 100%);
+  height: var(--vv-phys-height, 100%);
   overflow: hidden;
   background: #0b0b12;
 }
@@ -39,6 +49,19 @@ body {
   font-weight: 600;
 }
 
+body.forced-landscape {
+  position: absolute;
+  inset: auto;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%) rotate(90deg);
+  transform-origin: center center;
+}
+
+body.forced-landscape.forced-landscape-ccw {
+  transform: translate(-50%, -50%) rotate(-90deg);
+}
+
 #app {
   position: absolute;
   inset: 0;
@@ -60,7 +83,7 @@ body {
 
 #hud-pause {
   display: none;
-  position: fixed;
+  position: absolute;
   z-index: 25;
   box-sizing: border-box;
   margin: 0;
@@ -150,7 +173,7 @@ body.hud-pause-on #hud-pause {
 
 #touch-controls {
   display: none;
-  position: fixed;
+  position: absolute;
   inset: 0;
   z-index: 20;
   pointer-events: none;
@@ -179,8 +202,8 @@ body.touch-play #touch-controls {
 .touch-slider {
   --thumb-x: 0px;
   position: absolute;
-  left: calc(10px + env(safe-area-inset-left, 0px));
-  bottom: calc(10px + env(safe-area-inset-bottom, 0px));
+  left: calc(10px + var(--safe-left));
+  bottom: calc(10px + var(--safe-bottom));
   width: calc(var(--touch-btn-size) * 2.2);
   height: var(--touch-btn-size);
   pointer-events: none;
@@ -269,7 +292,7 @@ body.touch-play #touch-controls {
 
 .touch-cluster {
   position: absolute;
-  bottom: calc(10px + env(safe-area-inset-bottom, 0px));
+  bottom: calc(10px + var(--safe-bottom));
 }
 
 .touch-cluster-right {
@@ -277,7 +300,7 @@ body.touch-play #touch-controls {
   --touch-shift-x: calc(var(--touch-btn-size) * 0.78 + var(--touch-btn-gap));
   --touch-shift-y: calc(var(--touch-btn-size) * 0.28 + var(--touch-btn-gap));
   top: auto;
-  right: calc(4px + env(safe-area-inset-right, 0px));
+  right: calc(4px + var(--safe-right));
   width: calc(var(--touch-btn-size) + var(--touch-shift-x));
   height: calc(var(--touch-btn-size) + var(--touch-shift-y));
 }
@@ -428,69 +451,3 @@ body.touch-play #touch-controls {
   background: rgba(117, 78, 24, 0.07);
 }
 
-#rotate-prompt {
-  display: none;
-  position: fixed;
-  inset: 0;
-  box-sizing: border-box;
-  z-index: 40;
-  align-items: center;
-  justify-content: center;
-  padding: 24px;
-  background: #0b0b12;
-  color: #fff8f0;
-  pointer-events: auto;
-}
-
-@media (orientation: portrait) and (pointer: coarse) and (hover: none) {
-  #rotate-prompt {
-    display: flex;
-  }
-}
-
-body.needs-landscape #rotate-prompt {
-  display: flex;
-}
-
-/* Mouse/trackpad desktops: never block play, even in a tall window. */
-@media (any-hover: hover) and (any-pointer: fine) {
-  #rotate-prompt {
-    display: none;
-  }
-}
-
-body.desktop-pointer #rotate-prompt {
-  display: none;
-}
-
-.rotate-card {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 12px;
-  max-width: 22rem;
-  text-align: center;
-}
-
-.rotate-icon {
-  width: 72px;
-  height: 72px;
-  color: #ffe9a8;
-}
-
-.rotate-title {
-  margin: 0;
-  font-family: var(--game-font);
-  font-size: 1.35rem;
-  font-weight: 700;
-  letter-spacing: 0.01em;
-}
-
-.rotate-copy {
-  margin: 0;
-  font-family: var(--game-font);
-  font-size: 1.05rem;
-  font-weight: 600;
-  color: #d0c0b8;
-  line-height: 1.45;
-}

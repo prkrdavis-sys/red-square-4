@@ -1,5 +1,10 @@
 import type Phaser from 'phaser';
-import { currentViewportBox, isPortraitBox } from './viewport';
+import {
+  clientToStage,
+  currentForcedLandscape,
+  isForcedLandscape,
+  offsetRectIn,
+} from './forced-landscape';
 
 export type TouchAction = 'jump' | 'special';
 export type MoveAxis = 'left' | 'right' | null;
@@ -29,9 +34,38 @@ let moveAxis: MoveAxis = null;
 let moveHeld: Exclude<MoveAxis, null> | null = null;
 let moveOriginX = 0;
 let booted = false;
-let pausedByRotate = false;
 let gameRef: Phaser.Game | undefined;
 let touchGen = 0;
+
+function eventPoint(clientX: number, clientY: number): { x: number; y: number } {
+  const current = currentForcedLandscape();
+  if (!current.forced || current.rotate === 0) {
+    return { x: clientX, y: clientY };
+  }
+  return clientToStage(clientX, clientY, current.physical, current.rotate);
+}
+
+function elementRect(el: Element): {
+  left: number;
+  top: number;
+  right: number;
+  bottom: number;
+  width: number;
+  height: number;
+} {
+  if (!isForcedLandscape()) {
+    const rect = el.getBoundingClientRect();
+    return {
+      left: rect.left,
+      top: rect.top,
+      right: rect.right,
+      bottom: rect.bottom,
+      width: rect.width,
+      height: rect.height,
+    };
+  }
+  return offsetRectIn(el as HTMLElement, document.body);
+}
 
 export function moveDirectionFromDelta(deltaX: number, deadzonePx = MOVE_DEADZONE_PX): MoveAxis {
   if (deltaX <= -deadzonePx) {
@@ -176,9 +210,10 @@ function placeSlider(clientX: number, clientY: number): void {
   if (!pad || !slider) {
     return;
   }
-  const rect = pad.getBoundingClientRect();
-  const x = clampCenter(clientX - rect.left, rect.width, slider.offsetWidth);
-  const y = clampCenter(clientY - rect.top, rect.height, slider.offsetHeight);
+  const point = eventPoint(clientX, clientY);
+  const rect = elementRect(pad);
+  const x = clampCenter(point.x - rect.left, rect.width, slider.offsetWidth);
+  const y = clampCenter(point.y - rect.top, rect.height, slider.offsetHeight);
   slider.style.left = `${x}px`;
   slider.style.top = `${y}px`;
   slider.classList.add('is-steering');
@@ -193,33 +228,35 @@ function updateThumb(currentX: number): void {
   slider.style.setProperty('--thumb-x', `${sliderThumbOffset(currentX - moveOriginX, max)}px`);
 }
 
-function applyMoveX(currentX: number): void {
+function applyMoveX(clientX: number, clientY: number): void {
   if (!moveHeld) {
     return;
   }
+  const currentX = eventPoint(clientX, clientY).x;
   moveHeld = steerMoveAxis(currentX - moveOriginX, moveHeld);
   setMoveAxis(moveHeld);
   updateThumb(currentX);
 }
 
 function hitArrow(clientX: number, clientY: number): ArrowHit {
+  const point = eventPoint(clientX, clientY);
   const left = document.querySelector('.touch-slider-arrow-left');
   const right = document.querySelector('.touch-slider-arrow-right');
-  if (left && pointHitsRect(clientX, clientY, left.getBoundingClientRect())) {
+  if (left && pointHitsRect(point.x, point.y, elementRect(left))) {
     return 'left';
   }
-  if (right && pointHitsRect(clientX, clientY, right.getBoundingClientRect())) {
+  if (right && pointHitsRect(point.x, point.y, elementRect(right))) {
     return 'right';
   }
   const slider = sliderEl();
   if (!slider) {
     return null;
   }
-  const rect = slider.getBoundingClientRect();
-  if (clientX < rect.left || clientX > rect.right || clientY < rect.top || clientY > rect.bottom) {
+  const rect = elementRect(slider);
+  if (point.x < rect.left || point.x > rect.right || point.y < rect.top || point.y > rect.bottom) {
     return null;
   }
-  const t = (clientX - rect.left) / rect.width;
+  const t = (point.x - rect.left) / rect.width;
   if (t <= 0.4) {
     return 'left';
   }
@@ -234,7 +271,7 @@ function sliderCenterX(): number {
   if (!slider) {
     return 0;
   }
-  const rect = slider.getBoundingClientRect();
+  const rect = elementRect(slider);
   return rect.left + rect.width / 2;
 }
 
@@ -316,11 +353,12 @@ function beginMoveAt(key: string, clientX: number, clientY: number): void {
     return;
   }
   tracked.set(key, 'move');
-  moveOriginX = clientX;
-  moveHeld = initialMoveFromPress(hitArrow(clientX, clientY), clientX, sliderCenterX());
+  const point = eventPoint(clientX, clientY);
+  moveOriginX = point.x;
+  moveHeld = initialMoveFromPress(hitArrow(clientX, clientY), point.x, sliderCenterX());
   placeSlider(clientX, clientY);
   setMoveAxis(moveHeld);
-  updateThumb(clientX);
+  updateThumb(point.x);
 }
 
 function beginMove(event: PointerEvent): void {
@@ -414,7 +452,7 @@ function bindGlobalPointers(): void {
       if (tracked.get(trackingKey('pointer', event.pointerId)) !== 'move') {
         return;
       }
-      applyMoveX(event.clientX);
+      applyMoveX(event.clientX, event.clientY);
     },
     true,
   );
@@ -424,7 +462,7 @@ function bindGlobalPointers(): void {
       for (let i = 0; i < event.touches.length; i += 1) {
         const touch = event.touches[i];
         if (tracked.get(trackingKey('touch', touch.identifier)) === 'move') {
-          applyMoveX(touch.clientX);
+          applyMoveX(touch.clientX, touch.clientY);
           return;
         }
       }
@@ -487,10 +525,6 @@ export function isTouchFirst(): boolean {
   return window.matchMedia('(pointer: coarse)').matches || window.matchMedia('(hover: none)').matches;
 }
 
-function needsLandscapePrompt(): boolean {
-  return isTouchFirst() && isPortraitBox(currentViewportBox());
-}
-
 export function getTouchState(): TouchState {
   return {
     left: moveAxis === 'left',
@@ -529,27 +563,6 @@ export function hideTouchControls(): void {
   releaseAll();
 }
 
-function syncLandscapePrompt(game: Phaser.Game): void {
-  const desktop = hasDesktopPointer();
-  const needs = needsLandscapePrompt();
-  document.body.classList.toggle('desktop-pointer', desktop);
-  document.body.classList.toggle('needs-landscape', needs);
-
-  if (needs) {
-    releaseAll();
-    if (!pausedByRotate) {
-      game.pause();
-      pausedByRotate = true;
-    }
-    return;
-  }
-
-  if (pausedByRotate) {
-    game.resume();
-    pausedByRotate = false;
-  }
-}
-
 export function bootTouchControls(): void {
   if (booted) {
     return;
@@ -576,17 +589,12 @@ export function bootTouchControls(): void {
   });
 }
 
-export function watchLandscapePrompt(game: Phaser.Game): void {
+export function bindTouchGame(game: Phaser.Game): void {
   gameRef = game;
-  const sync = () => {
-    syncLandscapePrompt(game);
-  };
-  const portrait = window.matchMedia('(orientation: portrait)');
   const desktop = window.matchMedia('(any-hover: hover) and (any-pointer: fine)');
-  portrait.addEventListener('change', sync);
+  const sync = () => {
+    document.body.classList.toggle('desktop-pointer', desktop.matches);
+  };
   desktop.addEventListener('change', sync);
-  window.addEventListener('resize', sync);
-  window.addEventListener('orientationchange', sync);
-  window.visualViewport?.addEventListener('resize', sync);
   sync();
 }

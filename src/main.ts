@@ -16,7 +16,8 @@ import { WorldMapScene } from './scenes/WorldMapScene';
 import { audio } from './systems/audio';
 import { dismissBootSplash } from './systems/boot-splash';
 import { bootHudPause, layoutHudPause } from './systems/hud-pause';
-import { bootTouchControls, watchLandscapePrompt } from './systems/touch-controls';
+import { bindForcedLandscapeInput, setForcedLandscapeTouchProbe } from './systems/forced-landscape';
+import { bindTouchGame, bootTouchControls, isTouchFirst } from './systems/touch-controls';
 import { bindGameToViewport, bootViewport } from './systems/viewport';
 
 function registerProductionSW(): void {
@@ -64,12 +65,14 @@ const config: Phaser.Types.Core.GameConfig = {
   scene: [BootScene, TitleScene, WorldMapScene, PlayScene, CoopScene, SettingsScene, SkinsScene, CreditsScene],
 };
 
+setForcedLandscapeTouchProbe(isTouchFirst);
 bootViewport();
 bootTouchControls();
 bootHudPause();
 const game = new Phaser.Game(config);
+bindForcedLandscapeInput(game);
 bindGameToViewport(game);
-watchLandscapePrompt(game);
+bindTouchGame(game);
 game.scale.on('resize', layoutHudPause);
 globalThis.setTimeout(() => {
   if (game.scene.isActive('BootScene') && !game.scene.isActive('TitleScene')) {

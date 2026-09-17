@@ -70,7 +70,12 @@ export function layoutHudPause(): void {
   if (!button || !canvas || !document.body.classList.contains('hud-pause-on')) {
     return;
   }
-  const box = pauseButtonScreenRect(canvas.getBoundingClientRect());
+  const box = pauseButtonScreenRect({
+    left: canvas.offsetLeft,
+    top: canvas.offsetTop,
+    width: canvas.offsetWidth,
+    height: canvas.offsetHeight,
+  });
   button.style.left = `${box.left}px`;
   button.style.top = `${box.top}px`;
   button.style.width = `${box.width}px`;

@@ -1,4 +1,5 @@
 import type Phaser from 'phaser';
+import { applyForcedLandscape, currentForcedLandscape } from './forced-landscape';
 
 export interface ViewportBox {
   width: number;
@@ -23,7 +24,7 @@ const SHELL_PAD = 20;
 
 let booted = false;
 let gameRef: Phaser.Game | undefined;
-let lastSize: { width: number; height: number } | undefined;
+let lastSize: { width: number; height: number; rotate: number } | undefined;
 
 function clamp(min: number, value: number, max: number): number {
   return Math.min(max, Math.max(min, value));
@@ -93,20 +94,22 @@ export function currentViewportBox(): ViewportBox {
 }
 
 export function applyCurrentViewport(): ViewportBox {
-  const box = currentViewportBox();
-  applyViewportBox(document.documentElement.style, box);
+  const physical = currentViewportBox();
+  const stage = applyForcedLandscape(physical);
+  applyViewportBox(document.documentElement.style, stage);
   if (window.scrollX !== 0 || window.scrollY !== 0) {
     window.scrollTo(0, 0);
   }
-  return box;
+  return stage;
 }
 
 function onViewportChange(): void {
   const box = applyCurrentViewport();
-  if (!viewportSizeChanged(lastSize, box)) {
+  const rotate = currentForcedLandscape().rotate;
+  if (lastSize && !viewportSizeChanged(lastSize, box) && lastSize.rotate === rotate) {
     return;
   }
-  lastSize = { width: box.width, height: box.height };
+  lastSize = { width: box.width, height: box.height, rotate };
   gameRef?.scale.refresh();
 }
 
@@ -120,6 +123,7 @@ export function bootViewport(): void {
   window.visualViewport?.addEventListener('scroll', onViewportChange);
   window.addEventListener('resize', onViewportChange);
   window.addEventListener('orientationchange', onViewportChange);
+  screen.orientation?.addEventListener('change', onViewportChange);
   window.addEventListener('fullscreenchange', onViewportChange);
   window.addEventListener(
     'scroll',
