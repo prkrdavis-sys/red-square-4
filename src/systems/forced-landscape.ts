@@ -165,7 +165,7 @@ export function offsetRectIn(
   while (node && node !== ancestor) {
     left += node.offsetLeft;
     top += node.offsetTop;
-    const parent = node.offsetParent;
+    const parent: Element | null = node.offsetParent;
     if (!(parent instanceof HTMLElement)) {
       break;
     }
