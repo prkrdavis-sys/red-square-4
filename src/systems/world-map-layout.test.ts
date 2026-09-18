@@ -9,6 +9,7 @@ import {
   linkedDock,
   mapNodePosition,
   mapNodePositionForId,
+  mapNodeTextureKey,
   nearbyNode,
   secretStubEnd,
   walkable,
@@ -113,5 +114,17 @@ describe('world map overworld', () => {
     expect(isIslandFogged(1, [])).toBe(false);
     expect(isIslandFogged(2, [])).toBe(true);
     expect(isIslandFogged(2, ['1-4'])).toBe(false);
+  });
+
+  it('uses a castle icon only for each world’s x-4 boss course', () => {
+    for (const id of CAMPAIGN_LEVEL_IDS) {
+      const parsed = parseLevelId(id);
+      expect(mapNodeTextureKey(id, true)).toBe(parsed.stage === 4 ? 'map-node-castle' : 'map-node');
+      expect(mapNodeTextureKey(id, false)).toBe(parsed.stage === 4 ? 'map-node-castle-locked' : 'map-node-locked');
+    }
+    for (const id of SECRET_LEVEL_IDS) {
+      expect(mapNodeTextureKey(id, true)).toBe('map-node-secret');
+      expect(mapNodeTextureKey(id, false)).toBe('map-node-secret');
+    }
   });
 });

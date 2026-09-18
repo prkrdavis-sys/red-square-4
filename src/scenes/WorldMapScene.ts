@@ -35,6 +35,7 @@ import {
   linkedDock,
   mapFooterTop,
   mapNodePositionForId,
+  mapNodeTextureKey,
   nearbyNode,
   quadBezier,
   secretStubEnd,
@@ -235,12 +236,15 @@ export class WorldMapScene extends Phaser.Scene {
     this.nodes.forEach((node) => {
       const unlocked = isUnlocked(node.id);
       const cleared = save.cleared.includes(node.id);
-      const img = this.add.image(node.x, node.y, this.nodeTexture(node, unlocked)).setDepth(10);
+      const img = this.add.image(node.x, node.y, mapNodeTextureKey(node.id, unlocked)).setDepth(10);
+      if (node.stage === 4) {
+        img.setScale(1.15);
+      }
       if (cleared && !node.secret && node.stage !== 4) {
         img.setTint(0x9be37a);
       }
       this.add
-        .text(node.x, node.y - (node.stage === 4 ? 22 : 0), node.id, {
+        .text(node.x, node.y - (node.stage === 4 ? 30 : 0), node.id, {
           ...textStyle('14px', unlocked ? '#222222' : '#888888'),
           strokeThickness: node.secret ? 3 : 0,
           color: node.secret ? '#3a1460' : unlocked ? '#222222' : '#888888',
@@ -273,16 +277,6 @@ export class WorldMapScene extends Phaser.Scene {
         }
       });
     });
-  }
-
-  private nodeTexture(node: NodeView, unlocked: boolean): string {
-    if (node.secret) {
-      return 'map-node-secret';
-    }
-    if (node.stage === 4) {
-      return unlocked ? 'map-node-castle' : 'map-node-castle-locked';
-    }
-    return unlocked ? 'map-node' : 'map-node-locked';
   }
 
   private buildHud(save: ReturnType<typeof loadSave>): void {

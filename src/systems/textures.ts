@@ -3067,18 +3067,46 @@ function drawLockedNode(scene: Phaser.Scene): void {
 
 function drawCastleNode(scene: Phaser.Scene, locked: boolean): void {
   const g = gfx(scene);
-  const ink = locked ? 0x111111 : 0x222222;
+  const ink = locked ? 0x111111 : 0x1a1210;
   const stone = locked ? 0x666666 : 0xc8b48a;
-  const roof = locked ? 0x4a4450 : 0x8a3038;
+  const stoneHi = locked ? 0x808080 : 0xe2d2a6;
+  const door = locked ? 0x2a2a2a : 0x3a1020;
+  const flag = locked ? 0x5a5460 : 0xe04040;
+  // Twin towers + keep so x-4 reads as a castle, not a circular course node.
   g.fillStyle(ink, 1);
-  g.fillRoundedRect(2, 10, 28, 20, 3);
+  g.fillRect(2, 12, 12, 26);
+  g.fillRect(26, 12, 12, 26);
+  g.fillRect(10, 18, 20, 20);
+  g.fillRect(2, 7, 5, 7);
+  g.fillRect(9, 7, 5, 7);
+  g.fillRect(26, 7, 5, 7);
+  g.fillRect(33, 7, 5, 7);
+  g.fillRect(14, 14, 5, 6);
+  g.fillRect(21, 14, 5, 6);
+  g.fillRect(6, 1, 3, 10);
   g.fillStyle(stone, 1);
-  g.fillRoundedRect(4, 12, 24, 16, 2);
-  g.fillStyle(roof, 1);
-  g.fillTriangle(4, 14, 16, 2, 28, 14);
-  g.fillStyle(locked ? 0x333333 : 0x3a1020, 1);
-  g.fillRect(13, 18, 6, 10);
-  commit(g, locked ? 'map-node-castle-locked' : 'map-node-castle', 32, 32);
+  g.fillRect(4, 14, 8, 22);
+  g.fillRect(28, 14, 8, 22);
+  g.fillRect(12, 20, 16, 16);
+  g.fillRect(3, 9, 3, 5);
+  g.fillRect(10, 9, 3, 5);
+  g.fillRect(27, 9, 3, 5);
+  g.fillRect(34, 9, 3, 5);
+  g.fillRect(15, 16, 3, 4);
+  g.fillRect(22, 16, 3, 4);
+  g.fillStyle(stoneHi, 1);
+  g.fillRect(5, 15, 3, 9);
+  g.fillRect(29, 15, 3, 9);
+  g.fillStyle(door, 1);
+  g.fillRect(17, 26, 6, 10);
+  g.fillRect(6, 18, 3, 4);
+  g.fillRect(31, 18, 3, 4);
+  g.fillRect(18, 22, 4, 3);
+  g.fillStyle(ink, 1);
+  g.fillRect(7, 1, 2, 9);
+  g.fillStyle(flag, 1);
+  g.fillTriangle(9, 2, 18, 5, 9, 8);
+  commit(g, locked ? 'map-node-castle-locked' : 'map-node-castle', 40, 40);
 }
 
 function drawSecretNode(scene: Phaser.Scene): void {

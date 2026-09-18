@@ -305,6 +305,18 @@ export function mapNodePositionForId(id: LevelId): MapPoint {
   return mapNodePosition(parsed.world, parsed.secret ? 3 : parsed.stage, parsed.secret);
 }
 
+/** World-boss courses (x-4) use a castle; secrets stay distinct; other stages stay circular. */
+export function mapNodeTextureKey(id: LevelId, unlocked: boolean): string {
+  const parsed = parseLevelId(id);
+  if (parsed.secret) {
+    return 'map-node-secret';
+  }
+  if (parsed.stage === 4) {
+    return unlocked ? 'map-node-castle' : 'map-node-castle-locked';
+  }
+  return unlocked ? 'map-node' : 'map-node-locked';
+}
+
 export function nearbyNode(x: number, y: number, ids: readonly LevelId[]): LevelId | undefined {
   let best: LevelId | undefined;
   let bestDist = MAP_NODE_RADIUS;
