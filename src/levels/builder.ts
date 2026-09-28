@@ -19,6 +19,7 @@ import {
   BR_FLOOR_FILL_KEY,
   BR_FLOOR_TOP_KEY,
 } from '../systems/backrooms-scenery';
+import { ensureLevelZeroTextures } from '../systems/backrooms-textures';
 import {
   arenaGateTileKey,
   arenaTileKey,
@@ -158,6 +159,9 @@ export function buildLevel(
   world: number,
   course: CompiledCourse,
 ): BuiltLevel {
+  if (theme === 'backrooms') {
+    ensureLevelZeroTextures(scene);
+  }
   const cols = rows[0]?.length ?? 0;
   const solids = scene.physics.add.staticGroup();
   const oneways = scene.physics.add.staticGroup();

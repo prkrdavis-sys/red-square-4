@@ -611,9 +611,20 @@ function drawMapNode(scene: Phaser.Scene): void {
   });
 }
 
+/** Boot-time art that shows up outside Level 0: the map node and the noclip tile in 1-2. */
 export function createBackroomsTextures(scene: Phaser.Scene): void {
   drawMapNode(scene);
   drawNoclipTiles(scene);
+}
+
+/**
+ * Level 0's own art is large (full-view wallpaper strips, grain, entity frames), so it is painted the
+ * first time the level is built rather than at boot, where it would push the title past the boot watchdog.
+ */
+export function ensureLevelZeroTextures(scene: Phaser.Scene): void {
+  if (scene.textures.exists(entityFrameKey('idle', 0))) {
+    return;
+  }
   drawEntityFrames(scene);
   drawEscapeTextures(scene);
   drawBackroomsScenery(scene);
