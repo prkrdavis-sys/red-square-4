@@ -51,7 +51,11 @@ export class BootScene extends Phaser.Scene {
       started = true;
       void Promise.all([saveReady, waitForUiFont()]).then(([save]) => {
         applySkin(this, save.equippedSkin);
-        this.scene.start('TitleScene');
+        // The main.ts watchdog stops this scene when it has already opened the title; starting it again
+        // would stack a second TitleScene (and its Enter handler) under whatever the player opened next.
+        if (this.scene.isActive()) {
+          this.scene.start('TitleScene');
+        }
         dismissBootSplash();
       });
     };

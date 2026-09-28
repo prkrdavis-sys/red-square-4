@@ -76,6 +76,7 @@ bindTouchGame(game);
 game.scale.on('resize', layoutHudPause);
 globalThis.setTimeout(() => {
   if (game.scene.isActive('BootScene') && !game.scene.isActive('TitleScene')) {
+    game.scene.stop('BootScene');
     game.scene.start('TitleScene');
   }
   dismissBootSplash();
