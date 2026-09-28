@@ -71,6 +71,7 @@ import { celebrateLevelClear, LEVEL_CLEAR_MENU_DELAY_MS, resetLevelClearCelebrat
 import { forgetFlak, rememberFlak, restoreFlak, setFlakGroup } from '../systems/flak';
 import { Foreground } from '../systems/foreground';
 import { selectMultiplayerTarget } from '../systems/multiplayer-targeting';
+import { BackroomsAtmosphere } from '../systems/backrooms-atmosphere';
 import { Parallax } from '../systems/parallax';
 import {
   classifyPlayerCollision,
@@ -231,6 +232,7 @@ export class PlayScene extends Phaser.Scene {
   private cameraTarget?: Phaser.GameObjects.Zone;
   private hudSpectating?: Phaser.GameObjects.Text;
   private groundedLastFrame = new Map<Player, boolean>();
+  private backroomsAtmosphere?: BackroomsAtmosphere;
 
   constructor() {
     super('PlayScene');
@@ -258,6 +260,7 @@ export class PlayScene extends Phaser.Scene {
     this.players = [];
     this.collisionCooldowns = {};
     this.groundedLastFrame = new Map();
+    this.backroomsAtmosphere = undefined;
   }
 
   create(): void {
@@ -289,6 +292,9 @@ export class PlayScene extends Phaser.Scene {
       this.localPlayer = hostPlayer;
     }
     this.parallax = new Parallax(this, def.theme);
+    if (def.course.chase) {
+      this.backroomsAtmosphere = new BackroomsAtmosphere(this, this.built.heightPx, def.course.chase, !this.fromDeath);
+    }
     this.foreground = new Foreground(this, def.theme, this.built.widthPx, def.world, def.stage);
     audio.playTheme(this, def.theme);
     this.special = new WorldSpecial(this, this.built, def.theme, def.course.special);
@@ -529,6 +535,7 @@ export class PlayScene extends Phaser.Scene {
   }
 
   update(_time: number, delta: number): void {
+    this.updateBackroomsAtmosphere();
     if (!this.paused && !this.controlsHintOpen) {
       this.cullFlak();
       if (this.canMutateWorld) {
@@ -669,6 +676,16 @@ export class PlayScene extends Phaser.Scene {
       skipControlsHint: true,
       ...extra,
     };
+  }
+
+  private updateBackroomsAtmosphere(): void {
+    if (!this.backroomsAtmosphere) {
+      return;
+    }
+    const entity = this.built.backroomsEntity;
+    const rear = this.rearmostLivingPlayer();
+    const gap = entity?.lethal && rear ? rear.x - entity.x : undefined;
+    this.backroomsAtmosphere.update(this.cameras.main.scrollX, gap);
   }
 
   /** The stalker hunts whoever is furthest behind. */

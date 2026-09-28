@@ -89,6 +89,16 @@ export function footstepLoudness(gapPx: number): number {
   return Math.min(1, Math.max(0.06, 1 - Math.abs(gapPx) / reach));
 }
 
+/** 0 when the stalker is far off or gone, rising to 1 as it closes to within two tiles. */
+export function dreadLevel(gapPx: number | undefined): number {
+  if (gapPx === undefined) {
+    return 0;
+  }
+  const near = TILE * 2;
+  const far = TILE * 14;
+  return Math.min(1, Math.max(0, (far - Math.abs(gapPx)) / (far - near)));
+}
+
 /**
  * Floor column `behind` tiles left of `fromTileX` for a respawned stalker, stepping
  * further back until it stands on open floor rather than over a pit or in a pillar.

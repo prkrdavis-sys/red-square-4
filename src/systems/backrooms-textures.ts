@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
 import { TILE } from '../config';
+import { drawBackroomsScenery } from './backrooms-scenery';
 import { paintCanvas, rgba, rng, type Ctx } from './canvas-paint';
 import { drawEscapeTextures } from './escape-textures';
 
@@ -9,7 +10,7 @@ export const NOCLIP_GLOW_KEY = 'noclip-glow';
 export const NOCLIP_SHARD_KEY = 'noclip-shard';
 
 /** Damp, mustard office carpet: mottled pile, loops of fibre and a few water stains. */
-export function paintCarpet(ctx: Ctx, x: number, y: number, w: number, h: number, seed: number): void {
+function paintCarpet(ctx: Ctx, x: number, y: number, w: number, h: number, seed: number): void {
   const rand = rng(seed);
   ctx.fillStyle = rgba(0xb09446);
   ctx.fillRect(x, y, w, h);
@@ -571,4 +572,5 @@ export function createBackroomsTextures(scene: Phaser.Scene): void {
   drawNoclipTiles(scene);
   drawEntityFrames(scene);
   drawEscapeTextures(scene);
+  drawBackroomsScenery(scene);
 }

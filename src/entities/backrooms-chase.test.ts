@@ -4,6 +4,7 @@ import { getLevel } from '../levels/worlds';
 import {
   chaseSpeed,
   climbLipX,
+  dreadLevel,
   ENTITY_BASE_RATIO,
   ENTITY_BOOST_RATIO,
   ENTITY_FAR_PX,
@@ -78,5 +79,12 @@ describe('stalker leaps and pits', () => {
     expect(footstepLoudness(TILE)).toBeGreaterThan(footstepLoudness(TILE * 10));
     expect(footstepLoudness(TILE * 100)).toBeGreaterThan(0);
     expect(footstepLoudness(0)).toBe(1);
+  });
+
+  it('builds dread as the gap closes and lets go once it is gone', () => {
+    expect(dreadLevel(undefined)).toBe(0);
+    expect(dreadLevel(TILE * 30)).toBe(0);
+    expect(dreadLevel(-TILE)).toBe(1);
+    expect(dreadLevel(TILE * 6)).toBeGreaterThan(dreadLevel(TILE * 10));
   });
 });

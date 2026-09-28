@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
 import { GAME_HEIGHT, GAME_WIDTH, type Theme } from '../config';
+import { BR_FAR_KEY, BR_NEAR_KEY, BR_VIEW_H } from './backrooms-scenery';
 import { cloudKey, ensureOceanPackTextures, farKey, hillKey, LANDSCAPE, mountainKey, skyKey } from './landscapes';
 
 interface ParallaxLayer {
@@ -178,6 +179,13 @@ export class Parallax {
 
   constructor(scene: Phaser.Scene, theme: Theme) {
     const layout = layoutFor(theme);
+    if (theme === 'backrooms') {
+      this.layers.push(
+        { image: addStrip(scene, 0, BR_VIEW_H, BR_FAR_KEY, -40, 1), factor: 0.18 },
+        { image: addStrip(scene, 0, BR_VIEW_H, BR_NEAR_KEY, -30, 1), factor: 0.5 },
+      );
+      return;
+    }
 
     if (theme === 'ocean' || theme === 'grass' || theme === 'desert' || theme === 'beach' || theme === 'rainy-city') {
       const skyFactor = theme === 'ocean' ? 0.05 : theme === 'desert' ? 0.03 : theme === 'rainy-city' ? 0.02 : 0.035;

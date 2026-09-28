@@ -12,6 +12,14 @@ import { Player } from '../entities/Player';
 import { SecretPortal } from '../entities/SecretPortal';
 import { TerrainHazard } from '../entities/TerrainHazard';
 import {
+  BR_BLOCK_KEY,
+  BR_BLOCK_TOP_KEY,
+  BR_CEILING_KEY,
+  BR_CEILING_LIGHT_KEY,
+  BR_FLOOR_FILL_KEY,
+  BR_FLOOR_TOP_KEY,
+} from '../systems/backrooms-scenery';
+import {
   arenaGateTileKey,
   arenaTileKey,
   arenaWallTileKey,
@@ -465,6 +473,9 @@ function physicsKey(scene: Phaser.Scene, theme: Theme, cell: string, kind: 'soli
   if (kind === 'oneway') {
     return pickTile(scene, onewayTileKey(theme), `kenney-${theme}-oneway`);
   }
+  if (theme === 'backrooms') {
+    return BR_BLOCK_KEY;
+  }
   switch (cell) {
     case '@':
       return arenaTileKey(theme);
@@ -477,7 +488,27 @@ function physicsKey(scene: Phaser.Scene, theme: Theme, cell: string, kind: 'soli
   }
 }
 
+/** Carpet and subfloor on the ground, wallpapered pillars, drop ceiling on hanging blocks. */
+function backroomsTile(rows: string[], x: number, y: number): string {
+  const exposed = isExposedTileTop(rows, x, y);
+  if (y >= GROUND_Y) {
+    return exposed ? BR_FLOOR_TOP_KEY : BR_FLOOR_FILL_KEY;
+  }
+  let fromCeiling = true;
+  for (let above = 0; above < y; above += 1) {
+    fromCeiling &&= rows[above]?.[x] === '#';
+  }
+  if (fromCeiling && rows[0]?.[x] === '#') {
+    const underside = rows[y + 1]?.[x] !== '#';
+    return underside && x % 3 === 1 ? BR_CEILING_LIGHT_KEY : BR_CEILING_KEY;
+  }
+  return exposed ? BR_BLOCK_TOP_KEY : BR_BLOCK_KEY;
+}
+
 function lookTile(scene: Phaser.Scene, theme: Theme, rows: string[], x: number, y: number): string {
+  if (theme === 'backrooms') {
+    return backroomsTile(rows, x, y);
+  }
   if (!isExposedTileTop(rows, x, y)) {
     return fillTileKey(theme);
   }
