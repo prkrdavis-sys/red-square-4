@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { THEMES, enemiesForWorld, type Theme } from '../config';
+import { ALL_THEMES, enemiesForWorld, type Theme } from '../config';
 import {
   boomerangHomeVelocity,
   bubbleSpreadOffsets,
@@ -18,11 +18,12 @@ const STYLE_BY_THEME: Record<Theme, ProjectileStyle> = {
   rainforest: 'boomerang',
   beach: 'starfish',
   'rainy-city': 'water-balloon',
+  backrooms: 'thorn',
 };
 
 describe('projectile styles', () => {
   it('maps every theme to its world projectile', () => {
-    for (const theme of THEMES) {
+    for (const theme of ALL_THEMES) {
       expect(projectileStyleForTheme(theme)).toBe(STYLE_BY_THEME[theme]);
     }
   });

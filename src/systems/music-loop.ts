@@ -9,6 +9,7 @@ export const RECORDED_THEME_URLS: Record<Theme, string> = {
   rainforest: 'assets/audio/rainforest-overworld.mp3',
   beach: 'assets/audio/grass-overworld.mp3',
   'rainy-city': '',
+  backrooms: '',
 };
 
 export const LOOP_FADE_SECONDS = 2.5;
@@ -31,6 +32,8 @@ export function recordedThemeUrl(theme: Theme): string {
       return RECORDED_THEME_URLS.grass;
     case 'rainy-city':
       return RECORDED_THEME_URLS['rainy-city'];
+    case 'backrooms':
+      return RECORDED_THEME_URLS.backrooms;
     default: {
       const neverTheme: never = theme;
       return neverTheme;

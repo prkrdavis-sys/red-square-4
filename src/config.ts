@@ -34,9 +34,22 @@ export const START_LIVES = 3;
 export const MINI_BOSS_HP = 3;
 export const WORLD_BOSS_HP = 5;
 
-export type Theme = 'grass' | 'snow' | 'desert' | 'ocean' | 'castle' | 'rainforest' | 'beach' | 'rainy-city';
+export type Theme =
+  | 'grass'
+  | 'snow'
+  | 'desert'
+  | 'ocean'
+  | 'castle'
+  | 'rainforest'
+  | 'beach'
+  | 'rainy-city'
+  | 'backrooms';
 
+/** One theme per overworld island, in world order. The hidden Backrooms is not an island. */
 export const THEMES: Theme[] = ['grass', 'snow', 'desert', 'ocean', 'castle', 'rainforest', 'beach', 'rainy-city'];
+
+/** Every playable theme, including hidden ones, for texture and audio generation. */
+export const ALL_THEMES: Theme[] = [...THEMES, 'backrooms'];
 
 export type BossKind = 'piranha' | 'walrus' | 'scorpion' | 'fish' | 'gargoyle' | 'howler' | 'crab' | 'sewer-croc';
 
@@ -91,7 +104,8 @@ export type SpecialKind =
   | 'shadow-blink'
   | 'liana-swing'
   | 'tide-wall'
-  | 'lightning-pulse';
+  | 'lightning-pulse'
+  | 'almond-water';
 
 export type PuzzleKind =
   | 'vine-bed'
@@ -123,6 +137,8 @@ export function specialForTheme(theme: Theme): SpecialKind {
       return 'tide-wall';
     case 'rainy-city':
       return 'lightning-pulse';
+    case 'backrooms':
+      return 'almond-water';
     default: {
       const neverTheme: never = theme;
       return neverTheme;
@@ -148,6 +164,9 @@ export function puzzleForTheme(theme: Theme): PuzzleKind {
       return 'driftwood-wall';
     case 'rainy-city':
       return 'blackout-gate';
+    // Level 0 is compiled without puzzles or traps; grass kinds only keep this total.
+    case 'backrooms':
+      return 'vine-bed';
     default: {
       const neverTheme: never = theme;
       return neverTheme;
@@ -244,6 +263,8 @@ export function hazardForTheme(theme: Theme): TerrainHazardKind {
       return 'urchin-ball';
     case 'rainy-city':
       return 'power-box';
+    case 'backrooms':
+      return 'bramble-vent';
     default: {
       const neverTheme: never = theme;
       return neverTheme;
@@ -287,7 +308,10 @@ export type CampaignLevelId =
 
 export type SecretLevelId = '1-?' | '2-?' | '3-?' | '4-?' | '5-?' | '6-?';
 
-export type LevelId = CampaignLevelId | SecretLevelId;
+/** The hidden Backrooms ("Level 0"), reached by noclipping through a floor tile in 1-2. */
+export type BackroomsLevelId = '0-0';
+
+export type LevelId = CampaignLevelId | SecretLevelId | BackroomsLevelId;
 
 export interface ThemePhysics {
   accel: number;
@@ -315,6 +339,8 @@ export function themeSky(theme: Theme): number {
       return 0x5eb8fc;
     case 'rainy-city':
       return 0x111a32;
+    case 'backrooms':
+      return 0xc9b458;
     default: {
       const neverTheme: never = theme;
       return neverTheme;
@@ -356,6 +382,10 @@ export function themePhysics(theme: Theme): ThemePhysics {
       const gravity = 1850;
       return { accel: 1800, maxSpeed: 310, groundDrag: 1250, gravity, jump: launchVelocity(gravity, JUMP_HEIGHT_TILES) };
     }
+    case 'backrooms': {
+      const gravity = 1800;
+      return { accel: 1800, maxSpeed: 280, groundDrag: 1800, gravity, jump: launchVelocity(gravity, JUMP_HEIGHT_TILES) };
+    }
     default: {
       const neverTheme: never = theme;
       return neverTheme;
@@ -381,6 +411,8 @@ export function themeName(theme: Theme): string {
       return 'Sunny Shore';
     case 'rainy-city':
       return 'Neon Downpour';
+    case 'backrooms':
+      return 'The Backrooms';
     default: {
       const neverTheme: never = theme;
       return neverTheme;
@@ -412,6 +444,9 @@ export function worldBossKind(world: number): BossKind {
 }
 
 export function parseLevelId(id: LevelId): { world: number; stage: number; secret: boolean } {
+  if (isBackroomsLevel(id)) {
+    return { world: 0, stage: 0, secret: true };
+  }
   const [worldRaw, stageRaw] = id.split('-');
   const world = Number(worldRaw);
   if (stageRaw === '?') {
@@ -457,10 +492,24 @@ export const CAMPAIGN_LEVEL_IDS: CampaignLevelId[] = [
 
 export const SECRET_LEVEL_IDS: SecretLevelId[] = ['1-?', '2-?', '3-?', '4-?', '5-?', '6-?'];
 
-export const ALL_LEVEL_IDS: LevelId[] = [...CAMPAIGN_LEVEL_IDS, ...SECRET_LEVEL_IDS];
+export const BACKROOMS_LEVEL_ID: BackroomsLevelId = '0-0';
+
+/** Campaign course that hides the noclip tile into the Backrooms. */
+export const BACKROOMS_HOST_LEVEL: CampaignLevelId = '1-2';
+
+export const ALL_LEVEL_IDS: LevelId[] = [...CAMPAIGN_LEVEL_IDS, ...SECRET_LEVEL_IDS, BACKROOMS_LEVEL_ID];
 
 export function isSecretLevel(id: LevelId): id is SecretLevelId {
   return (SECRET_LEVEL_IDS as readonly string[]).includes(id);
+}
+
+export function isBackroomsLevel(id: LevelId): id is BackroomsLevelId {
+  return id === BACKROOMS_LEVEL_ID;
+}
+
+/** Off-campaign courses: clearing one never unlocks a next stage. */
+export function isHiddenLevel(id: LevelId): id is SecretLevelId | BackroomsLevelId {
+  return isSecretLevel(id) || isBackroomsLevel(id);
 }
 
 export function secretLevelId(world: number): SecretLevelId {

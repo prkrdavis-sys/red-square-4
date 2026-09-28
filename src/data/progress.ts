@@ -1,4 +1,12 @@
-import { ALL_LEVEL_IDS, CAMPAIGN_LEVEL_IDS, isSecretLevel, parseLevelId, type LevelId } from '../config';
+import {
+  ALL_LEVEL_IDS,
+  BACKROOMS_LEVEL_ID,
+  CAMPAIGN_LEVEL_IDS,
+  isHiddenLevel,
+  isSecretLevel,
+  parseLevelId,
+  type LevelId,
+} from '../config';
 import { persistReadClient, persistWriteClient } from './persist';
 import {
   DEFAULT_SKIN_ID,
@@ -71,7 +79,7 @@ function furtherLevel(a: LevelId, b: LevelId): LevelId {
 }
 
 export function nextLevelId(id: LevelId): LevelId | undefined {
-  if (isSecretLevel(id)) {
+  if (isHiddenLevel(id)) {
     return undefined;
   }
   const index = CAMPAIGN_LEVEL_IDS.indexOf(id);
@@ -369,6 +377,17 @@ export function unlockSecretLevel(id: LevelId): SaveData {
     save.unlocked.push(id);
   }
   save.lastPlayed = id;
+  writeSave(save);
+  return save;
+}
+
+/** Discovering the noclip tile opens Level 0 and its spur on the world map. */
+export function unlockBackrooms(): SaveData {
+  const save = loadSave();
+  if (!save.unlocked.includes(BACKROOMS_LEVEL_ID)) {
+    save.unlocked.push(BACKROOMS_LEVEL_ID);
+  }
+  save.lastPlayed = BACKROOMS_LEVEL_ID;
   writeSave(save);
   return save;
 }

@@ -34,6 +34,8 @@ function layoutFor(theme: Theme): BackdropLayout {
       return { cloudY: 6, farY: 122, mountainY: 168, groundY, cloudAlpha: 0.94 };
     case 'rainy-city':
       return { cloudY: 10, farY: 132, mountainY: 186, groundY, cloudAlpha: 0.42 };
+    case 'backrooms':
+      return { cloudY: 0, farY: 96, mountainY: 150, groundY, cloudAlpha: 0 };
     default: {
       const neverTheme: never = theme;
       return neverTheme;
@@ -151,6 +153,8 @@ function addSun(scene: Phaser.Scene, theme: Theme): void {
     case 'rainy-city':
       scene.add.circle(1080, 78, 26, 0xd8e8ff, 0.55).setScrollFactor(0).setDepth(-48);
       scene.add.circle(1088, 74, 8, 0x1a2438, 0.28).setScrollFactor(0).setDepth(-47);
+      break;
+    case 'backrooms':
       break;
     default: {
       const neverTheme: never = theme;

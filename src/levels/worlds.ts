@@ -1,4 +1,5 @@
 import {
+  isBackroomsLevel,
   JUMP_HEIGHT_TILES,
   launchVelocity,
   parseLevelId,
@@ -2113,6 +2114,7 @@ const COURSES: Record<LevelId, CompiledCourse> = {
     traps: [44, 94, 174, 210, 244],
     boss: 320,
   }),
+  '0-0': compileCourse(1, 1, { width: 60 }, 'backrooms'),
 };
 
 const NAMES: Record<LevelId, string> = {
@@ -2154,11 +2156,12 @@ const NAMES: Record<LevelId, string> = {
   '4-?': 'Pressure Vault',
   '5-?': 'Umbral Spire',
   '6-?': 'Howler Hollow',
+  '0-0': 'Level 0',
 };
 
 export function getLevel(id: LevelId): LevelDef {
   const { world, stage, secret } = parseLevelId(id);
-  const theme = worldTheme(world);
+  const theme = isBackroomsLevel(id) ? 'backrooms' : worldTheme(world);
   const compiled = COURSES[id];
   return {
     id,

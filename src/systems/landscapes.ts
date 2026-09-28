@@ -177,6 +177,21 @@ function palette(theme: Theme): LandscapePalette {
         groundShade: 0x09111f,
         groundTop: 0x40516e,
       };
+    case 'backrooms':
+      return {
+        skyTop: 0xb8a44a,
+        skyHorizon: 0xd8c870,
+        cloud: 0xfff8d8,
+        cloudShade: 0xd8c880,
+        far: 0xa89440,
+        farCap: 0xc9b458,
+        mountain: 0x8a7a32,
+        mountainShade: 0x6a5c22,
+        cap: 0xe8d890,
+        ground: 0x7a6a28,
+        groundShade: 0x5a4c1c,
+        groundTop: 0x9a8a3a,
+      };
     default: {
       const neverTheme: never = theme;
       return neverTheme;
@@ -2695,6 +2710,8 @@ function cloudPlan(theme: Theme): { x: number; y: number; s: number }[] {
         { x: 1840, y: 74, s: 1.48 },
         { x: 2300, y: 96, s: 1.3 },
       ];
+    case 'backrooms':
+      return [];
     default: {
       const neverTheme: never = theme;
       return neverTheme;
@@ -3033,6 +3050,8 @@ export function hillKey(theme: Theme): string {
       return 'hill-beach';
     case 'rainy-city':
       return 'hill-rainy-city';
+    case 'backrooms':
+      return 'hill-backrooms';
     default: {
       const neverTheme: never = theme;
       return neverTheme;
@@ -3058,6 +3077,8 @@ export function mountainKey(theme: Theme): string {
       return 'mtn-beach';
     case 'rainy-city':
       return 'mtn-rainy-city';
+    case 'backrooms':
+      return 'mtn-backrooms';
     default: {
       const neverTheme: never = theme;
       return neverTheme;

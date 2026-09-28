@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { THEMES, specialForTheme, type SpecialKind } from '../config';
+import { ALL_THEMES, specialForTheme, type SpecialKind } from '../config';
 import { specialDescription, specialLabel } from './special-copy';
 
 const COPY: Record<SpecialKind, { label: string; description: string }> = {
@@ -11,11 +11,12 @@ const COPY: Record<SpecialKind, { label: string; description: string }> = {
   'liana-swing': { label: 'Swing', description: 'Grab a vine and swing forward.' },
   'tide-wall': { label: 'Tide', description: 'Send a short-lived wave you can stand on.' },
   'lightning-pulse': { label: 'Lightning', description: 'Call lightning to power gates and short out nearby threats.' },
+  'almond-water': { label: 'Almond Water', description: 'Take a sip for a short burst of speed.' },
 };
 
 describe('world special copy', () => {
   it('names and describes every biome special', () => {
-    for (const theme of THEMES) {
+    for (const theme of ALL_THEMES) {
       const kind = specialForTheme(theme);
       expect(specialLabel(kind)).toBe(COPY[kind].label);
       expect(specialDescription(kind)).toBe(COPY[kind].description);

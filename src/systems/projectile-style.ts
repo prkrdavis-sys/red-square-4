@@ -41,6 +41,8 @@ export function projectileStyleForTheme(theme: Theme): ProjectileStyle {
       return 'starfish';
     case 'rainy-city':
       return 'water-balloon';
+    case 'backrooms':
+      return 'thorn';
     default: {
       const neverTheme: never = theme;
       return neverTheme;

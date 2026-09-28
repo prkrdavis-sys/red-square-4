@@ -20,6 +20,7 @@ const COOLDOWNS: Record<SpecialKind, number> = {
   'liana-swing': 1000,
   'tide-wall': 1100,
   'lightning-pulse': 1250,
+  'almond-water': 2600,
 };
 
 export class WorldSpecial {
@@ -86,6 +87,9 @@ export class WorldSpecial {
         break;
       case 'lightning-pulse':
         this.lightningPulse(player, direction);
+        break;
+      case 'almond-water':
+        this.almondWater(player, direction);
         break;
       default: {
         const neverKind: never = this.kind;
@@ -312,6 +316,23 @@ export class WorldSpecial {
       duration: 260,
       onComplete: () => bolt.destroy(),
     });
+  }
+
+  private almondWater(player: Player, direction: number): void {
+    player.burstSpeed(430, 900);
+    player.arcadeBody.setVelocityX(direction * 420);
+    player.flashTint(0xf4ecc8, 600);
+    for (let i = 0; i < 6; i += 1) {
+      const drop = this.scene.add.circle(player.x, player.y - 20, 3, 0xf4ecc8, 0.9).setDepth(22);
+      this.scene.tweens.add({
+        targets: drop,
+        x: drop.x + Phaser.Math.Between(-26, 26),
+        y: drop.y - Phaser.Math.Between(18, 40),
+        alpha: 0,
+        duration: 420 + i * 40,
+        onComplete: () => drop.destroy(),
+      });
+    }
   }
 
   private spawnThemedPlatform(

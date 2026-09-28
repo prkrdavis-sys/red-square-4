@@ -841,6 +841,7 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
         break;
       }
       case 'triple-jump':
+      case 'none':
         break;
       default: {
         const neverMode: never = mode;

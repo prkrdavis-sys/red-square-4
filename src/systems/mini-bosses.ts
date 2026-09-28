@@ -485,6 +485,8 @@ function drawTheme(
     case 'rainy-city':
       drawRainyCity(g, variant, pose);
       return;
+    case 'backrooms':
+      return;
     default: {
       const neverTheme: never = theme;
       return neverTheme;

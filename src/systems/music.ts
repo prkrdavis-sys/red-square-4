@@ -25,6 +25,8 @@ interface Song {
   pulse2: PulseSpec;
   bass: { gain: number; notes: string };
   drums: string;
+  /** Mains hum; keep `hz * loop seconds` whole so the loop stays seamless. */
+  hum?: { hz: number; gain: number };
 }
 
 const PITCH_CLASS: Record<string, number> = {
@@ -313,6 +315,19 @@ function addDrums(data: Float32Array, sr: number, pattern: string, bpm: number):
   }
 }
 
+function addHum(data: Float32Array, sr: number, loopSamples: number, hz: number, gain: number): void {
+  const loopSec = loopSamples / sr;
+  for (let i = 0; i < loopSamples; i += 1) {
+    const t = i / sr;
+    const swell = 0.75 + 0.25 * Math.sin((2 * Math.PI * 2 * t) / loopSec);
+    const tone =
+      Math.sin(2 * Math.PI * hz * t) * 0.6 +
+      Math.sin(2 * Math.PI * hz * 2 * t) * 0.3 +
+      Math.sin(2 * Math.PI * hz * 3 * t) * 0.1;
+    data[i] = (data[i] ?? 0) + tone * gain * swell;
+  }
+}
+
 function lowpass(data: Float32Array, sr: number, hz: number): void {
   const rc = 1 / (2 * Math.PI * hz);
   const a = 1 / sr / (rc + 1 / sr);
@@ -351,6 +366,9 @@ function renderSong(context: AudioContext, song: Song): AudioBuffer {
     for (let i = delay; i < data.length; i += 1) {
       data[i] = (data[i] ?? 0) + (data[i - delay] ?? 0) * song.echoMix;
     }
+  }
+  if (song.hum) {
+    addHum(data, sr, loopSamples, song.hum.hz, song.hum.gain);
   }
   lowpass(data, sr, song.filterHz);
   foldTail(data, loopSamples);
@@ -798,6 +816,32 @@ const NEON_DOWNPOUR: Song = {
   bass: { ...CASTLE.bass, gain: 0.12 },
 };
 
+const BACKROOMS: Song = {
+  bpm: 72,
+  length: 64,
+  filterHz: 1500,
+  echoMs: 460,
+  echoMix: 0.42,
+  pulse1: {
+    duty: 0.125,
+    gain: 0.05,
+    vibrato: 0.02,
+    notes: 'r/16 B4/8 F5/8 r/16 r/8 C5/4 F#5/4',
+  },
+  pulse2: {
+    duty: 0.5,
+    gain: 0.022,
+    vibrato: 0.004,
+    notes: 'B3/32 F4/32',
+  },
+  bass: {
+    gain: 0.09,
+    notes: 'B1/32 B1/24 C2/8',
+  },
+  drums: drums('k---------------', '----------------', '--------k-------', '------------t---'),
+  hum: { hz: 60, gain: 0.05 },
+};
+
 const SONGS: Record<Theme, Song> = {
   grass: GRASS,
   snow: SNOW,
@@ -807,6 +851,7 @@ const SONGS: Record<Theme, Song> = {
   rainforest: RAINFOREST,
   beach: BEACH,
   'rainy-city': NEON_DOWNPOUR,
+  backrooms: BACKROOMS,
 };
 
 const buffers = new WeakMap<AudioContext, Map<Theme, AudioBuffer>>();
