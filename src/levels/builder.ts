@@ -1,5 +1,7 @@
 import Phaser from 'phaser';
 import { GROUND_Y, MAP_ROWS, MINI_BOSS_HP, TILE, WORLD_BOSS_HP, secretBossName, type Theme } from '../config';
+import { BackroomsEntity } from '../entities/BackroomsEntity';
+import { respawnColumn } from '../entities/backrooms-chase';
 import { Baddie } from '../entities/Baddie';
 import { Boss } from '../entities/Boss';
 import { MovingPlatform } from '../entities/MovingPlatform';
@@ -52,6 +54,7 @@ export interface BuiltLevel {
   worldBoss: Boss | undefined;
   secretPortal: SecretPortal | undefined;
   noclipTile: NoclipTile | undefined;
+  backroomsEntity: BackroomsEntity | undefined;
   arena: ArenaKeep | undefined;
   bossFences: Phaser.GameObjects.Rectangle[];
 }
@@ -296,6 +299,9 @@ export function buildLevel(
     );
   }
   const noclipTile = course.noclipTile === undefined ? undefined : new NoclipTile(scene, course.noclipTile);
+  const backroomsEntity = course.chase
+    ? new BackroomsEntity(scene, respawnColumn(rows, Math.floor(player.x / TILE)), rows, course.chase)
+    : undefined;
 
   const heightPx = MAP_ROWS * TILE;
   const boss = worldBoss ?? miniBoss;
@@ -332,6 +338,7 @@ export function buildLevel(
     worldBoss,
     secretPortal,
     noclipTile,
+    backroomsEntity,
     arena,
     bossFences,
   };

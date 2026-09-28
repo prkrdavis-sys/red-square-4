@@ -6,9 +6,11 @@ import {
   START_LIVES,
   TILE,
   enemyThreatensTile,
+  isBackroomsLevel,
   isSecretLevel,
   parseLevelId,
   secretLevelId,
+  themePhysics,
   themeSky,
   type EnemyKind,
   type LevelId,
@@ -32,6 +34,8 @@ import {
 } from '../data/progress';
 import { applySettings, maybeShake } from '../data/settings';
 import { isBossRewardSkin, skinForLevel, type SkinDef } from '../data/skins';
+import type { BackroomsEntity } from '../entities/BackroomsEntity';
+import { ENTITY_INTRO_MS, respawnColumn } from '../entities/backrooms-chase';
 import { Baddie } from '../entities/Baddie';
 import { Boss } from '../entities/Boss';
 import { Coin } from '../entities/Coin';
@@ -290,6 +294,10 @@ export class PlayScene extends Phaser.Scene {
       this.players.forEach((player, index) => player.setPosition(savedCheckpoint.x + index * 48, savedCheckpoint.y));
       this.armSavedCheckpoint(savedCheckpoint);
     }
+    if (isBackroomsLevel(this.levelId) && !this.fromDeath) {
+      this.players.forEach((player) => player.setY(-TILE));
+      this.cameras.main.flash(700, 244, 236, 200);
+    }
 
     this.physics.world.setBounds(0, 0, this.built.widthPx, this.built.heightPx + 400);
     this.physics.world.TILE_BIAS = TILE;
@@ -361,6 +369,9 @@ export class PlayScene extends Phaser.Scene {
     }
     if (this.players.length === 2) {
       this.physics.add.collider(this.players[0], this.players[1], () => this.onPlayersCollide());
+    }
+    if (this.built.backroomsEntity) {
+      this.bindBackroomsEntity(this.built.backroomsEntity, def.rows, hostPlayer.x);
     }
 
     this.cameraTarget = this.add.zone(hostPlayer.x, hostPlayer.y, 2, 2);
@@ -474,6 +485,10 @@ export class PlayScene extends Phaser.Scene {
     }
 
     this.createHud(def.name);
+    if (isBackroomsLevel(this.levelId)) {
+      this.hudCollectibles.setVisible(false);
+      this.hudShield.setVisible(false);
+    }
     this.createPauseOverlay();
     this.bindKeys();
     setHudPauseHandler(() => {
@@ -587,6 +602,7 @@ export class PlayScene extends Phaser.Scene {
       this.tickBoss(miniBoss, bossTarget);
       this.tickBoss(worldBoss, bossTarget);
     }
+    this.built.backroomsEntity?.tick(this.rearmostLivingPlayer(), themePhysics(def.theme).maxSpeed);
 
     if (this.canMutateWorld) {
       for (const player of this.livingPlayers()) {
@@ -649,6 +665,50 @@ export class PlayScene extends Phaser.Scene {
       skipControlsHint: true,
       ...extra,
     };
+  }
+
+  /** The stalker hunts whoever is furthest behind. */
+  private rearmostLivingPlayer(): Player | undefined {
+    return this.livingPlayers().reduce<Player | undefined>(
+      (rear, player) => (!rear || player.x < rear.x ? player : rear),
+      undefined,
+    );
+  }
+
+  private bindBackroomsEntity(entity: BackroomsEntity, rows: readonly string[], spawnX: number): void {
+    entity.placeAt(respawnColumn(rows, Math.floor(spawnX / TILE)), ENTITY_INTRO_MS);
+    this.physics.add.collider(entity, this.built.solids);
+    for (const player of this.players) {
+      this.physics.add.overlap(player, entity, () => {
+        if (entity.lethal) {
+          this.killPlayer('baddie', player);
+        }
+      });
+    }
+    entity.on('wake', () => this.showBackroomsCaption('run.'));
+    entity.on('emerge', () => maybeShake(this, 160, 0.004));
+  }
+
+  private showBackroomsCaption(text: string): void {
+    const caption = this.add
+      .text(GAME_WIDTH / 2, GAME_HEIGHT * 0.3, text, {
+        ...textStyle('56px', '#f4ecc8'),
+        stroke: '#1a1408',
+        strokeThickness: 8,
+      })
+      .setOrigin(0.5)
+      .setScrollFactor(0)
+      .setDepth(60)
+      .setResolution(2)
+      .setAlpha(0);
+    this.tweens.chain({
+      targets: caption,
+      tweens: [
+        { alpha: 1, scale: { from: 1.3, to: 1 }, duration: 180, ease: 'Quad.easeOut' },
+        { alpha: 0, delay: 1100, duration: 500 },
+      ],
+      onComplete: () => caption.destroy(),
+    });
   }
 
   private closestLivingPlayer(x: number): Player | undefined {
@@ -1436,6 +1496,7 @@ export class PlayScene extends Phaser.Scene {
     }
     this.completing = true;
     this.syncTouchHud();
+    this.built.backroomsEntity?.halt();
     session.lives -= 1;
     audio.play(this, 'hurt');
     player.die(() => {
