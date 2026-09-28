@@ -1,43 +1,15 @@
 import Phaser from 'phaser';
 import { TILE } from '../config';
+import { paintCanvas, rgba, rng, type Ctx } from './canvas-paint';
+import { drawEscapeTextures } from './escape-textures';
 
 export const NOCLIP_TILE_KEY = 'noclip-tile';
 export const NOCLIP_TILE_GLITCH_KEY = 'noclip-tile-glitch';
 export const NOCLIP_GLOW_KEY = 'noclip-glow';
 export const NOCLIP_SHARD_KEY = 'noclip-shard';
 
-type Ctx = CanvasRenderingContext2D;
-
-function paintCanvas(scene: Phaser.Scene, key: string, w: number, h: number, paint: (ctx: Ctx) => void): void {
-  if (scene.textures.exists(key)) {
-    scene.textures.remove(key);
-  }
-  const texture = scene.textures.createCanvas(key, w, h);
-  if (!texture) {
-    return;
-  }
-  paint(texture.getContext());
-  texture.refresh();
-}
-
-/** Deterministic noise so every boot paints the same carpet. */
-function rng(seed: number): () => number {
-  let state = seed >>> 0;
-  return () => {
-    state = (state + 0x6d2b79f5) >>> 0;
-    let t = state;
-    t = Math.imul(t ^ (t >>> 15), t | 1);
-    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
-    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-  };
-}
-
-function rgba(color: number, alpha = 1): string {
-  return `rgba(${(color >> 16) & 0xff},${(color >> 8) & 0xff},${color & 0xff},${alpha})`;
-}
-
 /** Damp, mustard office carpet: mottled pile, loops of fibre and a few water stains. */
-function paintCarpet(ctx: Ctx, x: number, y: number, w: number, h: number, seed: number): void {
+export function paintCarpet(ctx: Ctx, x: number, y: number, w: number, h: number, seed: number): void {
   const rand = rng(seed);
   ctx.fillStyle = rgba(0xb09446);
   ctx.fillRect(x, y, w, h);
@@ -598,4 +570,5 @@ function drawEntityFrames(scene: Phaser.Scene): void {
 export function createBackroomsTextures(scene: Phaser.Scene): void {
   drawNoclipTiles(scene);
   drawEntityFrames(scene);
+  drawEscapeTextures(scene);
 }

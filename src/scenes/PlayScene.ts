@@ -7,7 +7,7 @@ import {
   TILE,
   enemyThreatensTile,
   isBackroomsLevel,
-  isSecretLevel,
+  isHiddenLevel,
   parseLevelId,
   secretLevelId,
   themePhysics,
@@ -39,6 +39,8 @@ import { ENTITY_INTRO_MS, respawnColumn } from '../entities/backrooms-chase';
 import { Baddie } from '../entities/Baddie';
 import { Boss } from '../entities/Boss';
 import { Coin } from '../entities/Coin';
+import { canPressConsole } from '../entities/escape-console';
+import type { EscapeConsole } from '../entities/EscapeConsole';
 import { shouldDropCoin } from '../systems/coin-drop';
 import { isFallingStomp, stompBox } from '../entities/boss-combat';
 import { EnemyProjectile } from '../entities/EnemyProjectile';
@@ -93,6 +95,7 @@ import {
   type SpecialMeter,
 } from '../systems/special-meter';
 import { getTouchState, hideTouchControls, showTouchControls } from '../systems/touch-controls';
+import { playAbduction } from '../systems/ufo-abduction';
 import { skinThumbKey } from '../systems/textures';
 import { showBossFightBanner } from '../ui/boss-fight';
 import { showControlsHint } from '../ui/controls-hint';
@@ -603,6 +606,7 @@ export class PlayScene extends Phaser.Scene {
       this.tickBoss(worldBoss, bossTarget);
     }
     this.built.backroomsEntity?.tick(this.rearmostLivingPlayer(), themePhysics(def.theme).maxSpeed);
+    this.checkEscapeConsole();
 
     if (this.canMutateWorld) {
       for (const player of this.livingPlayers()) {
@@ -687,6 +691,41 @@ export class PlayScene extends Phaser.Scene {
     }
     entity.on('wake', () => this.showBackroomsCaption('run.'));
     entity.on('emerge', () => maybeShake(this, 160, 0.004));
+    entity.on('gone', () => {
+      this.built.escapeConsole?.arm();
+      this.showBackroomsCaption('it is gone. press the button.');
+    });
+  }
+
+  private checkEscapeConsole(): void {
+    const escape = this.built.escapeConsole;
+    if (!escape || !this.canMutateWorld || this.completing) {
+      return;
+    }
+    const entityGone = this.built.backroomsEntity?.isGone ?? true;
+    const traveler = this.livingPlayers().find((player) =>
+      canPressConsole(escape.x, player.x, player.arcadeBody.blocked.down, entityGone),
+    );
+    if (traveler) {
+      this.escapeBackrooms(escape, traveler);
+    }
+  }
+
+  private escapeBackrooms(escape: EscapeConsole, traveler: Player): void {
+    this.completing = true;
+    this.syncTouchHud();
+    this.players.forEach((player) => player.freeze());
+    traveler.setFlipX(false);
+    escape.press(() => {
+      playAbduction(this, traveler, () => {
+        markCleared(this.levelId);
+        this.runtime?.sendLevelComplete(
+          this.levelId,
+          `${this.link?.localPlayerId ?? 'solo'}:${this.levelId}:${Date.now()}`,
+        );
+        this.showCompleteMenu('LEVEL 0 ESCAPED!');
+      });
+    });
   }
 
   private showBackroomsCaption(text: string): void {
@@ -1881,7 +1920,7 @@ export class PlayScene extends Phaser.Scene {
     this.physics.world.isPaused = true;
     audio.setMusicDuck(0.42);
 
-    const next = isSecretLevel(this.levelId) ? undefined : nextLevelId(this.levelId);
+    const next = isHiddenLevel(this.levelId) ? undefined : nextLevelId(this.levelId);
     const items: Array<{ label: string; action: () => void }> = [];
     if (next && this.canMutateWorld) {
       items.push({

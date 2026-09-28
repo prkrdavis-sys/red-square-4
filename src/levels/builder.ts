@@ -4,6 +4,7 @@ import { BackroomsEntity } from '../entities/BackroomsEntity';
 import { respawnColumn } from '../entities/backrooms-chase';
 import { Baddie } from '../entities/Baddie';
 import { Boss } from '../entities/Boss';
+import { EscapeConsole } from '../entities/EscapeConsole';
 import { MovingPlatform } from '../entities/MovingPlatform';
 import { NoclipTile } from '../entities/NoclipTile';
 import { Star } from '../entities/Star';
@@ -55,6 +56,7 @@ export interface BuiltLevel {
   secretPortal: SecretPortal | undefined;
   noclipTile: NoclipTile | undefined;
   backroomsEntity: BackroomsEntity | undefined;
+  escapeConsole: EscapeConsole | undefined;
   arena: ArenaKeep | undefined;
   bossFences: Phaser.GameObjects.Rectangle[];
 }
@@ -302,6 +304,7 @@ export function buildLevel(
   const backroomsEntity = course.chase
     ? new BackroomsEntity(scene, respawnColumn(rows, Math.floor(player.x / TILE)), rows, course.chase)
     : undefined;
+  const escapeConsole = course.chase ? new EscapeConsole(scene, course.chase.console) : undefined;
 
   const heightPx = MAP_ROWS * TILE;
   const boss = worldBoss ?? miniBoss;
@@ -339,6 +342,7 @@ export function buildLevel(
     secretPortal,
     noclipTile,
     backroomsEntity,
+    escapeConsole,
     arena,
     bossFences,
   };

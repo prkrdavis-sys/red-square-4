@@ -557,6 +557,36 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
     });
   }
 
+  /**
+   * Tractor-beam exit: float up to the beam's axis at `x`, squirm against it, spin, then
+   * stretch thin and vanish into the dome at `intoY`.
+   */
+  abduct(x: number, intoY: number, onComplete: () => void): void {
+    this.freeze();
+    this.arcadeBody.enable = false;
+    this.hideHeldShield();
+    this.shadow.setVisible(false);
+    this.view.setTexture('player-fall');
+    const spin = this.flipX ? -1 : 1;
+    const hoverY = this.y - 76;
+    this.scene.tweens.chain({
+      targets: [this, this.view],
+      tweens: [
+        { x, y: hoverY, duration: 1000, ease: 'Sine.easeInOut' },
+        { scaleX: 1.3, scaleY: 0.74, angle: -14 * spin, duration: 95, yoyo: true, repeat: 2, ease: 'Sine.easeInOut' },
+        { y: hoverY + 14, scaleX: 1.18, scaleY: 0.86, angle: 10 * spin, duration: 120, ease: 'Quad.easeOut' },
+        { y: hoverY - 22, scaleX: 0.9, scaleY: 1.16, angle: 0, duration: 180, ease: 'Back.easeOut' },
+        { y: intoY + 60, angle: 900 * spin, scaleX: 0.8, scaleY: 0.8, duration: 950, ease: 'Quad.easeIn' },
+        { y: intoY, scaleX: 0.14, scaleY: 2.7, alpha: 0.25, duration: 230, ease: 'Cubic.easeIn' },
+      ],
+      onComplete: () => {
+        this.view.setVisible(false);
+        this.setVisible(false);
+        onComplete();
+      },
+    });
+  }
+
   die(onComplete: () => void): void {
     this.frozen = true;
     this.swinging = false;
