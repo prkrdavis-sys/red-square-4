@@ -28,7 +28,13 @@ type SfxName =
   | 'celebrate'
   | 'teammate-bump'
   | 'teammate-stomp'
-  | 'boss-death';
+  | 'boss-death'
+  | 'noclip'
+  | 'entity-shriek'
+  | 'entity-fall'
+  | 'ufo-beam'
+  | 'button'
+  | 'abduct-pop';
 
 type SafariAudioState = AudioContextState | 'interrupted';
 
@@ -366,6 +372,37 @@ function synth(name: SfxName): void {
       window.setTimeout(() => beep(430, 0.09, 'triangle', 0.06, 90), 38);
       noiseBurst(0.05, 0.045, 850);
       break;
+    case 'noclip':
+      beep(1200, 0.5, 'sawtooth', 0.06, -1100);
+      noiseBurst(0.4, 0.16, 2400);
+      window.setTimeout(() => beep(60, 0.9, 'sine', 0.2, -20), 120);
+      window.setTimeout(() => noiseBurst(0.25, 0.1, 600), 380);
+      break;
+    case 'entity-shriek':
+      beep(1780, 0.7, 'sawtooth', 0.05, -900);
+      beep(2320, 0.55, 'square', 0.03, -1400);
+      noiseBurst(0.6, 0.12, 3800);
+      break;
+    case 'entity-fall':
+      beep(900, 0.9, 'sawtooth', 0.05, -840);
+      window.setTimeout(() => noiseBurst(0.3, 0.14, 300), 520);
+      window.setTimeout(() => beep(48, 0.5, 'sine', 0.18, -10), 560);
+      break;
+    case 'ufo-beam':
+      beep(220, 1.4, 'sine', 0.1, 660);
+      beep(223, 1.4, 'triangle', 0.06, 700);
+      window.setTimeout(() => beep(880, 0.9, 'sine', 0.05, -300), 300);
+      break;
+    case 'button':
+      beep(120, 0.08, 'square', 0.12, -40);
+      noiseBurst(0.06, 0.1, 1200);
+      window.setTimeout(() => beep(880, 0.2, 'square', 0.07), 90);
+      window.setTimeout(() => beep(660, 0.3, 'square', 0.07), 300);
+      break;
+    case 'abduct-pop':
+      beep(420, 0.12, 'sine', 0.12, 1400);
+      noiseBurst(0.08, 0.06, 2800);
+      break;
     default: {
       const neverName: never = name;
       return neverName;
@@ -620,6 +657,16 @@ export const audio = {
   setMusicDuck(amount: number): void {
     musicDuck = Math.min(1, Math.max(0, amount));
     applyMusicMix();
+  },
+
+  /** Heavy barefoot thump; `loudness` 0-1 comes from how close the stalker is. */
+  footstep(loudness: number): void {
+    const level = Math.min(1, Math.max(0, loudness));
+    if (level <= 0.02) {
+      return;
+    }
+    beep(70 + level * 20, 0.12, 'sine', 0.16 * level, -30);
+    noiseBurst(0.06, 0.07 * level, 420);
   },
 
   play(scene: Phaser.Scene, name: SfxName): void {

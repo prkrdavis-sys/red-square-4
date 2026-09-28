@@ -493,6 +493,70 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
     });
   }
 
+  /**
+   * Glitch in place, then slip through the floor at `floorY` as if it stopped existing.
+   * A mask cuts the hero off at the floor line so it sinks into the tile, not over it.
+   */
+  noclipFall(centerX: number, floorY: number, onComplete: () => void): void {
+    this.freeze();
+    this.arcadeBody.enable = false;
+    this.hideHeldShield();
+    this.shadow.setVisible(false);
+    const scene = this.scene;
+    const startX = centerX;
+    this.setPosition(startX, floorY - 22);
+    this.syncView();
+    this.view.setTexture('player-fall');
+
+    const cut = scene.make.graphics({ x: 0, y: 0 }, false);
+    cut.fillStyle(0xffffff, 1);
+    cut.fillRect(startX - 400, floorY - 2000, 800, 2000);
+    const mask = cut.createGeometryMask();
+    this.view.setMask(mask);
+
+    let ticks = 0;
+    const jitter = scene.time.addEvent({
+      delay: 40,
+      repeat: 9,
+      callback: () => {
+        ticks += 1;
+        this.view.setX(startX + (ticks % 2 === 0 ? 3 : -3));
+        this.view.setAlpha(ticks % 3 === 0 ? 0.45 : 1);
+        if (ticks % 2 === 0) {
+          this.view.setTint(0xfff0a0);
+        } else {
+          this.view.clearTint();
+        }
+      },
+    });
+
+    scene.time.delayedCall(420, () => {
+      jitter.remove();
+      if (!this.view.active) {
+        onComplete();
+        return;
+      }
+      this.view.clearTint();
+      this.view.setAlpha(1);
+      this.view.setX(startX);
+      scene.tweens.add({
+        targets: [this, this.view],
+        y: floorY + 48,
+        scaleX: 0.78,
+        scaleY: 1.3,
+        angle: this.flipX ? -14 : 14,
+        duration: 520,
+        ease: 'Quad.easeIn',
+        onComplete: () => {
+          this.view.clearMask(true);
+          cut.destroy();
+          this.view.setVisible(false);
+          onComplete();
+        },
+      });
+    });
+  }
+
   die(onComplete: () => void): void {
     this.frozen = true;
     this.swinging = false;

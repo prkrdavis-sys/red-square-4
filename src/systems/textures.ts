@@ -21,6 +21,7 @@ import {
   type HeroPalette,
   type SkinDef,
 } from '../data/skins';
+import { createBackroomsTextures } from './backrooms-textures';
 import { createEnemyTextures } from './enemies';
 import {
   FLAK_PIECE_INDEXES,
@@ -3223,6 +3224,7 @@ export function createGameTextures(scene: Phaser.Scene): void {
   drawDock(scene);
   drawMapBoat(scene);
   drawSecretPortal(scene);
+  createBackroomsTextures(scene);
 
   for (const theme of THEMES) {
     drawSpecialAnchor(scene, theme);

@@ -3,6 +3,7 @@ import { GROUND_Y, MAP_ROWS, MINI_BOSS_HP, TILE, WORLD_BOSS_HP, secretBossName, 
 import { Baddie } from '../entities/Baddie';
 import { Boss } from '../entities/Boss';
 import { MovingPlatform } from '../entities/MovingPlatform';
+import { NoclipTile } from '../entities/NoclipTile';
 import { Star } from '../entities/Star';
 import { Player } from '../entities/Player';
 import { SecretPortal } from '../entities/SecretPortal';
@@ -50,6 +51,7 @@ export interface BuiltLevel {
   miniBoss: Boss | undefined;
   worldBoss: Boss | undefined;
   secretPortal: SecretPortal | undefined;
+  noclipTile: NoclipTile | undefined;
   arena: ArenaKeep | undefined;
   bossFences: Phaser.GameObjects.Rectangle[];
 }
@@ -194,6 +196,7 @@ export function buildLevel(
           player = new Player(scene, px + TILE / 2, py + TILE / 2);
           break;
         case 'e':
+        case 'N':
           break;
         case 'm':
           miniBoss = new Boss(
@@ -290,6 +293,7 @@ export function buildLevel(
       theme,
     );
   }
+  const noclipTile = course.noclipTile === undefined ? undefined : new NoclipTile(scene, course.noclipTile);
 
   const heightPx = MAP_ROWS * TILE;
   const boss = worldBoss ?? miniBoss;
@@ -325,6 +329,7 @@ export function buildLevel(
     miniBoss,
     worldBoss,
     secretPortal,
+    noclipTile,
     arena,
     bossFences,
   };

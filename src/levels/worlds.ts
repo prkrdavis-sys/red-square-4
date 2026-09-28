@@ -229,6 +229,7 @@ const COURSES: Record<LevelId, CompiledCourse> = {
       [56, low],
       [148, mid],
     ],
+    noclipTile: 124,
     mini: 184,
   }),
   '1-3': course(1, 3, {

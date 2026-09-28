@@ -259,6 +259,8 @@ export interface CourseSpec {
   secretPortal?: { x: number; tilesUp: number };
   /** True for hidden `W-?` gauntlets. */
   secret?: boolean;
+  /** Floor column whose tile drops the player into Level 0. Snaps to the nearest open floor. */
+  noclipTile?: number;
 }
 
 export interface EnemySpawn {
@@ -295,7 +297,12 @@ export interface CompiledCourse {
   miniVariant: MiniBossVariant | undefined;
   secretPortal?: { x: number; tilesUp: number };
   secret?: boolean;
+  /** Column of the `'N'` floor tile, when the course hides the Backrooms entrance. */
+  noclipTile?: number;
 }
+
+/** Floor cell that looks like Backrooms carpet and swallows a player who lands on it. */
+export const NOCLIP_CELL = 'N';
 
 /** Early stages keep one mid-course flag. Stages 3–4 and secrets split the run across two. */
 export function checkpointFractionsForStage(stage: number, secret = false): readonly number[] {
@@ -551,7 +558,15 @@ function isSolidPuzzle(kind: PuzzleKind): boolean {
 function isWalkColumn(rows: string[], x: number): boolean {
   const ground = rows[GROUND_Y]?.[x];
   const above = rows[GROUND_Y - 1]?.[x];
-  return (ground === '#' || ground === 'G' || ground === 'W') && above === '.';
+  return (ground === '#' || ground === 'G' || ground === 'W' || ground === NOCLIP_CELL) && above === '.';
+}
+
+function stampCell(rows: string[], x: number, y: number, ch: string): void {
+  const row = rows[y];
+  if (row === undefined || x < 0 || x >= row.length) {
+    return;
+  }
+  rows[y] = `${row.slice(0, x)}${ch}${row.slice(x + 1)}`;
 }
 
 /** Inclusive-start, exclusive-end spans of floor the player can walk without jumping. */
@@ -758,6 +773,12 @@ export function compileCourse(world: number, stage: number, spec: CourseSpec, th
     }
   }
   occupyTrapThreats(blocked, trapXs, theme, spec.width);
+  let noclipTile: number | undefined;
+  if (spec.noclipTile !== undefined) {
+    noclipTile = safeFloorX(rows, spec.noclipTile, blocked);
+    stampCell(rows, noclipTile, GROUND_Y, NOCLIP_CELL);
+    occupy(blocked, noclipTile, 2);
+  }
   const secret = spec.secret === true;
   const checkpoints = placeCourseCheckpoints(rows, spec, stage, blocked);
   const originXs = [spawnX, ...checkpoints.map((checkpoint) => checkpoint.x)];
@@ -831,5 +852,6 @@ export function compileCourse(world: number, stage: number, spec: CourseSpec, th
     miniVariant: secret || stage >= 4 ? undefined : (stage as MiniBossVariant),
     secretPortal: spec.secretPortal,
     secret,
+    noclipTile,
   };
 }

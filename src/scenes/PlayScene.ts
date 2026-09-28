@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
 import {
+  BACKROOMS_LEVEL_ID,
   GAME_HEIGHT,
   GAME_WIDTH,
   START_LIVES,
@@ -26,6 +27,7 @@ import {
   session,
   setCheckpoint,
   setLastPlayed,
+  unlockBackrooms,
   unlockSecretLevel,
 } from '../data/progress';
 import { applySettings, maybeShake } from '../data/settings';
@@ -37,6 +39,7 @@ import { shouldDropCoin } from '../systems/coin-drop';
 import { isFallingStomp, stompBox } from '../entities/boss-combat';
 import { EnemyProjectile } from '../entities/EnemyProjectile';
 import { MovingPlatform } from '../entities/MovingPlatform';
+import { landsOnNoclip } from '../entities/noclip-landing';
 import { TerrainHazard } from '../entities/TerrainHazard';
 import { hazardThreatensTile, type TerrainHazardSpawn } from '../entities/terrain-hazard';
 import { FlakFragment } from '../entities/FlakFragment';
@@ -220,6 +223,7 @@ export class PlayScene extends Phaser.Scene {
   private stopRuntime?: () => void;
   private cameraTarget?: Phaser.GameObjects.Zone;
   private hudSpectating?: Phaser.GameObjects.Text;
+  private groundedLastFrame = new Map<Player, boolean>();
 
   constructor() {
     super('PlayScene');
@@ -246,6 +250,7 @@ export class PlayScene extends Phaser.Scene {
     this.retainFlak = false;
     this.players = [];
     this.collisionCooldowns = {};
+    this.groundedLastFrame = new Map();
   }
 
   create(): void {
@@ -589,6 +594,7 @@ export class PlayScene extends Phaser.Scene {
           this.killPlayer('pit', player);
         }
       }
+      this.checkNoclipLanding();
     }
 
     this.updateCoopCamera();
@@ -1302,6 +1308,49 @@ export class PlayScene extends Phaser.Scene {
         this.scene.start('PlayScene', this.continueWithSession(target));
       });
       this.cameras.main.fadeOut(320, 0, 0, 0);
+    });
+  }
+
+  private checkNoclipLanding(): void {
+    const tile = this.built.noclipTile;
+    if (!tile || this.completing) {
+      return;
+    }
+    for (const player of this.livingPlayers()) {
+      const grounded = player.arcadeBody.blocked.down;
+      const wasGrounded = this.groundedLastFrame.get(player) ?? true;
+      this.groundedLastFrame.set(player, grounded);
+      if (grounded && !wasGrounded && !player.frozen && landsOnNoclip(tile.tileX, player.x, player.arcadeBody.bottom)) {
+        this.enterBackrooms(player);
+        return;
+      }
+    }
+  }
+
+  private enterBackrooms(traveler: Player): void {
+    const tile = this.built.noclipTile;
+    if (!tile || !this.canMutateWorld || this.completing || this.paused || this.controlsHintOpen) {
+      return;
+    }
+    this.completing = true;
+    this.syncTouchHud();
+    this.players.forEach((actor) => {
+      if (actor !== traveler) {
+        actor.freeze();
+      }
+    });
+    unlockBackrooms();
+    audio.play(this, 'noclip');
+    audio.setMusicDuck(0.15);
+    tile.trigger();
+    maybeShake(this, 320, 0.006);
+    traveler.noclipFall(tile.centerX, tile.topY, () => {
+      this.cameras.main.once('camerafadeoutcomplete', () => {
+        this.runtime?.sendTeamRestart(BACKROOMS_LEVEL_ID);
+        this.scene.start('PlayScene', this.continueWithSession(BACKROOMS_LEVEL_ID));
+      });
+      this.cameras.main.flash(120, 255, 246, 200);
+      this.cameras.main.fadeOut(480, 201, 180, 88);
     });
   }
 
