@@ -3,6 +3,7 @@ import { TILE } from '../config';
 import { drawBackroomsScenery } from './backrooms-scenery';
 import { paintCanvas, rgba, rng, type Ctx } from './canvas-paint';
 import { drawEscapeTextures } from './escape-textures';
+import { MAP_NODE_BACKROOMS_KEY } from './world-map-layout';
 
 export const NOCLIP_TILE_KEY = 'noclip-tile';
 export const NOCLIP_TILE_GLITCH_KEY = 'noclip-tile-glitch';
@@ -568,7 +569,50 @@ function drawEntityFrames(scene: Phaser.Scene): void {
   });
 }
 
+/** World-map node: a tiny square of Level 0 wallpaper with a doorway and a ceiling panel. */
+function drawMapNode(scene: Phaser.Scene): void {
+  paintCanvas(scene, MAP_NODE_BACKROOMS_KEY, 60, 64, (ctx) => {
+    ctx.fillStyle = 'rgba(18,10,4,0.35)';
+    ctx.beginPath();
+    ctx.ellipse(30, 56, 24, 6, 0, 0, Math.PI * 2);
+    ctx.fill();
+    const x = 7;
+    const y = 5;
+    const s = 46;
+    ctx.fillStyle = rgba(0x4a3a14);
+    ctx.beginPath();
+    ctx.roundRect(x - 3, y - 3, s + 6, s + 6, 8);
+    ctx.fill();
+    ctx.save();
+    ctx.beginPath();
+    ctx.roundRect(x, y, s, s, 6);
+    ctx.clip();
+    ctx.fillStyle = rgba(0xd8c46c);
+    ctx.fillRect(x, y, s, s);
+    for (let bx = x; bx < x + s; bx += 6) {
+      ctx.fillStyle = rgba(0xb09848, 0.35);
+      ctx.fillRect(bx, y, 2, s);
+    }
+    ctx.fillStyle = rgba(0xe6dca4);
+    ctx.fillRect(x, y, s, 9);
+    ctx.fillStyle = rgba(0xfffbe0);
+    ctx.fillRect(x + 9, y + 2, s - 18, 5);
+    ctx.fillStyle = rgba(0x9a8440);
+    ctx.fillRect(x + s / 2 - 8, y + s - 24, 16, 24);
+    ctx.fillStyle = rgba(0x6a5a28);
+    ctx.fillRect(x + s / 2 - 4, y + s - 16, 8, 16);
+    paintCarpet(ctx, x, y + s - 7, s, 7, 0x3a9d);
+    ctx.restore();
+    ctx.strokeStyle = rgba(0xfff4c0, 0.6);
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.roundRect(x + 0.5, y + 0.5, s - 1, s - 1, 6);
+    ctx.stroke();
+  });
+}
+
 export function createBackroomsTextures(scene: Phaser.Scene): void {
+  drawMapNode(scene);
   drawNoclipTiles(scene);
   drawEntityFrames(scene);
   drawEscapeTextures(scene);

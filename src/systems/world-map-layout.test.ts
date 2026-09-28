@@ -1,7 +1,17 @@
 import { describe, expect, it } from 'vitest';
-import { CAMPAIGN_LEVEL_IDS, SECRET_LEVEL_IDS, THEMES, parseLevelId } from '../config';
+import {
+  BACKROOMS_HOST_LEVEL,
+  BACKROOMS_LEVEL_ID,
+  CAMPAIGN_LEVEL_IDS,
+  SECRET_LEVEL_IDS,
+  THEMES,
+  parseLevelId,
+} from '../config';
 import {
   MAP_ISLANDS,
+  MAP_NODE_BACKROOMS_KEY,
+  MAP_NODE_RADIUS,
+  backroomsNodePosition,
   boatWorldPairs,
   campaignPathPairs,
   islandPathPairs,
@@ -126,5 +136,24 @@ describe('world map overworld', () => {
       expect(mapNodeTextureKey(id, true)).toBe('map-node-secret');
       expect(mapNodeTextureKey(id, false)).toBe('map-node-secret');
     }
+    expect(mapNodeTextureKey(BACKROOMS_LEVEL_ID, true)).toBe(MAP_NODE_BACKROOMS_KEY);
+  });
+
+  it('puts Level 0 on a spur off 1-2, clear of the 1-? spur and every other node', () => {
+    const host = mapNodePositionForId(BACKROOMS_HOST_LEVEL);
+    const node = mapNodePositionForId(BACKROOMS_LEVEL_ID);
+    expect(node).toEqual(backroomsNodePosition());
+    expect(walkable(node.x, node.y)).toBe(true);
+    expect(Math.hypot(node.x - host.x, node.y - host.y)).toBeGreaterThan(80);
+    for (const t of [0.25, 0.5, 0.75]) {
+      expect(walkable(host.x + (node.x - host.x) * t, host.y + (node.y - host.y) * t)).toBe(true);
+    }
+    const others = [...CAMPAIGN_LEVEL_IDS, ...SECRET_LEVEL_IDS].map(mapNodePositionForId);
+    for (const other of others) {
+      expect(Math.hypot(node.x - other.x, node.y - other.y)).toBeGreaterThan(MAP_NODE_RADIUS * 2.5);
+    }
+    const secret = mapNodePositionForId('1-?');
+    expect(Math.sign(node.x - host.x)).not.toBe(Math.sign(secret.x - host.x));
+    expect(nearbyNode(node.x, node.y, [...CAMPAIGN_LEVEL_IDS, BACKROOMS_LEVEL_ID])).toBe(BACKROOMS_LEVEL_ID);
   });
 });

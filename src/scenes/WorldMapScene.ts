@@ -1,10 +1,13 @@
 import Phaser from 'phaser';
 import {
+  BACKROOMS_HOST_LEVEL,
+  BACKROOMS_LEVEL_ID,
   CAMPAIGN_LEVEL_IDS,
   GAME_HEIGHT,
   GAME_WIDTH,
   SECRET_LEVEL_IDS,
   THEMES,
+  isBackroomsLevel,
   parseLevelId,
   stageThreeId,
   themeName,
@@ -86,6 +89,7 @@ export class WorldMapScene extends Phaser.Scene {
     const visibleIds: LevelId[] = [
       ...CAMPAIGN_LEVEL_IDS,
       ...SECRET_LEVEL_IDS.filter((id) => save.unlocked.includes(id)),
+      ...(save.unlocked.includes(BACKROOMS_LEVEL_ID) ? [BACKROOMS_LEVEL_ID] : []),
     ];
     this.nodes = visibleIds.map((id) => {
       const parsed = parseLevelId(id);
@@ -132,7 +136,7 @@ export class WorldMapScene extends Phaser.Scene {
     }) as Record<'W' | 'A' | 'S' | 'D', Phaser.Input.Keyboard.Key> | undefined;
 
     this.refreshHint();
-    this.playWorldMusic(parseLevelId(startId).world);
+    this.playWorldMusic(islandAt(spawn.x, spawn.y)?.world ?? parseLevelId(startId).world);
     this.syncSelection();
     this.selectionReady = true;
 
@@ -204,6 +208,25 @@ export class WorldMapScene extends Phaser.Scene {
       pathGfx.lineStyle(6, save.cleared.includes(secretId) ? 0xf5d76e : 0x9b7cff, 1);
       pathGfx.lineBetween(from.x, from.y, dest.x, dest.y);
     }
+    this.drawBackroomsRoad(pathGfx, save);
+  }
+
+  /** Nothing is drawn until Level 0 is found; then a mustard trail, gold once escaped. */
+  private drawBackroomsRoad(pathGfx: Phaser.GameObjects.Graphics, save: ReturnType<typeof loadSave>): void {
+    if (!save.unlocked.includes(BACKROOMS_LEVEL_ID)) {
+      return;
+    }
+    const from = mapNodePositionForId(BACKROOMS_HOST_LEVEL);
+    const to = mapNodePositionForId(BACKROOMS_LEVEL_ID);
+    pathGfx.lineStyle(10, 0x6b4423, 0.85);
+    pathGfx.lineBetween(from.x, from.y, to.x, to.y);
+    if (save.cleared.includes(BACKROOMS_LEVEL_ID)) {
+      pathGfx.lineStyle(6, 0xf5d76e, 1);
+      pathGfx.lineBetween(from.x, from.y, to.x, to.y);
+      return;
+    }
+    pathGfx.lineStyle(6, 0xd8c46c, 1);
+    this.strokeDashed(pathGfx, from.x, from.y, to.x, to.y, 10, 6);
   }
 
   private strokeDashed(
@@ -237,6 +260,10 @@ export class WorldMapScene extends Phaser.Scene {
       const unlocked = isUnlocked(node.id);
       const cleared = save.cleared.includes(node.id);
       const img = this.add.image(node.x, node.y, mapNodeTextureKey(node.id, unlocked)).setDepth(10);
+      if (isBackroomsLevel(node.id)) {
+        this.decorateBackroomsNode(node);
+        return;
+      }
       if (node.stage === 4) {
         img.setScale(1.15);
       }
@@ -264,19 +291,46 @@ export class WorldMapScene extends Phaser.Scene {
         })
         .setOrigin(0, 0.5)
         .setDepth(11);
-      const hit = this.add.zone(node.x, node.y, 72, 88).setDepth(12);
-      hit.setInteractive({ useHandCursor: unlocked });
-      hit.on('pointerdown', (pointer: Phaser.Input.Pointer) => {
-        if (pointer.wasTouch) {
-          this.onNodeTap(node.id);
-        }
-      });
-      hit.on('pointerup', (pointer: Phaser.Input.Pointer) => {
-        if (!pointer.wasTouch) {
-          this.onNodeTap(node.id);
-        }
-      });
+      this.addNodeHit(node, unlocked);
     });
+  }
+
+  private addNodeHit(node: NodeView, unlocked: boolean): void {
+    const hit = this.add.zone(node.x, node.y, 72, 88).setDepth(12);
+    hit.setInteractive({ useHandCursor: unlocked });
+    hit.on('pointerdown', (pointer: Phaser.Input.Pointer) => {
+      if (pointer.wasTouch) {
+        this.onNodeTap(node.id);
+      }
+    });
+    hit.on('pointerup', (pointer: Phaser.Input.Pointer) => {
+      if (!pointer.wasTouch) {
+        this.onNodeTap(node.id);
+      }
+    });
+  }
+
+  /** Level 0 has no stars; its node just hums, with a ceiling light that will not stay on. */
+  private decorateBackroomsNode(node: NodeView): void {
+    const glow = this.add
+      .ellipse(node.x, node.y - 18, 46, 22, 0xfff4c0, 0.4)
+      .setBlendMode(Phaser.BlendModes.ADD)
+      .setDepth(10.5);
+    const flicker = (): void => {
+      glow.setAlpha(0.05);
+      this.time.delayedCall(Phaser.Math.Between(40, 110), () => glow.setAlpha(0.4));
+      this.time.delayedCall(Phaser.Math.Between(900, 3200), flicker);
+    };
+    this.time.delayedCall(700, flicker);
+    this.add
+      .text(node.x, node.y + 36, node.id, {
+        ...textStyle('14px', '#fff4c0'),
+        stroke: '#3a2c0c',
+        strokeThickness: 4,
+      })
+      .setOrigin(0.5)
+      .setDepth(11);
+    this.addNodeHit(node, true);
   }
 
   private buildHud(save: ReturnType<typeof loadSave>): void {
@@ -466,6 +520,10 @@ export class WorldMapScene extends Phaser.Scene {
     }
     const level = getLevel(node.id);
     const cleared = loadSave().cleared.includes(node.id);
+    if (isBackroomsLevel(node.id)) {
+      this.hint.setText(`${node.id}   ${level.name}\n${cleared ? 'escaped   ·   it is still down there' : 'do not stop running'}`);
+      return;
+    }
     const parsed = parseLevelId(node.id);
     const boss = parsed.secret ? 'specialty boss' : parsed.stage === 4 ? 'world boss' : 'mini-boss';
     const stars = levelCollectibleCount(node.id);

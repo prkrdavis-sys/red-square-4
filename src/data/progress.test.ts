@@ -12,6 +12,7 @@ import {
   purchaseSkin,
   session,
   setCheckpoint,
+  unlockBackrooms,
   unlockSecretLevel,
   writeSave,
 } from './progress';
@@ -195,6 +196,39 @@ describe('secret specialty unlocks', () => {
     markCleared('1-3');
     expect(loadSave().unlocked).toContain('1-4');
     expect(loadSave().unlocked).not.toContain('1-?');
+  });
+});
+
+describe('Level 0 (backrooms)', () => {
+  beforeEach(() => {
+    resetProgress();
+  });
+
+  it('opens Level 0 from the noclip tile without clearing it', () => {
+    writeSave(blankSave({ unlocked: ['1-1', '1-2'], cleared: ['1-1'] }));
+    unlockBackrooms();
+    unlockBackrooms();
+    const save = loadSave();
+    expect(save.unlocked.filter((id) => id === '0-0')).toHaveLength(1);
+    expect(save.cleared).not.toContain('0-0');
+    expect(save.lastPlayed).toBe('0-0');
+  });
+
+  it('never advances the campaign when Level 0 is escaped', () => {
+    writeSave(blankSave({ unlocked: ['1-1', '1-2', '0-0'], cleared: ['1-1'] }));
+    expect(nextLevelId('0-0')).toBeUndefined();
+    markCleared('0-0');
+    const save = loadSave();
+    expect(save.cleared).toContain('0-0');
+    expect(save.unlocked).not.toContain('1-3');
+    expect(save.lastPlayed).toBe('0-0');
+  });
+
+  it('keeps Level 0 through a save round-trip', () => {
+    const save = parseSaveRaw(JSON.stringify({ ...blankSave(), unlocked: ['1-1', '0-0'], cleared: ['0-0'], lastPlayed: '0-0' }));
+    expect(save?.unlocked).toContain('0-0');
+    expect(save?.cleared).toContain('0-0');
+    expect(save?.lastPlayed).toBe('0-0');
   });
 });
 
