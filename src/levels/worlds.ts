@@ -9,7 +9,14 @@ import {
   type Theme,
   worldBossKind,
 } from '../config';
-import { compileCourse, courseDifficulty, LEDGE, type CompiledCourse, type CourseSpec } from './grid';
+import {
+  compileChaseCourse,
+  compileCourse,
+  courseDifficulty,
+  LEDGE,
+  type CompiledCourse,
+  type CourseSpec,
+} from './grid';
 import {
   brickCeilingRun,
   floatingIslandChain,
@@ -2115,7 +2122,49 @@ const COURSES: Record<LevelId, CompiledCourse> = {
     traps: [44, 94, 174, 210, 244],
     boss: 320,
   }),
-  '0-0': compileCourse(1, 1, { width: 60 }, 'backrooms'),
+  /**
+   * Level 0: a long yellow hallway run with the stalker at your back. Every pit is
+   * three tiles so a running jump clears it; the stalker never jumps a pit, so each
+   * one is a chance to shake it. Pillars and raised offices are only speed bumps.
+   */
+  '0-0': compileChaseCourse(
+    {
+      width: 224,
+      playerX: 16,
+      walls: [
+        [28, hop],
+        [62, low],
+        [124, low],
+        [131, hop],
+        [168, 3],
+        [186, hop],
+      ],
+      hills: [
+        [50, 6, hop],
+        [95, 8, 3],
+        [160, 12, hop],
+      ],
+      stairs: [
+        [92, 3],
+        [105, 3, -1],
+      ],
+      hangs: [
+        [36, 7],
+        [110, 7],
+        [178, 8],
+        [198, 7],
+      ],
+      trapPits: [
+        [38, 3],
+        [80, 3],
+        [112, 3],
+        [148, 3],
+      ],
+      voidPit: [200, 3],
+      console: 214,
+    },
+    'backrooms',
+  ),
 };
 
 const NAMES: Record<LevelId, string> = {

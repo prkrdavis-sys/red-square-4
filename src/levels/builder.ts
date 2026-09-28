@@ -269,12 +269,14 @@ export function buildLevel(
     collectibles.add(collectible);
   });
 
-  const shield = shields.create(
-    course.shield.x * TILE + TILE / 2,
-    (GROUND_Y - course.shield.tilesUp) * TILE - TILE / 2,
-    'shield-pickup',
-  ) as Phaser.Physics.Arcade.Sprite;
-  shield.setDepth(14);
+  if (course.shield) {
+    const shield = shields.create(
+      course.shield.x * TILE + TILE / 2,
+      (GROUND_Y - course.shield.tilesUp) * TILE - TILE / 2,
+      'shield-pickup',
+    ) as Phaser.Physics.Arcade.Sprite;
+    shield.setDepth(14);
+  }
 
   for (const [index, pickup] of course.checkpoints.entries()) {
     addCheckpoint(scene, checkpoints, pickup, MAP_ROWS * TILE, index);
