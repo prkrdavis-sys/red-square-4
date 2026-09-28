@@ -460,6 +460,7 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
     this.steerLockUntil = 0;
     this.arcadeBody.checkCollision.none = false;
     this.arcadeBody.setVelocity(0, 0);
+    this.arcadeBody.setAcceleration(0, 0);
     this.arcadeBody.allowGravity = false;
     this.squashTween?.stop();
     this.scene.tweens.killTweensOf(this);
