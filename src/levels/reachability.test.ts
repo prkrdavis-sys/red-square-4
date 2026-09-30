@@ -102,7 +102,7 @@ describe('course reachability', () => {
       const gateX =
         bossX < 0 && isBackroomsLevel(id)
           ? width
-          : getArenaLayout(bossX, level.theme, level.stage === 4 || level.secret, width).gateX;
+          : getArenaLayout(bossX, level.theme, width, level.course.arenaVariant).gateX;
       const moverColumns = coveredByMovers(level.course.movers);
       for (const gap of crossableGaps(level.rows, gateX)) {
         expect(gapIsBridged(gap, level.rows, moverColumns, reach), `${id} gap@${gap.start}w${gap.width}`).toBe(

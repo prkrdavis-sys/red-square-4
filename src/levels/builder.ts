@@ -324,10 +324,10 @@ export function buildLevel(
   const bossFences: Phaser.GameObjects.Rectangle[] = [];
   if (boss) {
     const grand = Boolean(worldBoss);
-    const layout = getArenaLayout(Math.floor(boss.x / TILE), theme, grand, cols);
+    const layout = getArenaLayout(Math.floor(boss.x / TILE), theme, cols, course.arenaVariant);
     arena = arenaKeepBounds(layout);
     boss.setArena(arena);
-    decorateArena(scene, boss.x, theme, grand, cols);
+    decorateArena(scene, boss.x, theme, grand, cols, course.arenaVariant);
     bossFences.push(addBossFence(scene, arena.left - 12, heightPx));
     bossFences.push(addBossFence(scene, arena.right + 12, heightPx));
   }

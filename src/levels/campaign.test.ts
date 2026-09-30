@@ -30,6 +30,7 @@ import { hazardThreatensTile } from '../entities/terrain-hazard';
 import { miniBossTextureKey, worldBossTextureKey } from '../systems/characters';
 import { getLevel } from './worlds';
 import { bossSafeLandingX, getArenaLayout, type ArenaKeep } from './arena';
+import type { LevelDef } from './worlds';
 import { colliderBox, colliderRuns, enableOneWayCollision, liftOntoFloor, ONEWAY_HEIGHT } from './colliders';
 import {
   airColumnSealed,
@@ -153,15 +154,49 @@ describe('biome campaign compilation', () => {
     }
   });
 
-  it('uses solid jump-blocks for the hop hills at the arena entrance', () => {
-    for (const id of CAMPAIGN_LEVEL_IDS) {
+  it('keeps a clear stomp lane and builds each boss court from tall grounded platforms', () => {
+    const seen = new Map<number, Set<string>>();
+    for (const id of [...CAMPAIGN_LEVEL_IDS, ...SECRET_LEVEL_IDS]) {
       const level = getLevel(id);
-      const bossCh = level.stage < 4 ? 'm' : 'B';
-      const bossX = level.rows[GROUND_Y - 1]?.indexOf(bossCh) ?? -1;
-      const layout = getArenaLayout(bossX, level.theme, level.stage === 4, level.rows[0]?.length ?? 0);
-      expect(level.rows[GROUND_Y - 1]?.[layout.floorStart + 2], id).toBe('#');
-      expect(level.rows[GROUND_Y - 1]?.[layout.floorStart + 3], id).toBe('#');
-      expect(level.rows[GROUND_Y - 1]?.[layout.floorStart + 4], id).toBe('#');
+      const { bossX, layout } = arenaOf(level);
+      expect(bossX, id).toBeGreaterThan(0);
+      expect(layout.floorEnd - layout.floorStart, id).toBeGreaterThanOrEqual(26);
+      for (let x = bossX - 4; x <= bossX + 4; x += 1) {
+        for (let y = 0; y < GROUND_Y; y += 1) {
+          const cell = level.rows[y]?.[x];
+          if (x === bossX && y === GROUND_Y - 1) {
+            expect(cell, `${id} boss marker`).toMatch(/[mB]/);
+            continue;
+          }
+          expect(cell, `${id} lane @${x},${y}`).toBe('.');
+        }
+      }
+      let tallColumns = 0;
+      for (let x = layout.floorStart; x < layout.floorEnd; x += 1) {
+        const column = arenaColumn(level.rows, x);
+        expect(column.oneway, `${id} oneway @${x}`).toBe(false);
+        expect(column.floating, `${id} floating @${x}`).toBe(false);
+        expect(column.grounded, `${id} thin stack @${x}`).not.toBe(1);
+        if (column.grounded >= 2) {
+          tallColumns += 1;
+        }
+      }
+      expect(tallColumns, id).toBeGreaterThanOrEqual(8);
+      for (let x = layout.floorStart + 1; x < layout.floorEnd; x += 1) {
+        for (const height of arenaLandings(level.rows, x)) {
+          const neighbors = [...arenaLandings(level.rows, x - 1), ...arenaLandings(level.rows, x + 1)];
+          const closest = Math.min(...neighbors.map((other) => Math.abs(height - other)));
+          expect(closest, `${id} step@${x} to ${height}`).toBeLessThanOrEqual(JUMP_REACH_TILES);
+        }
+      }
+      const print = level.rows
+        .slice(0, GROUND_Y)
+        .map((row) => row.slice(layout.floorStart, layout.floorEnd))
+        .join('\n');
+      const worldPrints = seen.get(level.world) ?? new Set<string>();
+      expect(worldPrints.has(print), `${id} repeats another court in world ${level.world}`).toBe(false);
+      worldPrints.add(print);
+      seen.set(level.world, worldPrints);
     }
   });
 
@@ -170,7 +205,7 @@ describe('biome campaign compilation', () => {
       const level = getLevel(id);
       const bossCh = level.stage < 4 ? 'm' : 'B';
       const bossX = level.rows[GROUND_Y - 1]?.indexOf(bossCh) ?? -1;
-      const layout = getArenaLayout(bossX, level.theme, level.stage === 4, level.rows[0]?.length ?? 0);
+      const layout = getArenaLayout(bossX, level.theme, level.rows[0]?.length ?? 0, level.course.arenaVariant);
       for (let x = layout.gateX; x < layout.floorStart; x += 1) {
         for (let y = 0; y < GROUND_Y; y += 1) {
           expect(level.rows[y]?.[x]).toBe('.');
@@ -377,7 +412,7 @@ describe('aerial anti-skip geometry', () => {
       const level = getLevel(id);
       const bossCh = level.stage < 4 ? 'm' : 'B';
       const bossX = level.rows[GROUND_Y - 1]?.indexOf(bossCh) ?? -1;
-      const layout = getArenaLayout(bossX, level.theme, level.stage === 4, level.rows[0]?.length ?? 0);
+      const layout = getArenaLayout(bossX, level.theme, level.rows[0]?.length ?? 0, level.course.arenaVariant);
       for (let x = 0; x < layout.gateX; x += 1) {
         expect(airColumnSealed(level.rows, x), `${id} sealed column @${x}`).toBe(false);
       }
@@ -740,3 +775,51 @@ describe('floor colliders', () => {
     expect(body.checkCollision).toEqual({ up: true, down: false, left: false, right: false });
   });
 });
+
+function arenaOf(level: LevelDef): { bossX: number; layout: ReturnType<typeof getArenaLayout> } {
+  const bossCh = level.secret || level.stage >= 4 ? 'B' : 'm';
+  const bossX = level.rows[GROUND_Y - 1]?.indexOf(bossCh) ?? -1;
+  return {
+    bossX,
+    layout: getArenaLayout(bossX, level.theme, level.rows[0]?.length ?? 0, level.course.arenaVariant),
+  };
+}
+
+function arenaColumn(rows: readonly string[], x: number): { grounded: number; floating: boolean; oneway: boolean } {
+  let grounded = 0;
+  let seenAir = false;
+  let floating = false;
+  let oneway = false;
+  for (let y = GROUND_Y - 1; y >= 0; y -= 1) {
+    const cell = rows[y]?.[x];
+    if (cell === '=') {
+      oneway = true;
+    }
+    if (cell === '#' || cell === 'b' || cell === 'W') {
+      if (seenAir) {
+        floating = true;
+      } else {
+        grounded += 1;
+      }
+    } else {
+      seenAir = true;
+    }
+  }
+  return { grounded, floating, oneway };
+}
+
+function arenaLandings(rows: readonly string[], x: number): number[] {
+  const heights: number[] = [];
+  for (let y = 1; y < GROUND_Y; y += 1) {
+    const cell = rows[y]?.[x];
+    const above = rows[y - 1]?.[x];
+    if ((cell === '#' || cell === 'b') && above !== '#' && above !== 'b' && above !== 'W') {
+      heights.push(GROUND_Y - y);
+    }
+  }
+  const ground = rows[GROUND_Y]?.[x];
+  if ((ground === '#' || ground === '@') && rows[GROUND_Y - 1]?.[x] === '.') {
+    heights.push(0);
+  }
+  return heights;
+}

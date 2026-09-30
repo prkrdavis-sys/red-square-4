@@ -22,7 +22,7 @@ import {
   hillHeightAt,
   type TerrainHazardSpawn,
 } from '../entities/terrain-hazard';
-import { stampArena } from './arena';
+import { arenaVariantFor, getArenaLayout, paddedArenaWidth, stampArena, type ArenaVariant } from './arena';
 
 /** Convert tiles-above-ground to a row index. A held jump from the floor reaches 2.5 tiles. */
 export function rowAboveGround(tilesUp: number): number {
@@ -255,6 +255,8 @@ export interface CourseSpec {
   traps?: number[];
   mini?: number;
   boss?: number;
+  /** Which boss-court silhouette to stamp. Set by `compileCourse`. */
+  arenaVariant?: ArenaVariant;
   /** Optional warp into this world's `W-?` specialty course. */
   secretPortal?: { x: number; tilesUp: number };
   /** True for hidden `W-?` gauntlets. */
@@ -302,6 +304,7 @@ export interface CompiledCourse {
   noclipTile?: number;
   /** Level 0 chase metadata; present only on the Backrooms course. */
   chase?: ChaseLayout;
+  arenaVariant: ArenaVariant;
 }
 
 export interface ChaseLayout {
@@ -436,6 +439,7 @@ function topUpLateStageEnemies(
   rows: string[],
   rawSpawns: Array<{ x: number; tilesUp: number }>,
   spawnX: number,
+  theme: Theme,
 ): Array<{ x: number; tilesUp: number }> {
   const needed = lateStageEnemyQuota(world, stage, spec.secret === true) - rawSpawns.length;
   if (needed <= 0) {
@@ -443,7 +447,12 @@ function topUpLateStageEnemies(
   }
   const fightX = spec.boss ?? spec.mini ?? spec.width;
   const minX = 10;
-  const maxX = Math.max(minX + 8, fightX - 12);
+  const mapWidth = rows[0]?.length ?? spec.width;
+  const bossX = spec.boss ?? spec.mini;
+  const variant = spec.arenaVariant ?? arenaVariantFor(stage, spec.secret === true);
+  const arenaCap =
+    bossX !== undefined ? getArenaLayout(bossX, theme, mapWidth, variant).gateX - 3 : fightX - 12;
+  const maxX = Math.max(minX + 8, Math.min(fightX - 12, arenaCap));
   const taken = new Set<number>();
   occupy(taken, spawnX, 4);
   for (const spawn of rawSpawns) {
@@ -476,7 +485,9 @@ function topUpLateStageEnemies(
 }
 
 export function buildCourse(spec: CourseSpec, theme: Theme = 'grass'): string[] {
-  const grid = new Grid(spec.width);
+  const fightX = spec.boss ?? spec.mini;
+  const variant = spec.arenaVariant ?? arenaVariantFor(spec.boss !== undefined ? 4 : 1, spec.secret === true);
+  const grid = new Grid(paddedArenaWidth(spec.width, fightX, variant));
   const playerX = spec.playerX ?? 3;
   grid.put(playerX, GROUND_Y - 1, 'P');
 
@@ -514,9 +525,8 @@ export function buildCourse(spec: CourseSpec, theme: Theme = 'grass'): string[] 
   for (const [x, tilesUp] of spec.airEnemies ?? []) {
     grid.put(x, rowAboveGround(tilesUp) - 1, 'e');
   }
-  const fightX = spec.boss ?? spec.mini;
   if (fightX !== undefined) {
-    stampArena(grid, fightX, theme, spec.boss !== undefined);
+    stampArena(grid, fightX, theme, variant);
   }
   if (spec.mini !== undefined) {
     grid.put(spec.mini, GROUND_Y - 1, 'm');
@@ -773,13 +783,15 @@ export function compileCourse(world: number, stage: number, spec: CourseSpec, th
   const trapXs = spec.traps ?? [];
   const extraHills = extraHillsForTraps(theme, trapXs, spec.hills ?? []);
   const hills = [...(spec.hills ?? []), ...extraHills];
-  const rows = buildCourse({ ...spec, hills, enemies: [], airEnemies: [] }, theme);
+  const secret = spec.secret === true;
+  const arenaVariant = arenaVariantFor(stage, secret);
+  const rows = buildCourse({ ...spec, hills, enemies: [], airEnemies: [], arenaVariant }, theme);
   const rawSpawns = [
     ...groundEnemyX.map((x) => ({ x, tilesUp: 0 })),
     ...airEnemyPositions.map(([x, tilesUp]) => ({ x, tilesUp })),
   ];
   const spawnX = spec.playerX ?? 3;
-  rawSpawns.push(...topUpLateStageEnemies(world, stage, spec, rows, rawSpawns, spawnX));
+  rawSpawns.push(...topUpLateStageEnemies(world, stage, { ...spec, arenaVariant }, rows, rawSpawns, spawnX, theme));
   const blocked = new Set<number>();
   occupy(blocked, spawnX, 3);
   for (const spawn of rawSpawns) {
@@ -794,7 +806,6 @@ export function compileCourse(world: number, stage: number, spec: CourseSpec, th
     stampCell(rows, noclipTile, GROUND_Y, NOCLIP_CELL);
     occupy(blocked, noclipTile, 2);
   }
-  const secret = spec.secret === true;
   const checkpoints = placeCourseCheckpoints(rows, spec, stage, blocked);
   const originXs = [spawnX, ...checkpoints.map((checkpoint) => checkpoint.x)];
   const kinds = assignSafeEnemyKinds(world, stage, rawSpawns, originXs);
@@ -868,6 +879,7 @@ export function compileCourse(world: number, stage: number, spec: CourseSpec, th
     secretPortal: spec.secretPortal,
     secret,
     noclipTile,
+    arenaVariant,
   };
 }
 
@@ -906,5 +918,6 @@ export function compileChaseCourse(spec: ChaseCourseSpec, theme: Theme): Compile
     miniVariant: undefined,
     secret: true,
     chase: { trapPits: spec.trapPits, voidPit: spec.voidPit, console: spec.console },
+    arenaVariant: 1,
   };
 }

@@ -34,7 +34,9 @@ import {
   dockAt,
   ferryControl,
   islandAt,
+  islandForWorld,
   islandPathPairs,
+  isIslandFogged,
   linkedDock,
   mapFooterTop,
   mapNodePositionForId,
@@ -46,6 +48,7 @@ import {
   type DockDef,
 } from '../systems/world-map-layout';
 import { MapAnalogStick } from '../systems/world-map-stick';
+import { WorldFastTravelMenu } from '../ui/fast-travel';
 import { addCoinPurse, launchOverlay, MenuButton, shouldAcceptTap, textStyle, UI } from '../ui/menu';
 
 interface NodeView {
@@ -75,6 +78,8 @@ export class WorldMapScene extends Phaser.Scene {
   private stick!: MapAnalogStick;
   private ocean?: Phaser.GameObjects.TileSprite;
   private selectionReady = false;
+  private fastTravel!: WorldFastTravelMenu;
+  private cameraLerpTimer?: Phaser.Time.TimerEvent;
 
   constructor() {
     super('WorldMapScene');
@@ -126,6 +131,9 @@ export class WorldMapScene extends Phaser.Scene {
     this.cameras.main.setRoundPixels(true);
 
     this.buildHud(save);
+    this.fastTravel = new WorldFastTravelMenu(this, save.cleared, parseLevelId(startId).world, (world) => {
+      this.travelToWorld(world);
+    });
     this.stick = new MapAnalogStick(this);
     this.cursors = this.input.keyboard?.createCursorKeys();
     this.keys = this.input.keyboard?.addKeys({
@@ -145,9 +153,23 @@ export class WorldMapScene extends Phaser.Scene {
         action();
       }
     };
-    this.input.keyboard?.on('keydown-ENTER', unlessPaused(() => this.activateHere()));
-    this.input.keyboard?.on('keydown-SPACE', unlessPaused(() => this.activateHere()));
-    this.input.keyboard?.on('keydown-ESC', unlessPaused(() => this.scene.start('TitleScene')));
+    this.input.keyboard?.on('keydown-ENTER', unlessPaused(() => {
+      if (!this.fastTravel.confirm()) {
+        this.activateHere();
+      }
+    }));
+    this.input.keyboard?.on('keydown-SPACE', unlessPaused(() => {
+      if (!this.fastTravel.confirm()) {
+        this.activateHere();
+      }
+    }));
+    this.input.keyboard?.on('keydown-ESC', unlessPaused(() => {
+      if (this.fastTravel.open) {
+        this.fastTravel.close(true);
+        return;
+      }
+      this.scene.start('TitleScene');
+    }));
   }
 
   update(_time: number, delta: number): void {
@@ -157,6 +179,9 @@ export class WorldMapScene extends Phaser.Scene {
     if (this.ocean) {
       this.ocean.tilePositionX = this.cameras.main.scrollX * 0.12;
       this.ocean.tilePositionY = this.cameras.main.scrollY * 0.08;
+    }
+    if (this.fastTravel.open) {
+      return;
     }
     const move = this.moveVector();
     const step = MAP_WALK_SPEED * (delta / 1000);
@@ -479,6 +504,7 @@ export class WorldMapScene extends Phaser.Scene {
     if (island) {
       this.worldLabel.setText(`WORLD ${island.world}   ${themeName(island.theme)}`);
       this.starLabel.setText(`STARS ${worldCollectibleCount(loadSave(), island.world)}/12`);
+      this.fastTravel.setWorld(island.world);
     }
   }
 
@@ -488,7 +514,7 @@ export class WorldMapScene extends Phaser.Scene {
   }
 
   private onNodeTap(id: LevelId): void {
-    if (this.scene.isPaused() || this.ferrying) {
+    if (this.scene.isPaused() || this.ferrying || this.fastTravel.open) {
       return;
     }
     const now = performance.now();
@@ -533,7 +559,7 @@ export class WorldMapScene extends Phaser.Scene {
   }
 
   private activateHere(): void {
-    if (this.ferrying || this.scene.isPaused()) {
+    if (this.ferrying || this.scene.isPaused() || this.fastTravel.open) {
       return;
     }
     const node = this.nodes.find((item) => item.id === this.selected);
@@ -545,6 +571,36 @@ export class WorldMapScene extends Phaser.Scene {
     if (dock) {
       this.boardBoat(dock);
     }
+  }
+
+  private travelToWorld(world: number): void {
+    if (this.ferrying || this.scene.isPaused() || isIslandFogged(world, loadSave().cleared)) {
+      return;
+    }
+    const landing = islandForWorld(world)?.nodes[1];
+    if (!landing) {
+      return;
+    }
+    audio.play(this, 'select');
+    this.token.setPosition(landing.x, landing.y);
+    this.selected = nearbyNode(
+      landing.x,
+      landing.y,
+      this.nodes.map((node) => node.id),
+    );
+    const dock = dockAt(landing.x, landing.y);
+    this.lastDockKey = dock ? `${dock.world}-${dock.kind}` : '';
+    if (this.selected && isUnlocked(this.selected)) {
+      setLastPlayed(this.selected);
+    }
+    this.cameras.main.lerp.set(0.5, 0.5);
+    this.cameraLerpTimer?.remove(false);
+    this.cameraLerpTimer = this.time.delayedCall(600, () => {
+      this.cameraLerpTimer = undefined;
+      this.cameras.main.lerp.set(0.16, 0.16);
+    });
+    this.syncSelection();
+    this.refreshHint();
   }
 
   private playSelected(): void {

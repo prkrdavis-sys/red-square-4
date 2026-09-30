@@ -379,7 +379,6 @@ function bindButton(button: HTMLButtonElement): void {
     event.stopPropagation();
     capturePointer(button, event.pointerId);
     press(action, trackingKey('pointer', event.pointerId));
-    lockLandscape();
   });
 
   button.addEventListener(
@@ -395,7 +394,6 @@ function bindButton(button: HTMLButtonElement): void {
       event.preventDefault();
       event.stopPropagation();
       press(action, trackingKey('touch', touch.identifier));
-      lockLandscape();
     },
     { passive: false },
   );
@@ -413,7 +411,6 @@ function bindMovePad(pad: HTMLElement): void {
     event.preventDefault();
     capturePointer(pad, event.pointerId);
     beginMove(event);
-    lockLandscape();
   });
 
   pad.addEventListener(
@@ -428,7 +425,6 @@ function bindMovePad(pad: HTMLElement): void {
       }
       event.preventDefault();
       beginMoveAt(trackingKey('touch', touch.identifier), touch.clientX, touch.clientY);
-      lockLandscape();
     },
     { passive: false },
   );
@@ -534,21 +530,6 @@ export function getTouchState(): TouchState {
   };
 }
 
-type OrientationLocker = {
-  lock: (orientation: 'landscape') => Promise<void>;
-};
-
-export function lockLandscape(): void {
-  if (!isTouchFirst()) {
-    return;
-  }
-  const orientation = screen.orientation as unknown as OrientationLocker | undefined;
-  if (!orientation || typeof orientation.lock !== 'function') {
-    return;
-  }
-  void orientation.lock('landscape').catch(() => undefined);
-}
-
 export function showTouchControls(): void {
   if (!isTouchFirst()) {
     return;
@@ -576,17 +557,6 @@ export function bootTouchControls(): void {
     bindMovePad(pad);
   }
   bindGlobalPointers();
-
-  const onFirstGesture = () => {
-    lockLandscape();
-  };
-  window.addEventListener('pointerdown', onFirstGesture, { once: true, passive: true });
-
-  document.addEventListener('fullscreenchange', () => {
-    if (document.fullscreenElement) {
-      lockLandscape();
-    }
-  });
 }
 
 export function bindTouchGame(game: Phaser.Game): void {

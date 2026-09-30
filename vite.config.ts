@@ -118,7 +118,7 @@ export default defineConfig({
         scope: '/',
         display: 'standalone',
         display_override: ['standalone', 'fullscreen', 'minimal-ui'],
-        orientation: 'landscape',
+        orientation: 'any',
         background_color: '#0b0b12',
         theme_color: '#0b0b12',
         categories: ['games'],

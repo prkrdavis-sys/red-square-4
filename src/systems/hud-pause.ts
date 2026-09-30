@@ -1,5 +1,5 @@
 import { GAME_HEIGHT, GAME_WIDTH } from '../config';
-import { isPrimaryPointer, lockLandscape } from './touch-controls';
+import { isPrimaryPointer } from './touch-controls';
 
 export const HUD_PAUSE = {
   width: 176,
@@ -117,7 +117,6 @@ export function bootHudPause(): void {
     (event) => {
       event.preventDefault();
       event.stopPropagation();
-      lockLandscape();
     },
     { passive: false },
   );
@@ -127,9 +126,6 @@ export function bootHudPause(): void {
       return;
     }
     button.classList.add('is-pressed');
-    if (event.pointerType !== 'mouse') {
-      lockLandscape();
-    }
   });
   const unpress = () => {
     button.classList.remove('is-pressed');

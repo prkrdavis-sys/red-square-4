@@ -1,5 +1,4 @@
 import Phaser from 'phaser';
-import { lockLandscape } from '../systems/touch-controls';
 
 const STORAGE_KEY = 'red-square-4-settings-v1';
 
@@ -83,7 +82,6 @@ export function setFullscreen(scene: Phaser.Scene, enabled: boolean): void {
   writeSettings({ fullscreen: enabled });
   if (enabled && !scene.scale.isFullscreen) {
     scene.scale.startFullscreen();
-    lockLandscape();
     return;
   }
   if (!enabled && scene.scale.isFullscreen) {
