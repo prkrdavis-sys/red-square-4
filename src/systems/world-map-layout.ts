@@ -3,6 +3,7 @@ import {
   GAME_HEIGHT,
   SECRET_LEVEL_IDS,
   THEMES,
+  isBackroomsLevel,
   parseLevelId,
   secretLevelId,
   type CampaignLevelId,
@@ -17,6 +18,7 @@ export const MAP_NODE_RADIUS = 36;
 export const MAP_DOCK_RADIUS = 46;
 export const MAP_SECRET_STUB_LENGTH = 78;
 export const MAP_TOKEN_CLEARANCE = 10;
+export const MAP_NODE_BACKROOMS_KEY = 'map-node-backrooms';
 
 export interface MapPoint {
   x: number;
@@ -300,13 +302,31 @@ export function mapNodePosition(world: number, stage: number, secret = false): M
   return island.nodes[1];
 }
 
+/**
+ * Level 0 hangs off node 2 of the first island, up and to the left, on the far side
+ * from the 1-? spur that leaves node 3.
+ */
+export function backroomsNodePosition(): MapPoint {
+  const island = islandForWorld(1);
+  if (!island) {
+    return { x: 0, y: 0 };
+  }
+  return add(island.cx, island.cy, { x: -island.rx * 0.36, y: -island.ry * 0.68 });
+}
+
 export function mapNodePositionForId(id: LevelId): MapPoint {
+  if (isBackroomsLevel(id)) {
+    return backroomsNodePosition();
+  }
   const parsed = parseLevelId(id);
   return mapNodePosition(parsed.world, parsed.secret ? 3 : parsed.stage, parsed.secret);
 }
 
 /** World-boss courses (x-4) use a castle; secrets stay distinct; other stages stay circular. */
 export function mapNodeTextureKey(id: LevelId, unlocked: boolean): string {
+  if (isBackroomsLevel(id)) {
+    return MAP_NODE_BACKROOMS_KEY;
+  }
   const parsed = parseLevelId(id);
   if (parsed.secret) {
     return 'map-node-secret';

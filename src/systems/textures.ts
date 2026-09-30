@@ -21,6 +21,7 @@ import {
   type HeroPalette,
   type SkinDef,
 } from '../data/skins';
+import { createBackroomsTextures } from './backrooms-textures';
 import { createEnemyTextures } from './enemies';
 import {
   FLAK_PIECE_INDEXES,
@@ -651,6 +652,8 @@ function tileColors(theme: Theme): { top: number; mid: number; dirt: number; dar
       return { top: 0xf4d890, mid: 0xe0b05a, dirt: 0xd4a05a, dark: 0x8a5a22, speck: 0xfff4c4 };
     case 'rainy-city':
       return { top: 0x71809a, mid: 0x46536c, dirt: 0x29344b, dark: 0x111827, speck: 0x55dff2 };
+    case 'backrooms':
+      return { top: 0xa8904a, mid: 0x8a7434, dirt: 0x6e5c2a, dark: 0x3a3014, speck: 0xc8b060 };
     default: {
       const neverTheme: never = theme;
       return neverTheme;
@@ -729,6 +732,8 @@ function arenaPalette(theme: Theme): { floor: number; inlay: number; line: numbe
       return { floor: 0xc9953f, inlay: 0x2aa0c8, line: 0xfff4c4, flag: 0x3aa0d8, pole: 0x8a5a22 };
     case 'rainy-city':
       return { floor: 0x202b40, inlay: 0x394861, line: 0x55dff2, flag: 0xd84cff, pole: 0x71809a };
+    case 'backrooms':
+      return { floor: 0x6e5c2a, inlay: 0x8a7434, line: 0xe8d88a, flag: 0xc8b060, pole: 0x3a3014 };
     default: {
       const neverTheme: never = theme;
       return neverTheme;
@@ -754,6 +759,8 @@ function masonryColors(theme: Theme): { brick: number; brickAlt: number; mortar:
       return { brick: 0xd4a05a, brickAlt: 0xb88632, mortar: 0x6a4420, highlight: 0xffe08a };
     case 'rainy-city':
       return { brick: 0x45536c, brickAlt: 0x303c53, mortar: 0x111827, highlight: 0x71809a };
+    case 'backrooms':
+      return { brick: 0xd8c270, brickAlt: 0xc4ac58, mortar: 0x8a7434, highlight: 0xeee0a0 };
     default: {
       const neverTheme: never = theme;
       return neverTheme;
@@ -2335,6 +2342,7 @@ function drawSpecialAnchor(scene: Phaser.Scene, theme: Theme): void {
     rainforest: [0x1e5a28, 0x8ee36d],
     beach: [0x146c84, 0xffe08a],
     'rainy-city': [0x25324a, 0x63e8ff],
+    backrooms: [0x6e5c2a, 0xf4ecc8],
   };
   const [dark, bright] = colors[theme];
   const g = gfx(scene);
@@ -3216,6 +3224,7 @@ export function createGameTextures(scene: Phaser.Scene): void {
   drawDock(scene);
   drawMapBoat(scene);
   drawSecretPortal(scene);
+  createBackroomsTextures(scene);
 
   for (const theme of THEMES) {
     drawSpecialAnchor(scene, theme);
@@ -3289,6 +3298,7 @@ export function kenneyArenaGateKey(theme: Theme): string {
     case 'rainforest':
     case 'beach':
     case 'rainy-city':
+    case 'backrooms':
       return 'kenney-brick-brown';
     case 'snow':
     case 'ocean':
@@ -3308,6 +3318,7 @@ export function kenneyArenaWallKey(theme: Theme): string {
     case 'rainforest':
     case 'beach':
     case 'rainy-city':
+    case 'backrooms':
       return 'kenney-bricks-brown';
     case 'snow':
     case 'ocean':
@@ -3333,6 +3344,7 @@ export function arenaFlagColor(theme: Theme): ArenaFlagColor {
       return 'blue';
     case 'desert':
     case 'beach':
+    case 'backrooms':
       return 'yellow';
     case 'castle':
       return 'red';

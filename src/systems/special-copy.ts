@@ -9,6 +9,7 @@ const LABELS: Record<SpecialKind, string> = {
   'liana-swing': 'Swing',
   'tide-wall': 'Tide',
   'lightning-pulse': 'Lightning',
+  'almond-water': 'Almond Water',
 };
 
 const DESCRIPTIONS: Record<SpecialKind, string> = {
@@ -20,6 +21,7 @@ const DESCRIPTIONS: Record<SpecialKind, string> = {
   'liana-swing': 'Grab a vine and swing forward.',
   'tide-wall': 'Send a short-lived wave you can stand on.',
   'lightning-pulse': 'Call lightning to power gates and short out nearby threats.',
+  'almond-water': 'Take a sip for a short burst of speed.',
 };
 
 export function specialLabel(kind: SpecialKind): string {

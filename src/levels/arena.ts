@@ -79,6 +79,8 @@ function gateSpec(theme: Theme): GateSpec {
       return { pillarW: 1, gap: 3, height: 6 };
     case 'rainy-city':
       return { pillarW: 1, gap: 4, height: 7 };
+    case 'backrooms':
+      return { pillarW: 1, gap: 3, height: 6 };
     default: {
       const neverTheme: never = theme;
       return neverTheme;
@@ -147,6 +149,8 @@ function merlon(theme: Theme, offset: number): boolean {
       return offset % 3 !== 1;
     case 'rainy-city':
       return offset % 2 === 0;
+    case 'backrooms':
+      return false;
     default: {
       const neverTheme: never = theme;
       return neverTheme;
@@ -185,6 +189,8 @@ function stampThemeArena(grid: Grid, layout: ArenaLayout, theme: Theme): void {
       break;
     case 'rainy-city':
       grid.plat(floorStart + 4, rowAboveGround(low), 3, true);
+      break;
+    case 'backrooms':
       break;
     default: {
       const neverTheme: never = theme;
@@ -399,6 +405,8 @@ function floorWash(theme: Theme): number {
       return 0x7a4a18;
     case 'rainy-city':
       return 0x172033;
+    case 'backrooms':
+      return 0x6a5a1c;
     default: {
       const neverTheme: never = theme;
       return neverTheme;
@@ -452,6 +460,11 @@ function addArenaDust(scene: Phaser.Scene, layout: ArenaLayout, theme: Theme): v
       tint = 0x63e8ff;
       speedY = { min: 45, max: 90 };
       frequency = 120;
+      break;
+    case 'backrooms':
+      tint = 0xfff4b0;
+      speedY = { min: -6, max: 6 };
+      frequency = 300;
       break;
     default: {
       const neverTheme: never = theme;

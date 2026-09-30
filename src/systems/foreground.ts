@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import { GAME_HEIGHT, GAME_WIDTH, THEMES, TILE, type Theme } from '../config';
+import { ALL_THEMES, GAME_HEIGHT, GAME_WIDTH, TILE, type Theme } from '../config';
 
 /** Near-camera dressing may never rise more than three tiles off the bottom of the view. */
 export const FOREGROUND_MAX_TILES = 3;
@@ -177,6 +177,14 @@ function specsFor(theme: Theme): PropSpec[] {
         { id: 'neon-sign', w: 104, h: 178, motion: 'flicker', alpha: 0.86, weight: 0.8, footprint: 2, size: 'large' },
         { id: 'cables', w: 150, h: 106, motion: 'sway', alpha: 0.82, weight: 0.7, footprint: 3, size: 'large' },
       ];
+    case 'backrooms':
+      return [
+        { id: 'stain', w: 132, h: 30, motion: 'still', alpha: 0.7, weight: 2.4, footprint: 2, size: 'small' },
+        { id: 'bottle', w: 30, h: 64, motion: 'still', alpha: 0.95, weight: 0.8, footprint: 1, size: 'small' },
+        { id: 'box', w: 92, h: 70, motion: 'still', alpha: 0.94, weight: 1.1, footprint: 2, size: 'small' },
+        { id: 'wet-sign', w: 64, h: 104, motion: 'still', alpha: 0.95, weight: 0.9, footprint: 1, size: 'large' },
+        { id: 'chair', w: 84, h: 128, motion: 'still', alpha: 0.9, weight: 0.6, footprint: 2, size: 'large' },
+      ];
     default: {
       const neverTheme: never = theme;
       return neverTheme;
@@ -210,6 +218,9 @@ function paintLip(ctx: CanvasRenderingContext2D, theme: Theme): void {
     case 'rainy-city':
       paintRainyCityLip(ctx);
       return;
+    case 'backrooms':
+      paintBackroomsLip(ctx);
+      return;
     default: {
       const neverTheme: never = theme;
       return neverTheme;
@@ -242,6 +253,9 @@ function paintProp(ctx: CanvasRenderingContext2D, theme: Theme, id: string, w: n
       return;
     case 'rainy-city':
       paintRainyCityProp(ctx, id, w, h);
+      return;
+    case 'backrooms':
+      paintBackroomsProp(ctx, id, w, h);
       return;
     default: {
       const neverTheme: never = theme;
@@ -1551,8 +1565,108 @@ function paintRainyCityProp(ctx: CanvasRenderingContext2D, id: string, w: number
   }
 }
 
+function paintBackroomsLip(ctx: CanvasRenderingContext2D): void {
+  ctx.fillStyle = css(0x5a4c1c);
+  ctx.fillRect(0, LIP_H - 26, LIP_W, 26);
+  ctx.fillStyle = css(0x8a7632);
+  ctx.fillRect(0, LIP_H - 26, LIP_W, 6);
+  ctx.fillStyle = css(0x3e3412, 0.55);
+  for (let x = 0; x < LIP_W; x += 4) {
+    const tuft = 2 + ((x * 7) % 5);
+    ctx.fillRect(x, LIP_H - 20 + ((x * 3) % 4), 2, tuft);
+  }
+  ctx.fillStyle = css(0x2e2610, 0.4);
+  for (const x of [40, 150, 262, 330]) {
+    wrapDraw(x, LIP_W, 40, (ox) => fillEllipse(ctx, x + ox, LIP_H - 10, 34, 5));
+  }
+}
+
+function paintBackroomsProp(ctx: CanvasRenderingContext2D, id: string, w: number, h: number): void {
+  const cx = w / 2;
+  switch (id) {
+    case 'stain':
+      ctx.fillStyle = css(0x3e3412, 0.55);
+      fillEllipse(ctx, cx, h - 12, w * 0.46, 10);
+      ctx.fillStyle = css(0x2a220c, 0.45);
+      fillEllipse(ctx, cx + 14, h - 12, w * 0.24, 6);
+      ctx.fillStyle = css(0xc9b458, 0.25);
+      fillEllipse(ctx, cx - 24, h - 15, w * 0.12, 2.5);
+      return;
+    case 'bottle':
+      ctx.fillStyle = css(0x2a2a2a, 0.35);
+      fillEllipse(ctx, cx, h - 3, 12, 3);
+      ctx.fillStyle = css(0xe8f2f4, 0.9);
+      ctx.fillRect(cx - 9, h - 46, 18, 43);
+      ctx.fillRect(cx - 5, h - 56, 10, 10);
+      ctx.fillStyle = css(0x3a7ad8);
+      ctx.fillRect(cx - 6, h - 62, 12, 7);
+      ctx.fillStyle = css(0xf2e0b0);
+      ctx.fillRect(cx - 9, h - 34, 18, 16);
+      ctx.fillStyle = css(0x8a5a22);
+      ctx.fillRect(cx - 6, h - 30, 12, 3);
+      ctx.fillRect(cx - 4, h - 25, 8, 2);
+      ctx.fillStyle = css(0xffffff, 0.6);
+      ctx.fillRect(cx - 7, h - 44, 3, 26);
+      return;
+    case 'box':
+      ctx.fillStyle = css(0x2a220c, 0.35);
+      fillEllipse(ctx, cx, h - 4, w * 0.46, 5);
+      ctx.fillStyle = css(0x9a7040);
+      ctx.fillRect(8, h - 52, w - 16, 48);
+      ctx.fillStyle = css(0xb88a52);
+      ctx.fillRect(8, h - 62, w - 16, 12);
+      ctx.fillStyle = css(0x7a5430);
+      ctx.fillRect(cx - 4, h - 62, 8, 58);
+      ctx.fillStyle = css(0xd8c8a0, 0.9);
+      ctx.fillRect(18, h - 38, 26, 12);
+      ctx.fillStyle = css(0x2a2a2a, 0.7);
+      ctx.fillRect(21, h - 35, 18, 2);
+      ctx.fillRect(21, h - 31, 12, 2);
+      return;
+    case 'wet-sign':
+      ctx.fillStyle = css(0x2a220c, 0.35);
+      fillEllipse(ctx, cx, h - 4, 28, 5);
+      ctx.fillStyle = css(0xe8c21a);
+      ctx.beginPath();
+      ctx.moveTo(cx, 6);
+      ctx.lineTo(w - 6, h - 6);
+      ctx.lineTo(6, h - 6);
+      ctx.closePath();
+      ctx.fill();
+      ctx.fillStyle = css(0xb8920a);
+      ctx.fillRect(cx - 2, 10, 4, h - 18);
+      ctx.fillStyle = css(0x1a1a1a);
+      ctx.fillRect(cx - 14, h - 58, 28, 5);
+      ctx.fillRect(cx - 10, h - 48, 20, 4);
+      fillCircle(ctx, cx, h - 32, 7);
+      ctx.fillRect(cx - 12, h - 20, 24, 4);
+      return;
+    case 'chair':
+      ctx.fillStyle = css(0x2a220c, 0.35);
+      fillEllipse(ctx, cx, h - 5, 34, 5);
+      ctx.fillStyle = css(0x1c1c20);
+      ctx.fillRect(cx - 3, h - 44, 6, 32);
+      ctx.fillRect(cx - 30, h - 12, 60, 5);
+      fillCircle(ctx, cx - 30, h - 6, 5);
+      fillCircle(ctx, cx + 30, h - 6, 5);
+      fillCircle(ctx, cx, h - 6, 5);
+      ctx.fillStyle = css(0x3a3a44);
+      ctx.fillRect(cx - 30, h - 58, 60, 16);
+      ctx.save();
+      ctx.translate(cx + 20, h - 60);
+      ctx.rotate(0.22);
+      ctx.fillRect(-10, -58, 20, 58);
+      ctx.fillStyle = css(0x4a4a56);
+      ctx.fillRect(-24, -64, 34, 44);
+      ctx.restore();
+      return;
+    default:
+      return;
+  }
+}
+
 export function createForegroundTextures(scene: Phaser.Scene): void {
-  for (const theme of THEMES) {
+  for (const theme of ALL_THEMES) {
     paintCanvas(scene, foregroundLipKey(theme), LIP_W, LIP_H, (ctx) => paintLip(ctx, theme));
     for (const spec of specsFor(theme)) {
       paintCanvas(scene, propKey(theme, spec.id), spec.w, spec.h, (ctx) => {

@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
 import { GAME_HEIGHT, GAME_WIDTH, type Theme } from '../config';
+import { BR_FAR_KEY, BR_NEAR_KEY, BR_VIEW_H } from './backrooms-scenery';
 import { cloudKey, ensureOceanPackTextures, farKey, hillKey, LANDSCAPE, mountainKey, skyKey } from './landscapes';
 
 interface ParallaxLayer {
@@ -34,6 +35,8 @@ function layoutFor(theme: Theme): BackdropLayout {
       return { cloudY: 6, farY: 122, mountainY: 168, groundY, cloudAlpha: 0.94 };
     case 'rainy-city':
       return { cloudY: 10, farY: 132, mountainY: 186, groundY, cloudAlpha: 0.42 };
+    case 'backrooms':
+      return { cloudY: 0, farY: 96, mountainY: 150, groundY, cloudAlpha: 0 };
     default: {
       const neverTheme: never = theme;
       return neverTheme;
@@ -152,6 +155,8 @@ function addSun(scene: Phaser.Scene, theme: Theme): void {
       scene.add.circle(1080, 78, 26, 0xd8e8ff, 0.55).setScrollFactor(0).setDepth(-48);
       scene.add.circle(1088, 74, 8, 0x1a2438, 0.28).setScrollFactor(0).setDepth(-47);
       break;
+    case 'backrooms':
+      break;
     default: {
       const neverTheme: never = theme;
       return neverTheme;
@@ -174,6 +179,13 @@ export class Parallax {
 
   constructor(scene: Phaser.Scene, theme: Theme) {
     const layout = layoutFor(theme);
+    if (theme === 'backrooms') {
+      this.layers.push(
+        { image: addStrip(scene, 0, BR_VIEW_H, BR_FAR_KEY, -40, 1), factor: 0.18 },
+        { image: addStrip(scene, 0, BR_VIEW_H, BR_NEAR_KEY, -30, 1), factor: 0.5 },
+      );
+      return;
+    }
 
     if (theme === 'ocean' || theme === 'grass' || theme === 'desert' || theme === 'beach' || theme === 'rainy-city') {
       const skyFactor = theme === 'ocean' ? 0.05 : theme === 'desert' ? 0.03 : theme === 'rainy-city' ? 0.02 : 0.035;

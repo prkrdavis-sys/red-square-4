@@ -8,7 +8,8 @@ export type AirJumpMode =
   | 'ghost-hover'
   | 'feather-flutter'
   | 'parasol-hang'
-  | 'awning-wall-jump';
+  | 'awning-wall-jump'
+  | 'none';
 
 export type TripleJumpStep = 1 | 2 | 3;
 export type TripleJumpChain = 0 | TripleJumpStep;
@@ -68,6 +69,8 @@ export function airJumpMode(theme: Theme): AirJumpMode {
       return 'parasol-hang';
     case 'rainy-city':
       return 'awning-wall-jump';
+    case 'backrooms':
+      return 'none';
     default: {
       const neverTheme: never = theme;
       return neverTheme;
@@ -94,6 +97,8 @@ export function airJumpHint(theme: Theme): string {
       return 'Hold jump in the air to hang from a parasol.';
     case 'awning-wall-jump':
       return 'Tap jump against a wall or awning to spring upward and away.';
+    case 'none':
+      return 'Nothing to hold on to down here. Just run.';
     default: {
       const neverMode: never = mode;
       return neverMode;

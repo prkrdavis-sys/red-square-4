@@ -53,6 +53,8 @@ function islandPalette(theme: Theme): IslandPalette {
       return { shore: 0xe0b05a, grass: 0xf4d890, shade: 0xb88632, highlight: 0xffe08a, accent: 0xffffff, dark: 0x1a6a88 };
     case 'rainy-city':
       return { shore: 0x29344b, grass: 0x46536c, shade: 0x0d1526, highlight: 0x71809a, accent: 0x63e8ff, dark: 0x080d1d };
+    case 'backrooms':
+      return { shore: 0x6e5c2a, grass: 0xc8b060, shade: 0x8a7434, highlight: 0xe8d88a, accent: 0xf4ecc8, dark: 0x3a3014 };
     default: {
       const neverTheme: never = theme;
       return neverTheme;
@@ -270,6 +272,8 @@ function paintThemeProps(ctx: CanvasRenderingContext2D, island: IslandDef, cx: n
         ctx.lineTo(x + 8, cy + 80);
         ctx.stroke();
       }
+      break;
+    case 'backrooms':
       break;
     default: {
       const neverTheme: never = island.theme;

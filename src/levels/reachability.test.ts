@@ -1,10 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import {
+  BACKROOMS_LEVEL_ID,
   CAMPAIGN_LEVEL_IDS,
   GROUND_Y,
   JUMP_HEIGHT_TILES,
   SECRET_LEVEL_IDS,
   TILE,
+  isBackroomsLevel,
   launchVelocity,
   themePhysics,
   type LevelId,
@@ -16,7 +18,7 @@ import { SHAFT_INTERIOR_TILES } from './motifs';
 import { wallJumpShaftMaxTiles } from '../systems/wall-jump';
 import { getLevel } from './worlds';
 
-const ALL_IDS = [...CAMPAIGN_LEVEL_IDS, ...SECRET_LEVEL_IDS] as LevelId[];
+const ALL_IDS = [...CAMPAIGN_LEVEL_IDS, ...SECRET_LEVEL_IDS, BACKROOMS_LEVEL_ID] as LevelId[];
 
 /**
  * Horizontal tiles a full-speed jump covers under a theme's physics. The arc is
@@ -94,14 +96,13 @@ describe('course reachability', () => {
     for (const id of ALL_IDS) {
       const level = getLevel(id);
       const reach = jumpReachTiles(level.theme);
-      const gateX = getArenaLayout(
-        Math.floor(
-          (level.course.rows[GROUND_Y - 1] ?? '').indexOf(level.stage === 4 || level.secret ? 'B' : 'm'),
-        ),
-        level.theme,
-        level.stage === 4 || level.secret,
-        level.rows[0]?.length ?? 0,
-      ).gateX;
+      const width = level.rows[0]?.length ?? 0;
+      const bossX = (level.course.rows[GROUND_Y - 1] ?? '').indexOf(level.stage === 4 || level.secret ? 'B' : 'm');
+      // Level 0 has no boss arena; its whole floor, void pit included, must be jumpable.
+      const gateX =
+        bossX < 0 && isBackroomsLevel(id)
+          ? width
+          : getArenaLayout(bossX, level.theme, level.stage === 4 || level.secret, width).gateX;
       const moverColumns = coveredByMovers(level.course.movers);
       for (const gap of crossableGaps(level.rows, gateX)) {
         expect(gapIsBridged(gap, level.rows, moverColumns, reach), `${id} gap@${gap.start}w${gap.width}`).toBe(

@@ -106,6 +106,7 @@ const MINI_FAMILIES: Record<Theme, string> = {
   rainforest: 'Leaf Rascal',
   beach: 'Shell Rascal',
   'rainy-city': 'Tomcat Gang',
+  backrooms: 'Wallpaper Wretch',
 };
 
 export class Boss extends Phaser.Physics.Arcade.Sprite {

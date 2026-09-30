@@ -1,12 +1,25 @@
 import Phaser from 'phaser';
 import { GROUND_Y, MAP_ROWS, MINI_BOSS_HP, TILE, WORLD_BOSS_HP, secretBossName, type Theme } from '../config';
+import { BackroomsEntity } from '../entities/BackroomsEntity';
+import { respawnColumn } from '../entities/backrooms-chase';
 import { Baddie } from '../entities/Baddie';
 import { Boss } from '../entities/Boss';
+import { EscapeConsole } from '../entities/EscapeConsole';
 import { MovingPlatform } from '../entities/MovingPlatform';
+import { NoclipTile } from '../entities/NoclipTile';
 import { Star } from '../entities/Star';
 import { Player } from '../entities/Player';
 import { SecretPortal } from '../entities/SecretPortal';
 import { TerrainHazard } from '../entities/TerrainHazard';
+import {
+  BR_BLOCK_KEY,
+  BR_BLOCK_TOP_KEY,
+  BR_CEILING_KEY,
+  BR_CEILING_LIGHT_KEY,
+  BR_FLOOR_FILL_KEY,
+  BR_FLOOR_TOP_KEY,
+} from '../systems/backrooms-scenery';
+import { ensureLevelZeroTextures } from '../systems/backrooms-textures';
 import {
   arenaGateTileKey,
   arenaTileKey,
@@ -50,6 +63,9 @@ export interface BuiltLevel {
   miniBoss: Boss | undefined;
   worldBoss: Boss | undefined;
   secretPortal: SecretPortal | undefined;
+  noclipTile: NoclipTile | undefined;
+  backroomsEntity: BackroomsEntity | undefined;
+  escapeConsole: EscapeConsole | undefined;
   arena: ArenaKeep | undefined;
   bossFences: Phaser.GameObjects.Rectangle[];
 }
@@ -143,6 +159,9 @@ export function buildLevel(
   world: number,
   course: CompiledCourse,
 ): BuiltLevel {
+  if (theme === 'backrooms') {
+    ensureLevelZeroTextures(scene);
+  }
   const cols = rows[0]?.length ?? 0;
   const solids = scene.physics.add.staticGroup();
   const oneways = scene.physics.add.staticGroup();
@@ -194,6 +213,7 @@ export function buildLevel(
           player = new Player(scene, px + TILE / 2, py + TILE / 2);
           break;
         case 'e':
+        case 'N':
           break;
         case 'm':
           miniBoss = new Boss(
@@ -266,12 +286,14 @@ export function buildLevel(
     collectibles.add(collectible);
   });
 
-  const shield = shields.create(
-    course.shield.x * TILE + TILE / 2,
-    (GROUND_Y - course.shield.tilesUp) * TILE - TILE / 2,
-    'shield-pickup',
-  ) as Phaser.Physics.Arcade.Sprite;
-  shield.setDepth(14);
+  if (course.shield) {
+    const shield = shields.create(
+      course.shield.x * TILE + TILE / 2,
+      (GROUND_Y - course.shield.tilesUp) * TILE - TILE / 2,
+      'shield-pickup',
+    ) as Phaser.Physics.Arcade.Sprite;
+    shield.setDepth(14);
+  }
 
   for (const [index, pickup] of course.checkpoints.entries()) {
     addCheckpoint(scene, checkpoints, pickup, MAP_ROWS * TILE, index);
@@ -290,6 +312,11 @@ export function buildLevel(
       theme,
     );
   }
+  const noclipTile = course.noclipTile === undefined ? undefined : new NoclipTile(scene, course.noclipTile);
+  const backroomsEntity = course.chase
+    ? new BackroomsEntity(scene, respawnColumn(rows, Math.floor(player.x / TILE)), rows, course.chase)
+    : undefined;
+  const escapeConsole = course.chase ? new EscapeConsole(scene, course.chase.console) : undefined;
 
   const heightPx = MAP_ROWS * TILE;
   const boss = worldBoss ?? miniBoss;
@@ -325,6 +352,9 @@ export function buildLevel(
     miniBoss,
     worldBoss,
     secretPortal,
+    noclipTile,
+    backroomsEntity,
+    escapeConsole,
     arena,
     bossFences,
   };
@@ -447,6 +477,9 @@ function physicsKey(scene: Phaser.Scene, theme: Theme, cell: string, kind: 'soli
   if (kind === 'oneway') {
     return pickTile(scene, onewayTileKey(theme), `kenney-${theme}-oneway`);
   }
+  if (theme === 'backrooms') {
+    return BR_BLOCK_KEY;
+  }
   switch (cell) {
     case '@':
       return arenaTileKey(theme);
@@ -459,7 +492,27 @@ function physicsKey(scene: Phaser.Scene, theme: Theme, cell: string, kind: 'soli
   }
 }
 
+/** Carpet and subfloor on the ground, wallpapered pillars, drop ceiling on hanging blocks. */
+function backroomsTile(rows: string[], x: number, y: number): string {
+  const exposed = isExposedTileTop(rows, x, y);
+  if (y >= GROUND_Y) {
+    return exposed ? BR_FLOOR_TOP_KEY : BR_FLOOR_FILL_KEY;
+  }
+  let fromCeiling = true;
+  for (let above = 0; above < y; above += 1) {
+    fromCeiling &&= rows[above]?.[x] === '#';
+  }
+  if (fromCeiling && rows[0]?.[x] === '#') {
+    const underside = rows[y + 1]?.[x] !== '#';
+    return underside && x % 3 === 1 ? BR_CEILING_LIGHT_KEY : BR_CEILING_KEY;
+  }
+  return exposed ? BR_BLOCK_TOP_KEY : BR_BLOCK_KEY;
+}
+
 function lookTile(scene: Phaser.Scene, theme: Theme, rows: string[], x: number, y: number): string {
+  if (theme === 'backrooms') {
+    return backroomsTile(rows, x, y);
+  }
   if (!isExposedTileTop(rows, x, y)) {
     return fillTileKey(theme);
   }

@@ -2,7 +2,7 @@ import { TILE } from '../config';
 
 export const ONEWAY_HEIGHT = 18;
 
-const SOLID_CELLS = new Set(['#', '@', 'G', 'W', 'b']);
+const SOLID_CELLS = new Set(['#', '@', 'G', 'W', 'b', 'N']);
 
 export function isSolidCell(cell: string | undefined): boolean {
   return SOLID_CELLS.has(cell ?? '');

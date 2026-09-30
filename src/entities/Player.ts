@@ -460,6 +460,7 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
     this.steerLockUntil = 0;
     this.arcadeBody.checkCollision.none = false;
     this.arcadeBody.setVelocity(0, 0);
+    this.arcadeBody.setAcceleration(0, 0);
     this.arcadeBody.allowGravity = false;
     this.squashTween?.stop();
     this.scene.tweens.killTweensOf(this);
@@ -490,6 +491,100 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
       duration: 560,
       ease: 'Cubic.easeIn',
       onComplete,
+    });
+  }
+
+  /**
+   * Glitch in place, then slip through the floor at `floorY` as if it stopped existing.
+   * A mask cuts the hero off at the floor line so it sinks into the tile, not over it.
+   */
+  noclipFall(centerX: number, floorY: number, onComplete: () => void): void {
+    this.freeze();
+    this.arcadeBody.enable = false;
+    this.hideHeldShield();
+    this.shadow.setVisible(false);
+    const scene = this.scene;
+    const startX = centerX;
+    this.setPosition(startX, floorY - 22);
+    this.syncView();
+    this.view.setTexture('player-fall');
+
+    const cut = scene.make.graphics({ x: 0, y: 0 }, false);
+    cut.fillStyle(0xffffff, 1);
+    cut.fillRect(startX - 400, floorY - 2000, 800, 2000);
+    const mask = cut.createGeometryMask();
+    this.view.setMask(mask);
+
+    let ticks = 0;
+    const jitter = scene.time.addEvent({
+      delay: 40,
+      repeat: 9,
+      callback: () => {
+        ticks += 1;
+        this.view.setX(startX + (ticks % 2 === 0 ? 3 : -3));
+        this.view.setAlpha(ticks % 3 === 0 ? 0.45 : 1);
+        if (ticks % 2 === 0) {
+          this.view.setTint(0xfff0a0);
+        } else {
+          this.view.clearTint();
+        }
+      },
+    });
+
+    scene.time.delayedCall(420, () => {
+      jitter.remove();
+      if (!this.view.active) {
+        onComplete();
+        return;
+      }
+      this.view.clearTint();
+      this.view.setAlpha(1);
+      this.view.setX(startX);
+      scene.tweens.add({
+        targets: [this, this.view],
+        y: floorY + 48,
+        scaleX: 0.78,
+        scaleY: 1.3,
+        angle: this.flipX ? -14 : 14,
+        duration: 520,
+        ease: 'Quad.easeIn',
+        onComplete: () => {
+          this.view.clearMask(true);
+          cut.destroy();
+          this.view.setVisible(false);
+          onComplete();
+        },
+      });
+    });
+  }
+
+  /**
+   * Tractor-beam exit: float up to the beam's axis at `x`, squirm against it, spin, then
+   * stretch thin and vanish into the dome at `intoY`.
+   */
+  abduct(x: number, intoY: number, onComplete: () => void): void {
+    this.freeze();
+    this.arcadeBody.enable = false;
+    this.hideHeldShield();
+    this.shadow.setVisible(false);
+    this.view.setTexture('player-fall');
+    const spin = this.flipX ? -1 : 1;
+    const hoverY = this.y - 76;
+    this.scene.tweens.chain({
+      targets: [this, this.view],
+      tweens: [
+        { x, y: hoverY, duration: 1000, ease: 'Sine.easeInOut' },
+        { scaleX: 1.3, scaleY: 0.74, angle: -14 * spin, duration: 95, yoyo: true, repeat: 2, ease: 'Sine.easeInOut' },
+        { y: hoverY + 14, scaleX: 1.18, scaleY: 0.86, angle: 10 * spin, duration: 120, ease: 'Quad.easeOut' },
+        { y: hoverY - 22, scaleX: 0.9, scaleY: 1.16, angle: 0, duration: 180, ease: 'Back.easeOut' },
+        { y: intoY + 60, angle: 900 * spin, scaleX: 0.8, scaleY: 0.8, duration: 950, ease: 'Quad.easeIn' },
+        { y: intoY, scaleX: 0.14, scaleY: 2.7, alpha: 0.25, duration: 230, ease: 'Cubic.easeIn' },
+      ],
+      onComplete: () => {
+        this.view.setVisible(false);
+        this.setVisible(false);
+        onComplete();
+      },
     });
   }
 
@@ -841,6 +936,7 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
         break;
       }
       case 'triple-jump':
+      case 'none':
         break;
       default: {
         const neverMode: never = mode;

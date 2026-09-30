@@ -1,13 +1,16 @@
 import Phaser from 'phaser';
 import {
+  BACKROOMS_LEVEL_ID,
   GAME_HEIGHT,
   GAME_WIDTH,
   START_LIVES,
   TILE,
   enemyThreatensTile,
-  isSecretLevel,
+  isBackroomsLevel,
+  isHiddenLevel,
   parseLevelId,
   secretLevelId,
+  themePhysics,
   themeSky,
   type EnemyKind,
   type LevelId,
@@ -26,17 +29,23 @@ import {
   session,
   setCheckpoint,
   setLastPlayed,
+  unlockBackrooms,
   unlockSecretLevel,
 } from '../data/progress';
 import { applySettings, maybeShake } from '../data/settings';
 import { isBossRewardSkin, skinForLevel, type SkinDef } from '../data/skins';
+import type { BackroomsEntity } from '../entities/BackroomsEntity';
+import { ENTITY_INTRO_MS, respawnColumn } from '../entities/backrooms-chase';
 import { Baddie } from '../entities/Baddie';
 import { Boss } from '../entities/Boss';
 import { Coin } from '../entities/Coin';
+import { canPressConsole } from '../entities/escape-console';
+import type { EscapeConsole } from '../entities/EscapeConsole';
 import { shouldDropCoin } from '../systems/coin-drop';
 import { isFallingStomp, stompBox } from '../entities/boss-combat';
 import { EnemyProjectile } from '../entities/EnemyProjectile';
 import { MovingPlatform } from '../entities/MovingPlatform';
+import { landsOnNoclip } from '../entities/noclip-landing';
 import { TerrainHazard } from '../entities/TerrainHazard';
 import { hazardThreatensTile, type TerrainHazardSpawn } from '../entities/terrain-hazard';
 import { FlakFragment } from '../entities/FlakFragment';
@@ -62,6 +71,7 @@ import { celebrateLevelClear, LEVEL_CLEAR_MENU_DELAY_MS, resetLevelClearCelebrat
 import { forgetFlak, rememberFlak, restoreFlak, setFlakGroup } from '../systems/flak';
 import { Foreground } from '../systems/foreground';
 import { selectMultiplayerTarget } from '../systems/multiplayer-targeting';
+import { BackroomsAtmosphere } from '../systems/backrooms-atmosphere';
 import { Parallax } from '../systems/parallax';
 import {
   classifyPlayerCollision,
@@ -86,6 +96,7 @@ import {
   type SpecialMeter,
 } from '../systems/special-meter';
 import { getTouchState, hideTouchControls, showTouchControls } from '../systems/touch-controls';
+import { playAbduction } from '../systems/ufo-abduction';
 import { skinThumbKey } from '../systems/textures';
 import { showBossFightBanner } from '../ui/boss-fight';
 import { showControlsHint } from '../ui/controls-hint';
@@ -220,6 +231,8 @@ export class PlayScene extends Phaser.Scene {
   private stopRuntime?: () => void;
   private cameraTarget?: Phaser.GameObjects.Zone;
   private hudSpectating?: Phaser.GameObjects.Text;
+  private groundedLastFrame = new Map<Player, boolean>();
+  private backroomsAtmosphere?: BackroomsAtmosphere;
 
   constructor() {
     super('PlayScene');
@@ -246,6 +259,8 @@ export class PlayScene extends Phaser.Scene {
     this.retainFlak = false;
     this.players = [];
     this.collisionCooldowns = {};
+    this.groundedLastFrame = new Map();
+    this.backroomsAtmosphere = undefined;
   }
 
   create(): void {
@@ -277,6 +292,9 @@ export class PlayScene extends Phaser.Scene {
       this.localPlayer = hostPlayer;
     }
     this.parallax = new Parallax(this, def.theme);
+    if (def.course.chase) {
+      this.backroomsAtmosphere = new BackroomsAtmosphere(this, this.built.heightPx, def.course.chase, !this.fromDeath);
+    }
     this.foreground = new Foreground(this, def.theme, this.built.widthPx, def.world, def.stage);
     audio.playTheme(this, def.theme);
     this.special = new WorldSpecial(this, this.built, def.theme, def.course.special);
@@ -284,6 +302,10 @@ export class PlayScene extends Phaser.Scene {
     if (savedCheckpoint && checkpointSpawnIsSafe(def.course.enemies, def.course.traps, savedCheckpoint)) {
       this.players.forEach((player, index) => player.setPosition(savedCheckpoint.x + index * 48, savedCheckpoint.y));
       this.armSavedCheckpoint(savedCheckpoint);
+    }
+    if (isBackroomsLevel(this.levelId) && !this.fromDeath) {
+      this.players.forEach((player) => player.setY(-TILE));
+      this.cameras.main.flash(700, 244, 236, 200);
     }
 
     this.physics.world.setBounds(0, 0, this.built.widthPx, this.built.heightPx + 400);
@@ -356,6 +378,9 @@ export class PlayScene extends Phaser.Scene {
     }
     if (this.players.length === 2) {
       this.physics.add.collider(this.players[0], this.players[1], () => this.onPlayersCollide());
+    }
+    if (this.built.backroomsEntity) {
+      this.bindBackroomsEntity(this.built.backroomsEntity, def.rows, hostPlayer.x);
     }
 
     this.cameraTarget = this.add.zone(hostPlayer.x, hostPlayer.y, 2, 2);
@@ -469,6 +494,10 @@ export class PlayScene extends Phaser.Scene {
     }
 
     this.createHud(def.name);
+    if (isBackroomsLevel(this.levelId)) {
+      this.hudCollectibles.setVisible(false);
+      this.hudShield.setVisible(false);
+    }
     this.createPauseOverlay();
     this.bindKeys();
     setHudPauseHandler(() => {
@@ -506,6 +535,7 @@ export class PlayScene extends Phaser.Scene {
   }
 
   update(_time: number, delta: number): void {
+    this.updateBackroomsAtmosphere();
     if (!this.paused && !this.controlsHintOpen) {
       this.cullFlak();
       if (this.canMutateWorld) {
@@ -582,6 +612,8 @@ export class PlayScene extends Phaser.Scene {
       this.tickBoss(miniBoss, bossTarget);
       this.tickBoss(worldBoss, bossTarget);
     }
+    this.built.backroomsEntity?.tick(this.rearmostLivingPlayer(), themePhysics(def.theme).maxSpeed);
+    this.checkEscapeConsole();
 
     if (this.canMutateWorld) {
       for (const player of this.livingPlayers()) {
@@ -589,6 +621,7 @@ export class PlayScene extends Phaser.Scene {
           this.killPlayer('pit', player);
         }
       }
+      this.checkNoclipLanding();
     }
 
     this.updateCoopCamera();
@@ -643,6 +676,95 @@ export class PlayScene extends Phaser.Scene {
       skipControlsHint: true,
       ...extra,
     };
+  }
+
+  private updateBackroomsAtmosphere(): void {
+    if (!this.backroomsAtmosphere) {
+      return;
+    }
+    const entity = this.built.backroomsEntity;
+    const rear = this.rearmostLivingPlayer();
+    const gap = entity?.lethal && rear ? rear.x - entity.x : undefined;
+    this.backroomsAtmosphere.update(this.cameras.main.scrollX, gap);
+  }
+
+  /** The stalker hunts whoever is furthest behind. */
+  private rearmostLivingPlayer(): Player | undefined {
+    return this.livingPlayers().reduce<Player | undefined>(
+      (rear, player) => (!rear || player.x < rear.x ? player : rear),
+      undefined,
+    );
+  }
+
+  private bindBackroomsEntity(entity: BackroomsEntity, rows: readonly string[], spawnX: number): void {
+    entity.placeAt(respawnColumn(rows, Math.floor(spawnX / TILE)), ENTITY_INTRO_MS);
+    this.physics.add.collider(entity, this.built.solids);
+    for (const player of this.players) {
+      this.physics.add.overlap(player, entity, () => {
+        if (entity.lethal) {
+          this.killPlayer('baddie', player);
+        }
+      });
+    }
+    entity.on('wake', () => this.showBackroomsCaption('run.'));
+    entity.on('emerge', () => maybeShake(this, 160, 0.004));
+    entity.on('gone', () => {
+      this.built.escapeConsole?.arm();
+      this.showBackroomsCaption('it is gone. press the button.');
+    });
+  }
+
+  private checkEscapeConsole(): void {
+    const escape = this.built.escapeConsole;
+    if (!escape || !this.canMutateWorld || this.completing) {
+      return;
+    }
+    const entityGone = this.built.backroomsEntity?.isGone ?? true;
+    const traveler = this.livingPlayers().find((player) =>
+      canPressConsole(escape.x, player.x, player.arcadeBody.blocked.down, entityGone),
+    );
+    if (traveler) {
+      this.escapeBackrooms(escape, traveler);
+    }
+  }
+
+  private escapeBackrooms(escape: EscapeConsole, traveler: Player): void {
+    this.completing = true;
+    this.syncTouchHud();
+    this.players.forEach((player) => player.freeze());
+    traveler.setFlipX(false);
+    escape.press(() => {
+      playAbduction(this, traveler, () => {
+        markCleared(this.levelId);
+        this.runtime?.sendLevelComplete(
+          this.levelId,
+          `${this.link?.localPlayerId ?? 'solo'}:${this.levelId}:${Date.now()}`,
+        );
+        this.showCompleteMenu('LEVEL 0 ESCAPED!');
+      });
+    });
+  }
+
+  private showBackroomsCaption(text: string): void {
+    const caption = this.add
+      .text(GAME_WIDTH / 2, GAME_HEIGHT * 0.3, text, {
+        ...textStyle('56px', '#f4ecc8'),
+        stroke: '#1a1408',
+        strokeThickness: 8,
+      })
+      .setOrigin(0.5)
+      .setScrollFactor(0)
+      .setDepth(60)
+      .setResolution(2)
+      .setAlpha(0);
+    this.tweens.chain({
+      targets: caption,
+      tweens: [
+        { alpha: 1, scale: { from: 1.3, to: 1 }, duration: 180, ease: 'Quad.easeOut' },
+        { alpha: 0, delay: 1100, duration: 500 },
+      ],
+      onComplete: () => caption.destroy(),
+    });
   }
 
   private closestLivingPlayer(x: number): Player | undefined {
@@ -1305,6 +1427,49 @@ export class PlayScene extends Phaser.Scene {
     });
   }
 
+  private checkNoclipLanding(): void {
+    const tile = this.built.noclipTile;
+    if (!tile || this.completing) {
+      return;
+    }
+    for (const player of this.livingPlayers()) {
+      const grounded = player.arcadeBody.blocked.down;
+      const wasGrounded = this.groundedLastFrame.get(player) ?? true;
+      this.groundedLastFrame.set(player, grounded);
+      if (grounded && !wasGrounded && !player.frozen && landsOnNoclip(tile.tileX, player.x, player.arcadeBody.bottom)) {
+        this.enterBackrooms(player);
+        return;
+      }
+    }
+  }
+
+  private enterBackrooms(traveler: Player): void {
+    const tile = this.built.noclipTile;
+    if (!tile || !this.canMutateWorld || this.completing || this.paused || this.controlsHintOpen) {
+      return;
+    }
+    this.completing = true;
+    this.syncTouchHud();
+    this.players.forEach((actor) => {
+      if (actor !== traveler) {
+        actor.freeze();
+      }
+    });
+    unlockBackrooms();
+    audio.play(this, 'noclip');
+    audio.setMusicDuck(0.15);
+    tile.trigger();
+    maybeShake(this, 320, 0.006);
+    traveler.noclipFall(tile.centerX, tile.topY, () => {
+      this.cameras.main.once('camerafadeoutcomplete', () => {
+        this.runtime?.sendTeamRestart(BACKROOMS_LEVEL_ID);
+        this.scene.start('PlayScene', this.continueWithSession(BACKROOMS_LEVEL_ID));
+      });
+      this.cameras.main.flash(120, 255, 246, 200);
+      this.cameras.main.fadeOut(480, 201, 180, 88);
+    });
+  }
+
   private canStompBoss(player: Player, boss: Boss): boolean {
     if (!this.canMutateWorld || !boss.active || boss.dying || player.frozen) {
       return false;
@@ -1387,6 +1552,7 @@ export class PlayScene extends Phaser.Scene {
     }
     this.completing = true;
     this.syncTouchHud();
+    this.built.backroomsEntity?.halt();
     session.lives -= 1;
     audio.play(this, 'hurt');
     player.die(() => {
@@ -1771,7 +1937,7 @@ export class PlayScene extends Phaser.Scene {
     this.physics.world.isPaused = true;
     audio.setMusicDuck(0.42);
 
-    const next = isSecretLevel(this.levelId) ? undefined : nextLevelId(this.levelId);
+    const next = isHiddenLevel(this.levelId) ? undefined : nextLevelId(this.levelId);
     const items: Array<{ label: string; action: () => void }> = [];
     if (next && this.canMutateWorld) {
       items.push({
