@@ -46,6 +46,7 @@
     "theme-desert": "assets/audio/desert-overworld.mp3",
     "theme-ocean": "assets/audio/ocean-overworld.mp3",
     "theme-castle": "assets/audio/castle-overworld.mp3",
-    "theme-rainforest": "assets/audio/rainforest-overworld.mp3"
+    "theme-rainforest": "assets/audio/rainforest-overworld.mp3",
+    "theme-rainy-city": "assets/audio/rainy-city-overworld.mp3"
   }
 }

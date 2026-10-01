@@ -8,7 +8,7 @@ export const RECORDED_THEME_URLS: Record<Theme, string> = {
   castle: 'assets/audio/castle-overworld.mp3',
   rainforest: 'assets/audio/rainforest-overworld.mp3',
   beach: 'assets/audio/grass-overworld.mp3',
-  'rainy-city': '',
+  'rainy-city': 'assets/audio/rainy-city-overworld.mp3',
   backrooms: '',
 };
 
