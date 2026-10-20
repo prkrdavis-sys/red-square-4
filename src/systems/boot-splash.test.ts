@@ -1,5 +1,10 @@
+import { readFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { dismissBootSplash } from './boot-splash';
+
+const ROOT = join(dirname(fileURLToPath(import.meta.url)), '../..');
 
 describe('dismissBootSplash', () => {
   afterEach(() => {
@@ -12,9 +17,7 @@ describe('dismissBootSplash', () => {
     expect(() => dismissBootSplash()).not.toThrow();
   });
 
-  it('fades and removes the splash once', () => {
-    vi.useFakeTimers();
-    const listeners = new Map<string, () => void>();
+  it('removes the splash once', () => {
     const splash = {
       classList: {
         tokens: new Set<string>(),
@@ -25,9 +28,6 @@ describe('dismissBootSplash', () => {
           this.tokens.add(name);
         },
       },
-      addEventListener(type: string, listener: () => void) {
-        listeners.set(type, listener);
-      },
       remove: vi.fn(),
     };
     vi.stubGlobal('document', { getElementById: () => splash });
@@ -36,12 +36,31 @@ describe('dismissBootSplash', () => {
     dismissBootSplash();
 
     expect(splash.classList.contains('is-done')).toBe(true);
-    expect(listeners.has('transitionend')).toBe(true);
-
-    listeners.get('transitionend')?.();
     expect(splash.remove).toHaveBeenCalledTimes(1);
+  });
+});
 
-    vi.advanceTimersByTime(400);
-    expect(splash.remove).toHaveBeenCalledTimes(1);
+describe('boot shell', () => {
+  const html = readFileSync(join(ROOT, 'index.html'), 'utf8');
+  const orient = readFileSync(join(ROOT, 'public/boot-orient.js'), 'utf8');
+  const fonts = readFileSync(join(ROOT, 'src/ui/fonts.css'), 'utf8');
+  const main = readFileSync(join(ROOT, 'src/main.ts'), 'utf8');
+  const vite = readFileSync(join(ROOT, 'vite.config.ts'), 'utf8');
+
+  it('does not ask the browser to rotate', () => {
+    expect(html).toContain('boot-orient.js');
+    expect(orient).toContain('unlock');
+    expect(orient).not.toMatch(/\.lock\s*\(/);
+    expect(vite).toContain("orientation: 'any'");
+  });
+
+  it('keeps one font and one splash layout', () => {
+    expect(html).toContain('fonts.css');
+    expect(html).not.toContain('loading...');
+    expect(html).not.toContain('boot-splash-hero');
+    expect(html).not.toContain('Segoe UI');
+    expect(fonts).toContain('font-display: block');
+    expect(fonts).not.toContain('swap');
+    expect(main).not.toContain('fontsource');
   });
 });

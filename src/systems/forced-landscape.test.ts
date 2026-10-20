@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   applyForcedLandscapeDom,
   clientToStage,
@@ -6,6 +6,7 @@ import {
   mapPageToStage,
   nextLandscapeAngle,
   portraitRotateDeg,
+  releaseOrientationLock,
   remapSafeInsets,
   resolveForcedLandscape,
   shouldForceLandscape,
@@ -13,6 +14,24 @@ import {
 
 const portraitPhone = { width: 390, height: 844, offsetLeft: 0, offsetTop: 0 };
 const landscapePhone = { width: 844, height: 390, offsetLeft: 0, offsetTop: 0 };
+
+describe('releaseOrientationLock', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it('clears a stuck lock without requesting a rotation', () => {
+    const unlock = vi.fn(() => Promise.resolve());
+    vi.stubGlobal('screen', { orientation: { unlock } });
+    releaseOrientationLock();
+    expect(unlock).toHaveBeenCalledTimes(1);
+  });
+
+  it('does nothing when the browser cannot unlock', () => {
+    vi.stubGlobal('screen', { orientation: {} });
+    expect(() => releaseOrientationLock()).not.toThrow();
+  });
+});
 
 describe('shouldForceLandscape', () => {
   it('skips desktop even in a tall window', () => {

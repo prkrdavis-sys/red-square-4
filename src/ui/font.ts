@@ -7,7 +7,11 @@ export async function waitForUiFont(): Promise<void> {
   }
   try {
     await Promise.race([
-      document.fonts.load(`600 18px "${GAME_FONT_FAMILY}"`),
+      Promise.all([
+        document.fonts.load(`600 64px "${GAME_FONT_FAMILY}"`),
+        document.fonts.load(`600 18px "${GAME_FONT_FAMILY}"`),
+        document.fonts.load(`700 18px "${GAME_FONT_FAMILY}"`),
+      ]),
       new Promise<void>((resolve) => {
         globalThis.setTimeout(resolve, UI_FONT_WAIT_MS);
       }),

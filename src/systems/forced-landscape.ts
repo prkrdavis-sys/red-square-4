@@ -62,6 +62,25 @@ export function isOsLandscape(orientationType: string | undefined, orientationAn
   }
 }
 
+export function releaseOrientationLock(): void {
+  if (typeof screen === 'undefined' || !screen.orientation) {
+    return;
+  }
+  const unlock = screen.orientation.unlock;
+  if (typeof unlock !== 'function') {
+    return;
+  }
+  try {
+    const pending = unlock.call(screen.orientation) as Promise<void> | undefined;
+    if (pending && typeof pending.catch === 'function') {
+      void pending.catch(() => undefined);
+    }
+  } catch {
+    return;
+  }
+}
+
+// public/boot-orient.js repeats this decision so the first paint already matches.
 export function shouldForceLandscape(
   box: Pick<ViewportBox, 'width' | 'height'>,
   orientationType: string | undefined,

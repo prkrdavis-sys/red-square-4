@@ -3,6 +3,7 @@ import { GAME_WIDTH } from '../config';
 import { hasCampaignProgress, loadSave, resetSessionLives, resumeLevelId } from '../data/progress';
 import { applySettings } from '../data/settings';
 import { audio } from '../systems/audio';
+import { preloadOptionalAssets } from '../systems/optional-assets';
 import { Parallax } from '../systems/parallax';
 import { launchOverlay, MenuButton, MenuNav, textStyle, UI } from '../ui/menu';
 
@@ -15,6 +16,7 @@ export class TitleScene extends Phaser.Scene {
   }
 
   create(): void {
+    preloadOptionalAssets(this);
     applySettings(this);
     this.cameras.main.setBackgroundColor(0x5c94fc);
     this.parallax = new Parallax(this, 'grass');
