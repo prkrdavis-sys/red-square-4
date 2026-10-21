@@ -3,6 +3,7 @@ import {
   BOSS_KINDS,
   CAMPAIGN_LEVEL_IDS,
   GROUND_Y,
+  HALLOWEEN,
   JUMP_HEIGHT_TILES,
   JUMP_REACH_TILES,
   MAP_ROWS,
@@ -29,6 +30,10 @@ import {
 import { hazardThreatensTile } from '../entities/terrain-hazard';
 import { miniBossTextureKey, worldBossTextureKey } from '../systems/characters';
 import { getLevel } from './worlds';
+
+function biomeEnemyCount(id: LevelId): number {
+  return getLevel(id).course.enemies.filter((enemy) => enemy.kind !== 'swoop-bat').length;
+}
 import { bossSafeLandingX, getArenaLayout, type ArenaKeep } from './arena';
 import type { LevelDef } from './worlds';
 import { colliderBox, colliderRuns, enableOneWayCollision, liftOntoFloor, ONEWAY_HEIGHT } from './colliders';
@@ -76,13 +81,11 @@ describe('late-stage length and checkpoints', () => {
 
   it('packs more enemies into x-3 and x-4 as worlds get later', () => {
     const stageCounts = (stage: 3 | 4) =>
-      ([1, 2, 3, 4, 5, 6, 7, 8] as const).map((world) => getLevel(`${world}-${stage}`).course.enemies.length);
+      ([1, 2, 3, 4, 5, 6, 7, 8] as const).map((world) => biomeEnemyCount(`${world}-${stage}`));
     expect(stageCounts(3)).toEqual([1, 2, 3, 4, 5, 6, 7, 8].map((world) => lateStageEnemyQuota(world, 3)));
     expect(stageCounts(4)).toEqual([1, 2, 3, 4, 5, 6, 7, 8].map((world) => lateStageEnemyQuota(world, 4)));
     for (let world = 1; world <= 8; world += 1) {
-      expect(getLevel(`${world}-3` as LevelId).course.enemies.length).toBeGreaterThan(
-        getLevel(`${world}-2` as LevelId).course.enemies.length,
-      );
+      expect(biomeEnemyCount(`${world}-3` as LevelId)).toBeGreaterThan(biomeEnemyCount(`${world}-2` as LevelId));
     }
     expect(lateStageEnemyQuota(1, 3)).toBe(13);
     expect(lateStageEnemyQuota(6, 3)).toBe(18);
@@ -327,8 +330,22 @@ describe('biome campaign compilation', () => {
   it('keeps each enemy roster exclusive to its biome', () => {
     for (const id of CAMPAIGN_LEVEL_IDS) {
       const { world } = parseLevelId(id);
-      const allowed = new Set(enemiesForWorld(world));
+      const allowed = new Set<string>(enemiesForWorld(world));
+      if (HALLOWEEN) {
+        allowed.add('swoop-bat');
+      }
       expect(getLevel(id).course.enemies.every((enemy) => allowed.has(enemy.kind))).toBe(true);
+    }
+  });
+
+  it('adds a swoop bat the player can track on every course', () => {
+    if (!HALLOWEEN) {
+      return;
+    }
+    for (const id of [...CAMPAIGN_LEVEL_IDS, ...SECRET_LEVEL_IDS]) {
+      const bats = getLevel(id).course.enemies.filter((enemy) => enemy.kind === 'swoop-bat');
+      expect(bats.length, id).toBeGreaterThan(0);
+      expect(bats.every((bat) => bat.tilesUp > 0), id).toBe(true);
     }
   });
 });
@@ -713,7 +730,7 @@ describe('secret specialty courses', () => {
       expect(level.course.puzzles.length).toBeGreaterThanOrEqual(4);
       expect(level.course.checkpoints).toHaveLength(2);
       expect(level.course.traps.length).toBeGreaterThan(0);
-      expect(level.course.enemies.length).toBe(lateStageEnemyQuota(level.world, 3, true));
+      expect(biomeEnemyCount(id)).toBe(lateStageEnemyQuota(level.world, 3, true));
       expect(level.rows.join('')).toContain('B');
       expect(level.rows.join('')).not.toContain('m');
       expect(secretBossName(level.world)).toBe(bosses[index]);

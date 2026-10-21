@@ -42,6 +42,7 @@ import { Coin } from '../entities/Coin';
 import { canPressConsole } from '../entities/escape-console';
 import type { EscapeConsole } from '../entities/EscapeConsole';
 import { shouldDropCoin } from '../systems/coin-drop';
+import { coinMagnetVelocity } from '../systems/coin-magnet';
 import { isFallingStomp, stompBox } from '../entities/boss-combat';
 import { EnemyProjectile } from '../entities/EnemyProjectile';
 import { MovingPlatform } from '../entities/MovingPlatform';
@@ -314,10 +315,14 @@ export class PlayScene extends Phaser.Scene {
     const { solids, oneways, hazards, baddies, projectiles, collectibles, miniBoss, worldBoss, bossFences } =
       this.built;
 
-    this.physics.add.collider(baddies, solids);
-    this.physics.add.collider(baddies, oneways);
-    this.physics.add.collider(baddies, this.built.bricks);
-    this.physics.add.collider(baddies, this.built.movers);
+    const terrainHitsBaddie: Phaser.Types.Physics.Arcade.ArcadePhysicsCallback = (objectA, objectB) => {
+      const baddie = objectA instanceof Baddie ? objectA : objectB instanceof Baddie ? objectB : undefined;
+      return baddie?.kind !== 'swoop-bat';
+    };
+    this.physics.add.collider(baddies, solids, undefined, terrainHitsBaddie);
+    this.physics.add.collider(baddies, oneways, undefined, terrainHitsBaddie);
+    this.physics.add.collider(baddies, this.built.bricks, undefined, terrainHitsBaddie);
+    this.physics.add.collider(baddies, this.built.movers, undefined, terrainHitsBaddie);
     this.physics.add.collider(projectiles, solids, (objectA, objectB) => {
       const projectile = objectA instanceof EnemyProjectile ? objectA : objectB instanceof EnemyProjectile ? objectB : undefined;
       projectile?.destroy();
@@ -364,14 +369,7 @@ export class PlayScene extends Phaser.Scene {
       frag?.destroy();
     });
 
-    this.coins = this.physics.add.group({ runChildUpdate: true, allowGravity: true });
-    this.physics.add.collider(this.coins, solids);
-    this.physics.add.collider(
-      this.coins,
-      oneways,
-      undefined,
-      (objectA, objectB) => this.coinOneWayProcess(objectA, objectB),
-    );
+    this.coins = this.physics.add.group({ runChildUpdate: true, allowGravity: false });
 
     for (const actor of this.players) {
       this.bindPlayerPhysics(actor);
@@ -616,6 +614,7 @@ export class PlayScene extends Phaser.Scene {
     this.checkEscapeConsole();
 
     if (this.canMutateWorld) {
+      this.attractCoins();
       for (const player of this.livingPlayers()) {
         if (player.y > this.built.heightPx + 20) {
           this.killPlayer('pit', player);
@@ -1622,23 +1621,14 @@ export class PlayScene extends Phaser.Scene {
     player.bossBounce(boss.x, safeX);
   }
 
-  private coinOneWayProcess(
-    objectA:
-      | Phaser.Types.Physics.Arcade.GameObjectWithBody
-      | Phaser.Physics.Arcade.Body
-      | Phaser.Physics.Arcade.StaticBody
-      | Phaser.Tilemaps.Tile,
-    objectB:
-      | Phaser.Types.Physics.Arcade.GameObjectWithBody
-      | Phaser.Physics.Arcade.Body
-      | Phaser.Physics.Arcade.StaticBody
-      | Phaser.Tilemaps.Tile,
-  ): boolean {
-    const coin = coinFromCollider(objectA) ?? coinFromCollider(objectB);
-    if (!coin) {
-      return false;
+  private attractCoins(): void {
+    const players = this.livingPlayers().map((player) => ({ x: player.x, y: player.y }));
+    for (const child of this.coins.getChildren()) {
+      if (!(child instanceof Coin) || !child.active || child.isCollecting) {
+        continue;
+      }
+      child.setMagnet(coinMagnetVelocity({ x: child.x, y: child.y }, players));
     }
-    return coin.arcadeBody.velocity.y >= 0;
   }
 
   private collectCoin(coin: Coin): void {

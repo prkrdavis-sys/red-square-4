@@ -6,8 +6,8 @@ const POSES = ['idle', 'move', 'attack', 'hurt', 'dead'] as const;
 
 describe('world enemy art', () => {
   it('gives every enemy its own generated frames', () => {
-    expect(ENEMY_KINDS).toHaveLength(16);
-    expect(new Set(ENEMY_KINDS).size).toBe(16);
+    expect(ENEMY_KINDS).toHaveLength(17);
+    expect(new Set(ENEMY_KINDS).size).toBe(17);
     for (const kind of ENEMY_KINDS) {
       expect(enemyTextureKeys(kind)).toEqual(POSES.map((pose) => `enemy-${kind}-${pose}`));
     }

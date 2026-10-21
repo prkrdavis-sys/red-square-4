@@ -44,6 +44,7 @@ describe('projectile styles', () => {
         expect(projectileStyleForKind(kind)).toBe(style);
       }
     }
+    expect(projectileStyleForKind('swoop-bat')).toBe('fireball');
   });
 
   it('spreads bubbles across three unique headings', () => {

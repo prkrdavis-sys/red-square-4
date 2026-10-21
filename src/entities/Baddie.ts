@@ -4,12 +4,21 @@ import { audio } from '../systems/audio';
 import { enemyTextureKey } from '../systems/characters';
 import { bubbleSpreadOffsets, projectileFlightSpeed, projectileStyleForKind } from '../systems/projectile-style';
 import { EnemyProjectile } from './EnemyProjectile';
+import { SWOOP_DURATION_MS, swoopPath, swoopPointAt, type SwoopPath } from './swoop-path';
 
 type EnemyPose = 'idle' | 'move' | 'attack' | 'hurt' | 'dead';
 
 const RANGED_WINDUP_MS = 860;
 const RANGED_COOLDOWN_MS = 2400;
 const FIRST_ATTACK_DELAY_MS = 1400;
+const SWOOP_RANGE_X = 440;
+const SWOOP_RANGE_Y = 340;
+const SWOOP_WINDUP_MS = 450;
+const SWOOP_RECOVER_MS = 520;
+const SWOOP_COOLDOWN_MS = 900;
+const SWOOP_FIRST_HOLD_MS = 500;
+
+type SwoopPhase = 'hover' | 'windup' | 'swoop' | 'recover';
 
 export class Baddie extends Phaser.Physics.Arcade.Sprite {
   readonly kind: EnemyKind;
@@ -27,6 +36,14 @@ export class Baddie extends Phaser.Physics.Arcade.Sprite {
   private charge?: Phaser.GameObjects.Sprite;
   private readonly hitW: number;
   private readonly hitH: number;
+  private swoopPhase: SwoopPhase = 'hover';
+  private swoopMs = 0;
+  private swoopHold = SWOOP_FIRST_HOLD_MS;
+  private swoopHomeX = 0;
+  private swoopHomeY = 0;
+  private swoopCurve?: SwoopPath;
+  private recoverFromX = 0;
+  private recoverFromY = 0;
 
   constructor(scene: Phaser.Scene, x: number, y: number, kind: EnemyKind, speed = 70) {
     super(scene, x, y, enemyTextureKey(kind, 'idle'));
@@ -41,6 +58,12 @@ export class Baddie extends Phaser.Physics.Arcade.Sprite {
     body.setSize(this.hitW, this.hitH);
     body.setBounce(0, 0);
     body.pushable = false;
+    this.swoopHomeX = x;
+    this.swoopHomeY = y;
+    if (kind === 'swoop-bat') {
+      body.setAllowGravity(false);
+      body.setVelocity(0, 0);
+    }
     this.setDepth(15);
     this.once('destroy', () => this.clearCharge());
   }
@@ -80,16 +103,30 @@ export class Baddie extends Phaser.Physics.Arcade.Sprite {
     oneways: Phaser.Physics.Arcade.StaticGroup,
     projectiles: Phaser.Physics.Arcade.Group,
   ): void {
+    if (this.kind === 'swoop-bat') {
+      this.arcadeBody.setAllowGravity(false);
+    }
     if (this.dying || !this.threatsArmed) {
+      if (this.kind === 'swoop-bat' && !this.dying) {
+        this.arcadeBody.setVelocity(0, 0);
+      }
       return;
     }
     if (this.scene.time.now < this.stunnedUntil) {
-      this.arcadeBody.setVelocityX(0);
+      if (this.kind === 'swoop-bat') {
+        this.arcadeBody.setVelocity(0, 0);
+      } else {
+        this.arcadeBody.setVelocityX(0);
+      }
       this.present('hurt');
       return;
     }
     if (!this.windingUp) {
       this.restoreRestTint(this.scene.time.now);
+    }
+    if (this.kind === 'swoop-bat') {
+      this.tickSwoop(player);
+      return;
     }
     switch (this.role) {
       case 'movement':
@@ -103,6 +140,83 @@ export class Baddie extends Phaser.Physics.Arcade.Sprite {
         return neverRole;
       }
     }
+  }
+
+  private tickSwoop(player: Phaser.Physics.Arcade.Sprite): void {
+    const step = Math.min(48, Math.max(8, this.scene.game.loop.delta));
+    this.swoopMs += step;
+    const bob = Math.sin(this.scene.time.now / 280) * 10;
+    switch (this.swoopPhase) {
+      case 'hover':
+        this.glideTo(this.swoopHomeX, this.swoopHomeY + bob, step);
+        this.setFlipX(player.x > this.x);
+        this.present('idle');
+        if (
+          this.swoopMs >= this.swoopHold &&
+          Math.abs(player.x - this.x) <= SWOOP_RANGE_X &&
+          Math.abs(player.y - this.y) <= SWOOP_RANGE_Y
+        ) {
+          this.swoopPhase = 'windup';
+          this.swoopMs = 0;
+        }
+        return;
+      case 'windup':
+        this.glideTo(this.swoopHomeX, this.swoopHomeY + bob * 0.35, step);
+        this.setFlipX(player.x > this.x);
+        this.present('attack');
+        this.setTint(Math.sin(this.swoopMs / 60) > 0 ? 0xffb25a : 0xfff3c4);
+        if (this.swoopMs >= SWOOP_WINDUP_MS) {
+          this.swoopCurve = swoopPath({ x: this.x, y: this.y }, { x: player.x, y: player.y });
+          this.swoopPhase = 'swoop';
+          this.swoopMs = 0;
+          this.clearTint();
+        }
+        return;
+      case 'swoop': {
+        const curve = this.swoopCurve;
+        if (!curve) {
+          this.swoopPhase = 'hover';
+          this.swoopMs = 0;
+          return;
+        }
+        const point = swoopPointAt(curve, this.swoopMs);
+        this.glideTo(point.x, point.y, step);
+        this.setFlipX(curve.end.x >= curve.start.x);
+        this.present('attack');
+        if (this.swoopMs >= SWOOP_DURATION_MS) {
+          this.recoverFromX = this.x;
+          this.recoverFromY = this.y;
+          this.swoopPhase = 'recover';
+          this.swoopMs = 0;
+        }
+        return;
+      }
+      case 'recover': {
+        const t = Math.min(1, this.swoopMs / SWOOP_RECOVER_MS);
+        const arc = Math.sin(t * Math.PI) * -36;
+        const x = this.recoverFromX + (this.swoopHomeX - this.recoverFromX) * t;
+        const y = this.recoverFromY + (this.swoopHomeY - this.recoverFromY) * t + arc;
+        this.glideTo(x, y, step);
+        this.setFlipX(this.swoopHomeX >= this.recoverFromX);
+        this.present('move');
+        if (t >= 1) {
+          this.swoopPhase = 'hover';
+          this.swoopMs = 0;
+          this.swoopHold = SWOOP_COOLDOWN_MS;
+          this.swoopCurve = undefined;
+        }
+        return;
+      }
+      default: {
+        const neverPhase: never = this.swoopPhase;
+        return neverPhase;
+      }
+    }
+  }
+
+  private glideTo(x: number, y: number, stepMs: number): void {
+    const dt = Math.max(stepMs, 8) / 1000;
+    this.arcadeBody.setVelocity((x - this.x) / dt, (y - this.y) / dt);
   }
 
   private tickMovement(

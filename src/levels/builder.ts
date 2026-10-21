@@ -265,6 +265,10 @@ export function buildLevel(
     const y = (GROUND_Y - 1 - spawn.tilesUp) * TILE + TILE / 2;
     const baddie = new Baddie(scene, spawn.x * TILE + TILE / 2, y, spawn.kind, 60 + (spawn.x % 3) * 12);
     baddies.add(baddie);
+    if (spawn.kind === 'swoop-bat') {
+      baddie.arcadeBody.setAllowGravity(false);
+      baddie.arcadeBody.setVelocity(0, 0);
+    }
   }
 
   for (const spawn of course.movers) {

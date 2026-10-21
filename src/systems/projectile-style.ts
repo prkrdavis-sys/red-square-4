@@ -76,6 +76,8 @@ export function projectileStyleForKind(kind: EnemyKind): ProjectileStyle {
     case 'alley-cat':
     case 'umbrella-pigeon':
       return 'water-balloon';
+    case 'swoop-bat':
+      return 'fireball';
     default: {
       const neverKind: never = kind;
       return neverKind;

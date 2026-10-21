@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import { GAME_WIDTH } from '../config';
+import { GAME_WIDTH, HALLOWEEN, themeSky } from '../config';
 import { hasCampaignProgress, loadSave, resetSessionLives, resumeLevelId } from '../data/progress';
 import { applySettings } from '../data/settings';
 import { audio } from '../systems/audio';
@@ -18,9 +18,13 @@ export class TitleScene extends Phaser.Scene {
   create(): void {
     preloadOptionalAssets(this);
     applySettings(this);
-    this.cameras.main.setBackgroundColor(0x5c94fc);
-    this.parallax = new Parallax(this, 'grass');
-    audio.playTheme(this, 'grass');
+    const theme = HALLOWEEN ? 'castle' : 'grass';
+    this.cameras.main.setBackgroundColor(themeSky(theme));
+    this.parallax = new Parallax(this, theme);
+    audio.playTheme(this, theme);
+    if (HALLOWEEN) {
+      this.addHalloweenDressing();
+    }
 
     const heroX = GAME_WIDTH / 2;
     const shadow = this.add.ellipse(heroX, 216, 92, 22, 0x3a1010, 0.28);
@@ -64,15 +68,26 @@ export class TitleScene extends Phaser.Scene {
     });
 
     this.add
-      .text(GAME_WIDTH / 2, 258, 'RED SQUARE 4', {
+      .text(GAME_WIDTH / 2, HALLOWEEN ? 248 : 258, 'RED SQUARE 4', {
         ...textStyle('64px', '#ffffff'),
-        stroke: '#7a1212',
+        stroke: HALLOWEEN ? '#e07020' : '#7a1212',
         strokeThickness: 6,
       })
       .setOrigin(0.5);
 
+    if (HALLOWEEN) {
+      this.add
+        .text(GAME_WIDTH / 2, 296, 'HAPPY HALLOWEEN', textStyle('18px', '#ffb25a'))
+        .setOrigin(0.5);
+    }
+
     this.add
-      .text(GAME_WIDTH / 2, 312, 'A Mario-inspired platforming campaign', textStyle('20px', UI.gold))
+      .text(
+        GAME_WIDTH / 2,
+        HALLOWEEN ? 322 : 312,
+        'A Mario-inspired platforming campaign',
+        textStyle('20px', UI.gold),
+      )
       .setOrigin(0.5);
 
     const save = loadSave();
@@ -81,7 +96,7 @@ export class TitleScene extends Phaser.Scene {
       this.add
         .text(
           GAME_WIDTH / 2,
-          338,
+          HALLOWEEN ? 348 : 338,
           `Saved  ·  ${save.cleared.length} cleared  ·  resume ${resumeLevelId(save)}`,
           textStyle('18px', UI.gold),
         )
@@ -122,5 +137,81 @@ export class TitleScene extends Phaser.Scene {
     void time;
     this.drift += delta * 0.02;
     this.parallax.update(this.drift);
+  }
+
+  private addHalloweenDressing(): void {
+    this.paintPumpkinTexture('title-pumpkin', false);
+    this.paintPumpkinTexture('title-jack', true);
+    const props: Array<{ x: number; key: string; scale: number }> = [
+      { x: 78, key: 'title-pumpkin', scale: 1.15 },
+      { x: 168, key: 'title-jack', scale: 1 },
+      { x: 1110, key: 'title-jack', scale: 1.05 },
+      { x: 1204, key: 'title-pumpkin', scale: 1.2 },
+    ];
+    for (const prop of props) {
+      const pumpkin = this.add.image(prop.x, 692, prop.key).setScale(prop.scale).setDepth(1).setOrigin(0.5, 1);
+      if (prop.key === 'title-jack') {
+        this.tweens.add({
+          targets: pumpkin,
+          alpha: 0.72,
+          duration: 420,
+          yoyo: true,
+          repeat: -1,
+          ease: 'Sine.easeInOut',
+        });
+      }
+    }
+    if (!this.textures.exists('enemy-swoop-bat-move')) {
+      return;
+    }
+    const flock = [
+      { y: 58, delay: 0, scale: 0.82, duration: 7600 },
+      { y: 118, delay: 1400, scale: 0.58, duration: 6400 },
+      { y: 86, delay: 2800, scale: 0.7, duration: 8200 },
+    ];
+    for (const bat of flock) {
+      const sprite = this.add
+        .image(-48, bat.y, 'enemy-swoop-bat-move')
+        .setScale(bat.scale)
+        .setDepth(2);
+      this.tweens.add({
+        targets: sprite,
+        x: GAME_WIDTH + 64,
+        duration: bat.duration,
+        delay: bat.delay,
+        repeat: -1,
+      });
+    }
+  }
+
+  private paintPumpkinTexture(key: string, face: boolean): void {
+    if (this.textures.exists(key)) {
+      return;
+    }
+    const g = this.make.graphics({ x: 0, y: 0 });
+    g.fillStyle(0x2a1408, 1);
+    g.fillEllipse(36, 46, 62, 52);
+    g.fillStyle(face ? 0xff8a1a : 0xe06810, 1);
+    g.fillEllipse(36, 44, 54, 46);
+    g.fillStyle(0xc44808, 1);
+    g.fillEllipse(24, 44, 16, 42);
+    g.fillEllipse(36, 44, 16, 44);
+    g.fillEllipse(48, 44, 16, 42);
+    g.fillStyle(face ? 0xff9a32 : 0xe87818, 1);
+    g.fillEllipse(28, 40, 8, 36);
+    g.fillEllipse(44, 40, 8, 36);
+    g.fillStyle(0x2f8a32, 1);
+    g.fillRoundedRect(32, 16, 8, 14, 3);
+    if (face) {
+      g.fillStyle(0x1a0808, 1);
+      g.fillTriangle(24, 38, 32, 38, 28, 48);
+      g.fillTriangle(40, 38, 48, 38, 44, 48);
+      g.fillTriangle(28, 54, 44, 54, 36, 62);
+      g.fillStyle(0xffe08a, 0.85);
+      g.fillTriangle(27, 42, 31, 42, 29, 46);
+      g.fillTriangle(43, 42, 47, 42, 45, 46);
+    }
+    g.generateTexture(key, 72, 78);
+    g.destroy();
   }
 }

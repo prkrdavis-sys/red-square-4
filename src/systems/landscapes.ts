@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import { GAME_HEIGHT, THEMES, type Theme } from '../config';
+import { GAME_HEIGHT, HALLOWEEN, THEMES, type Theme } from '../config';
 
 export const LANDSCAPE = {
   stripW: 2560,
@@ -118,20 +118,35 @@ function palette(theme: Theme): LandscapePalette {
         groundTop: 0x2a5c68,
       };
     case 'castle':
-      return {
-        skyTop: 0x08060e,
-        skyHorizon: 0x2a1830,
-        cloud: 0x6a5470,
-        cloudShade: 0x3a2838,
-        far: 0x1a1020,
-        farCap: 0x4a2838,
-        mountain: 0x241428,
-        mountainShade: 0x140814,
-        cap: 0x5a3048,
-        ground: 0x160c18,
-        groundShade: 0x0a060c,
-        groundTop: 0x2a1a28,
-      };
+      return HALLOWEEN
+        ? {
+            skyTop: 0x100814,
+            skyHorizon: 0x6a2810,
+            cloud: 0x4a3058,
+            cloudShade: 0x2a1830,
+            far: 0x1a1020,
+            farCap: 0xc45a18,
+            mountain: 0x241428,
+            mountainShade: 0x140814,
+            cap: 0xe07020,
+            ground: 0x160c18,
+            groundShade: 0x0a060c,
+            groundTop: 0x3a2218,
+          }
+        : {
+            skyTop: 0x08060e,
+            skyHorizon: 0x2a1830,
+            cloud: 0x6a5470,
+            cloudShade: 0x3a2838,
+            far: 0x1a1020,
+            farCap: 0x4a2838,
+            mountain: 0x241428,
+            mountainShade: 0x140814,
+            cap: 0x5a3048,
+            ground: 0x160c18,
+            groundShade: 0x0a060c,
+            groundTop: 0x2a1a28,
+          };
     case 'rainforest':
       return {
         skyTop: 0x14382c,
@@ -2760,6 +2775,9 @@ function drawClouds(scene: Phaser.Scene, theme: Theme, colors: LandscapePalette)
     for (const cloud of cloudPlan(theme)) {
       stampCloud(ctx, cloud.x, cloud.y, cloud.s, LANDSCAPE.stripW, colors.cloud, colors.cloudShade);
     }
+    if (theme === 'castle' && HALLOWEEN) {
+      paintHalloweenSkyBats(ctx);
+    }
   });
 }
 
@@ -2815,6 +2833,82 @@ function snowPeaks(far: boolean, texH: number): Peak[] {
   ];
 }
 
+function paintHalloweenSkyBats(ctx: CanvasRenderingContext2D): void {
+  const bats = [
+    { x: 180, y: 36, s: 0.7 },
+    { x: 420, y: 88, s: 1 },
+    { x: 760, y: 28, s: 0.55 },
+    { x: 1100, y: 70, s: 0.85 },
+    { x: 1480, y: 40, s: 1.15 },
+    { x: 1860, y: 96, s: 0.65 },
+    { x: 2140, y: 32, s: 0.9 },
+    { x: 2420, y: 78, s: 0.75 },
+  ];
+  for (const bat of bats) {
+    drawBatSilhouette(ctx, bat.x, bat.y, bat.s);
+  }
+}
+
+function drawBatSilhouette(ctx: CanvasRenderingContext2D, x: number, y: number, scale: number): void {
+  ctx.fillStyle = css(0x100810, 0.9);
+  ctx.beginPath();
+  ctx.moveTo(x, y);
+  ctx.lineTo(x - 18 * scale, y - 12 * scale);
+  ctx.lineTo(x - 8 * scale, y - 2 * scale);
+  ctx.lineTo(x, y + 4 * scale);
+  ctx.lineTo(x + 8 * scale, y - 2 * scale);
+  ctx.lineTo(x + 18 * scale, y - 12 * scale);
+  ctx.closePath();
+  ctx.fill();
+}
+
+function paintHalloweenRidge(ctx: CanvasRenderingContext2D, far: boolean, texH: number): void {
+  const trees = far
+    ? [
+        { x: 140, h: 48 },
+        { x: 860, h: 62 },
+        { x: 1560, h: 54 },
+        { x: 2280, h: 70 },
+      ]
+    : [
+        { x: 90, h: 92 },
+        { x: 340, h: 120 },
+        { x: 720, h: 100 },
+        { x: 1280, h: 140 },
+        { x: 1680, h: 110 },
+        { x: 2100, h: 128 },
+        { x: 2480, h: 96 },
+      ];
+  for (const tree of trees) {
+    drawBareTree(ctx, tree.x, texH - 8, tree.h);
+  }
+  if (!far) {
+    ctx.fillStyle = css(0x100810, 0.88);
+    for (const stone of [260, 980, 1540, 2320]) {
+      ctx.fillRect(stone, texH - 28, 16, 22);
+      ctx.beginPath();
+      ctx.arc(stone + 8, texH - 28, 8, Math.PI, 0);
+      ctx.fill();
+    }
+  }
+}
+
+function drawBareTree(ctx: CanvasRenderingContext2D, x: number, baseY: number, h: number): void {
+  ctx.strokeStyle = css(0x140810, 0.95);
+  ctx.lineWidth = 3;
+  ctx.lineCap = 'round';
+  ctx.beginPath();
+  ctx.moveTo(x, baseY);
+  ctx.lineTo(x, baseY - h);
+  ctx.moveTo(x, baseY - h * 0.55);
+  ctx.lineTo(x - 16, baseY - h * 0.82);
+  ctx.moveTo(x, baseY - h * 0.62);
+  ctx.lineTo(x + 14, baseY - h * 0.9);
+  ctx.moveTo(x, baseY - h * 0.38);
+  ctx.lineTo(x + 12, baseY - h * 0.55);
+  ctx.stroke();
+}
+
 function drawKeeps(ctx: CanvasRenderingContext2D, colors: LandscapePalette, far: boolean, texH: number): void {
   const width = LANDSCAPE.stripW;
   const keeps = far
@@ -2847,6 +2941,11 @@ function drawKeeps(ctx: CanvasRenderingContext2D, colors: LandscapePalette, far:
       }
       ctx.fillStyle = css(0x1a0810, 0.85);
       ctx.fillRect(ox - 7, texH - 30, 14, 30);
+      if (HALLOWEEN) {
+        ctx.fillStyle = css(0xff8a1a, 0.92);
+        ctx.fillRect(ox - keep.w * 0.22, texH - keep.h * 0.62, far ? 5 : 7, far ? 7 : 10);
+        ctx.fillRect(ox + keep.w * 0.08, texH - keep.h * 0.48, far ? 5 : 7, far ? 7 : 10);
+      }
     };
     drawAt(keep.x);
     if (keep.x < keep.w) {
@@ -2909,6 +3008,9 @@ function drawRange(scene: Phaser.Scene, key: string, theme: Theme, colors: Lands
         ? { ...colors, mountain: colors.far, mountainShade: colors.far, cap: colors.farCap }
         : colors;
       drawKeeps(ctx, keepColors, far, texH);
+      if (HALLOWEEN) {
+        paintHalloweenRidge(ctx, far, texH);
+      }
       return;
     }
     if (theme === 'grass') {

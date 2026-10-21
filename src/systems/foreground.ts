@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import { ALL_THEMES, GAME_HEIGHT, GAME_WIDTH, TILE, type Theme } from '../config';
+import { ALL_THEMES, GAME_HEIGHT, GAME_WIDTH, HALLOWEEN, TILE, type Theme } from '../config';
 
 /** Near-camera dressing may never rise more than three tiles off the bottom of the view. */
 export const FOREGROUND_MAX_TILES = 3;
@@ -131,8 +131,8 @@ function specsFor(theme: Theme): PropSpec[] {
         { id: 'coral', w: 118, h: 112, motion: 'still', alpha: 0.86, weight: 1.4, footprint: 2, size: 'large' },
         { id: 'kelp', w: 58, h: 176, motion: 'sway', alpha: 0.82, weight: 1.5, footprint: 1, size: 'large' },
       ];
-    case 'castle':
-      return [
+    case 'castle': {
+      const kit: PropSpec[] = [
         { id: 'rubble', w: 86, h: 48, motion: 'still', alpha: 0.94, weight: 2.0, footprint: 1, size: 'small' },
         { id: 'cobble', w: 110, h: 52, motion: 'still', alpha: 0.94, weight: 1.6, footprint: 2, size: 'small' },
         { id: 'bones', w: 66, h: 40, motion: 'still', alpha: 0.94, weight: 0.8, footprint: 1, size: 'small' },
@@ -143,6 +143,20 @@ function specsFor(theme: Theme): PropSpec[] {
         { id: 'candelabra', w: 66, h: 156, motion: 'flicker', alpha: 0.9, weight: 0.9, footprint: 1, size: 'large' },
         { id: 'gargoyle', w: 90, h: 100, motion: 'still', alpha: 0.9, weight: 0.6, footprint: 2, size: 'large' },
       ];
+      if (!HALLOWEEN) {
+        return kit;
+      }
+      return [
+        ...kit,
+        { id: 'pumpkin', w: 70, h: 64, motion: 'still', alpha: 0.96, weight: 2.8, footprint: 1, size: 'small' },
+        { id: 'jack', w: 68, h: 72, motion: 'flicker', alpha: 0.96, weight: 2.6, footprint: 1, size: 'small' },
+        { id: 'grave', w: 58, h: 86, motion: 'still', alpha: 0.94, weight: 1.9, footprint: 1, size: 'small' },
+        { id: 'candy', w: 84, h: 48, motion: 'still', alpha: 0.95, weight: 1.7, footprint: 1, size: 'small' },
+        { id: 'web', w: 96, h: 110, motion: 'still', alpha: 0.82, weight: 1.4, footprint: 2, size: 'large' },
+        { id: 'lantern', w: 54, h: 160, motion: 'flicker', alpha: 0.92, weight: 1.3, footprint: 1, size: 'large' },
+        { id: 'scarecrow', w: 108, h: 172, motion: 'sway', alpha: 0.9, weight: 1.2, footprint: 2, size: 'large' },
+      ];
+    }
     case 'rainforest':
       return [
         { id: 'tuft', w: 72, h: 56, motion: 'sway', alpha: 0.95, weight: 2.8, footprint: 1, size: 'small' },
@@ -946,6 +960,49 @@ function paintCastleLip(ctx: CanvasRenderingContext2D): void {
       fillEllipse(ctx, moss + ox, LIP_H - 8, 12, 4);
     });
   }
+  if (HALLOWEEN) {
+    for (const pumpkin of [36, 118, 210, 292]) {
+      wrapDraw(pumpkin, LIP_W, 16, (ox) => {
+        ctx.fillStyle = css(0xe06810);
+        fillEllipse(ctx, pumpkin + ox, LIP_H - 18, 12, 10);
+        ctx.fillStyle = css(0x2f8a32);
+        ctx.fillRect(pumpkin + ox - 2, LIP_H - 30, 4, 8);
+      });
+    }
+  }
+}
+
+function paintPumpkinProp(ctx: CanvasRenderingContext2D, cx: number, h: number, face: boolean): void {
+  ctx.fillStyle = css(0xc44808);
+  fillEllipse(ctx, cx, h - 22, 28, 22);
+  ctx.fillStyle = css(face ? 0xff8a1a : 0xe06810);
+  fillEllipse(ctx, cx - 10, h - 22, 10, 20);
+  fillEllipse(ctx, cx, h - 22, 12, 22);
+  fillEllipse(ctx, cx + 10, h - 22, 10, 20);
+  ctx.fillStyle = css(0x2f8a32);
+  ctx.fillRect(cx - 3, h - 48, 6, 12);
+  if (!face) {
+    return;
+  }
+  ctx.fillStyle = css(0x1a0808);
+  ctx.beginPath();
+  ctx.moveTo(cx - 12, h - 28);
+  ctx.lineTo(cx - 4, h - 28);
+  ctx.lineTo(cx - 8, h - 18);
+  ctx.closePath();
+  ctx.fill();
+  ctx.beginPath();
+  ctx.moveTo(cx + 4, h - 28);
+  ctx.lineTo(cx + 12, h - 28);
+  ctx.lineTo(cx + 8, h - 18);
+  ctx.closePath();
+  ctx.fill();
+  ctx.beginPath();
+  ctx.moveTo(cx - 8, h - 12);
+  ctx.lineTo(cx + 8, h - 12);
+  ctx.lineTo(cx, h - 4);
+  ctx.closePath();
+  ctx.fill();
 }
 
 function paintCastleProp(ctx: CanvasRenderingContext2D, id: string, w: number, h: number): void {
@@ -1085,6 +1142,89 @@ function paintCastleProp(ctx: CanvasRenderingContext2D, id: string, w: number, h
         ctx.closePath();
         ctx.fill();
       }
+      return;
+    case 'pumpkin':
+      paintPumpkinProp(ctx, cx, h, false);
+      return;
+    case 'jack':
+      paintPumpkinProp(ctx, cx, h, true);
+      return;
+    case 'grave':
+      ctx.fillStyle = css(0x6a6470);
+      ctx.fillRect(cx - 16, h - 58, 32, 50);
+      ctx.beginPath();
+      ctx.arc(cx, h - 58, 16, Math.PI, 0);
+      ctx.fill();
+      ctx.fillStyle = css(0x8a8490);
+      ctx.fillRect(cx - 12, h - 48, 24, 6);
+      ctx.fillStyle = css(0x2a2428);
+      ctx.fillRect(cx - 2, h - 40, 4, 16);
+      return;
+    case 'candy':
+      for (const [ox, color] of [
+        [-22, 0xff8a1a],
+        [0, 0xfff4c4],
+        [22, 0xe04020],
+      ] as const) {
+        ctx.fillStyle = css(color);
+        ctx.beginPath();
+        ctx.moveTo(cx + ox, h - 8);
+        ctx.lineTo(cx + ox - 12, h - 28);
+        ctx.lineTo(cx + ox + 12, h - 28);
+        ctx.closePath();
+        ctx.fill();
+        ctx.fillStyle = css(0xfff6ea);
+        ctx.fillRect(cx + ox - 8, h - 22, 16, 4);
+      }
+      return;
+    case 'web':
+      ctx.strokeStyle = css(0xe8e0d8, 0.85);
+      ctx.lineWidth = 1.6;
+      ctx.beginPath();
+      ctx.moveTo(8, 8);
+      ctx.lineTo(w - 6, h - 8);
+      ctx.moveTo(w - 8, 10);
+      ctx.lineTo(10, h - 6);
+      ctx.moveTo(w / 2, 6);
+      ctx.lineTo(w / 2, h - 4);
+      ctx.moveTo(6, h / 2);
+      ctx.lineTo(w - 6, h / 2);
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.arc(w / 2, h / 2, 16, 0, Math.PI * 2);
+      ctx.arc(w / 2, h / 2, 32, 0, Math.PI * 2);
+      ctx.stroke();
+      return;
+    case 'lantern':
+      ctx.fillStyle = css(0x2a1c18);
+      ctx.fillRect(cx - 3, 28, 6, h - 28);
+      ctx.fillStyle = css(0x1a100c);
+      ctx.fillRect(cx - 16, h - 10, 32, 10);
+      ctx.fillStyle = css(0xff8a1a);
+      ctx.fillRect(cx - 12, 8, 24, 28);
+      ctx.fillStyle = css(0xffe08a, 0.8);
+      ctx.fillRect(cx - 6, 14, 12, 16);
+      ctx.fillStyle = css(0x2a1408);
+      ctx.fillRect(cx - 14, 6, 28, 4);
+      ctx.fillRect(cx - 14, 34, 28, 4);
+      return;
+    case 'scarecrow':
+      ctx.fillStyle = css(0x6a4a28);
+      ctx.fillRect(cx - 3, 36, 6, h - 36);
+      ctx.strokeStyle = css(0xc4a05a);
+      ctx.lineWidth = 4;
+      ctx.beginPath();
+      ctx.moveTo(cx - 40, 78);
+      ctx.lineTo(cx + 40, 62);
+      ctx.stroke();
+      ctx.fillStyle = css(0xe06810);
+      fillCircle(ctx, cx, 28, 16);
+      ctx.fillStyle = css(0x1a0808);
+      fillCircle(ctx, cx - 6, 26, 2.4);
+      fillCircle(ctx, cx + 6, 26, 2.4);
+      ctx.fillStyle = css(0x3a2414);
+      ctx.fillRect(cx - 18, 8, 36, 8);
+      ctx.fillRect(cx - 10, 2, 20, 8);
       return;
     default:
       return;
@@ -1788,7 +1928,8 @@ export class Foreground {
         .setScale(scale)
         .setFlipX(rand() > 0.5);
       attachMotion(scene, sprite, spec.motion, Math.floor(rand() * 4000), scale);
-      x += spec.w * scale * 0.72 + 36 + rand() * 70;
+      const packed = theme === 'castle' && HALLOWEEN;
+      x += spec.w * scale * (packed ? 0.55 : 0.72) + (packed ? 16 : 36) + rand() * (packed ? 28 : 70);
     }
   }
 

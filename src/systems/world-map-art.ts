@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import { themeName, type Theme } from '../config';
+import { HALLOWEEN, themeName, type Theme } from '../config';
 import type { SaveData } from '../data/progress';
 import {
   MAP_HEIGHT,
@@ -46,7 +46,9 @@ function islandPalette(theme: Theme): IslandPalette {
     case 'ocean':
       return { shore: 0x2d6b7a, grass: 0x2a9d6e, shade: 0x0c4844, highlight: 0x3ecf8e, accent: 0x7bebf3, dark: 0x072e32 };
     case 'castle':
-      return { shore: 0x2a1c32, grass: 0x3e2948, shade: 0x140814, highlight: 0x5a3d66, accent: 0x6e4a7a, dark: 0x08060e };
+      return HALLOWEEN
+        ? { shore: 0x2a1c32, grass: 0x3e2948, shade: 0x140814, highlight: 0x6a3a58, accent: 0xe07020, dark: 0x100814 }
+        : { shore: 0x2a1c32, grass: 0x3e2948, shade: 0x140814, highlight: 0x5a3d66, accent: 0x6e4a7a, dark: 0x08060e };
     case 'rainforest':
       return { shore: 0x4a3420, grass: 0x2a7028, shade: 0x0f3a24, highlight: 0x3d8a32, accent: 0x4a8a3a, dark: 0x0a2818 };
     case 'beach':
@@ -145,6 +147,18 @@ function drawPalm(ctx: CanvasRenderingContext2D, x: number, y: number): void {
   }
 }
 
+function drawMapPumpkin(ctx: CanvasRenderingContext2D, x: number, y: number): void {
+  ctx.fillStyle = css(0xe06810);
+  ctx.beginPath();
+  ctx.ellipse(x, y, 14, 11, 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = css(0x2f8a32);
+  ctx.fillRect(x - 2, y - 16, 4, 8);
+  ctx.fillStyle = css(0x1a0808);
+  ctx.fillRect(x - 6, y - 2, 3, 3);
+  ctx.fillRect(x + 3, y - 2, 3, 3);
+}
+
 function drawKeep(ctx: CanvasRenderingContext2D, x: number, y: number, palette: IslandPalette): void {
   ctx.fillStyle = css(palette.dark);
   ctx.fillRect(x - 28, y - 40, 56, 52);
@@ -225,6 +239,11 @@ function paintThemeProps(ctx: CanvasRenderingContext2D, island: IslandDef, cx: n
       ctx.lineTo(cx + 20, cy + 90);
       ctx.closePath();
       ctx.fill();
+      if (HALLOWEEN) {
+        drawMapPumpkin(ctx, cx - 90, cy + 36);
+        drawMapPumpkin(ctx, cx + 130, cy + 48);
+        drawMapPumpkin(ctx, cx - 20, cy + 70);
+      }
       break;
     case 'rainforest':
       for (const [tx, ty, s] of [

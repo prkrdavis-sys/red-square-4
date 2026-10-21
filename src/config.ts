@@ -30,6 +30,9 @@ export function launchVelocity(gravity: number, heightTiles: number): number {
 export const STOMP_BOUNCE_VELOCITY = launchVelocity(1800, STOMP_BOUNCE_HEIGHT_TILES);
 export const RANGED_ATTACK_RANGE = 620;
 
+/** Seasonal makeover. Flip off to restore the meadow title and Dread Keep. */
+export const HALLOWEEN = true;
+
 export const START_LIVES = 3;
 export const MINI_BOSS_HP = 3;
 export const WORLD_BOSS_HP = 5;
@@ -71,7 +74,8 @@ export type EnemyKind =
   | 'hermit-crab'
   | 'starfish-slinger'
   | 'alley-cat'
-  | 'umbrella-pigeon';
+  | 'umbrella-pigeon'
+  | 'swoop-bat';
 
 export type EnemyRole = 'movement' | 'ranged';
 
@@ -184,6 +188,7 @@ export function enemyRole(kind: EnemyKind): EnemyRole {
     case 'howler-ape':
     case 'hermit-crab':
     case 'alley-cat':
+    case 'swoop-bat':
       return 'movement';
     case 'acorn-slinger':
     case 'snowball-finch':
@@ -243,7 +248,10 @@ export function enemiesForWorld(world: number): readonly [EnemyKind, EnemyKind] 
   }
 }
 
-export const ENEMY_KINDS: EnemyKind[] = [1, 2, 3, 4, 5, 6, 7, 8].flatMap((world) => [...enemiesForWorld(world)]);
+export const ENEMY_KINDS: EnemyKind[] = [
+  ...[1, 2, 3, 4, 5, 6, 7, 8].flatMap((world) => [...enemiesForWorld(world)]),
+  'swoop-bat',
+];
 
 export function hazardForTheme(theme: Theme): TerrainHazardKind {
   switch (theme) {
@@ -332,7 +340,7 @@ export function themeSky(theme: Theme): number {
     case 'ocean':
       return 0x145a78;
     case 'castle':
-      return 0x140e1c;
+      return HALLOWEEN ? 0x100814 : 0x140e1c;
     case 'rainforest':
       return 0x1e4a3c;
     case 'beach':
@@ -404,7 +412,7 @@ export function themeName(theme: Theme): string {
     case 'ocean':
       return 'Deep Current';
     case 'castle':
-      return 'Dread Keep';
+      return HALLOWEEN ? 'Hallow Keep' : 'Dread Keep';
     case 'rainforest':
       return 'Canopy Deep';
     case 'beach':

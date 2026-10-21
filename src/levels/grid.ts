@@ -1,5 +1,6 @@
 import {
   GROUND_Y,
+  HALLOWEEN,
   JUMP_REACH_TILES,
   MAP_ROWS,
   enemiesForWorld,
@@ -777,6 +778,45 @@ function assignSafeEnemyKinds(
   return assigned;
 }
 
+function airCellOpen(rows: readonly string[], x: number, tilesUp: number): boolean {
+  const row = GROUND_Y - 1 - tilesUp;
+  if (row < 1 || row >= GROUND_Y) {
+    return false;
+  }
+  const cell = rows[row]?.[x];
+  return cell === '.' || cell === 'P';
+}
+
+function swoopBatSpawns(
+  rows: readonly string[],
+  width: number,
+  spawnX: number,
+  checkpointXs: readonly number[],
+  fightX: number,
+): EnemySpawn[] {
+  const limit = Math.min(width - 4, fightX - 6);
+  const bats: EnemySpawn[] = [];
+  for (let x = 16; x < limit; x += 18) {
+    if (Math.abs(x - spawnX) <= 8) {
+      continue;
+    }
+    if (checkpointXs.some((checkpoint) => Math.abs(x - checkpoint) <= 4)) {
+      continue;
+    }
+    const tilesUp = [4, 3, 5, 2].find((height) => airCellOpen(rows, x, height));
+    if (tilesUp === undefined) {
+      continue;
+    }
+    bats.push({ x, tilesUp, kind: 'swoop-bat' });
+  }
+  if (bats.length > 0) {
+    return bats;
+  }
+  const fallback = Math.min(Math.max(spawnX + 12, 16), Math.max(16, limit - 1));
+  const tilesUp = [4, 3, 5, 2].find((height) => airCellOpen(rows, fallback, height)) ?? 4;
+  return [{ x: fallback, tilesUp, kind: 'swoop-bat' }];
+}
+
 export function compileCourse(world: number, stage: number, spec: CourseSpec, theme: Theme): CompiledCourse {
   const groundEnemyX = spec.enemies ?? [];
   const airEnemyPositions = spec.airEnemies ?? [];
@@ -813,6 +853,18 @@ export function compileCourse(world: number, stage: number, spec: CourseSpec, th
     ...spawn,
     kind: kinds[index] ?? enemiesForWorld(world)[0],
   }));
+  if (HALLOWEEN) {
+    const fightX = spec.boss ?? spec.mini ?? spec.width;
+    enemies.push(
+      ...swoopBatSpawns(
+        rows,
+        spec.width,
+        spawnX,
+        checkpoints.map((checkpoint) => checkpoint.x),
+        fightX,
+      ),
+    );
+  }
   const featureBlocked = new Set(blocked);
   for (const checkpoint of checkpoints) {
     occupy(featureBlocked, checkpoint.x, 1);

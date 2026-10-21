@@ -3,6 +3,7 @@ import {
   MOVER_HEIGHT,
   TERRAIN_HAZARD_KINDS,
   THEMES,
+  HALLOWEEN,
   TILE,
   enemiesForWorld,
   type BossKind,
@@ -677,7 +678,7 @@ function drawSolidTile(scene: Phaser.Scene, theme: Theme): void {
   g.fillRect(28, 44, 8, 5);
   g.fillRect(46, 26, 5, 5);
   if (theme === 'castle') {
-    g.lineStyle(2, 0x1a0c20, 0.8);
+    g.lineStyle(2, HALLOWEEN ? 0xe07020 : 0x1a0c20, HALLOWEEN ? 0.55 : 0.8);
     g.lineBetween(2, 40, TILE - 2, 40);
     g.lineBetween(TILE / 2, 18, TILE / 2, TILE - 2);
   } else if (theme === 'rainforest') {
@@ -707,7 +708,7 @@ function drawFillTile(scene: Phaser.Scene, theme: Theme): void {
   g.fillRect(36, 28, 8, 5);
   g.fillRect(20, 44, 5, 5);
   if (theme === 'castle') {
-    g.lineStyle(2, 0x1a0c20, 0.55);
+    g.lineStyle(2, HALLOWEEN ? 0xe07020 : 0x1a0c20, HALLOWEEN ? 0.4 : 0.55);
     g.lineBetween(0, 32, TILE, 32);
     g.lineBetween(TILE / 2, 0, TILE / 2, TILE);
   }

@@ -497,6 +497,30 @@ function drawUmbrellaPigeon(g: Phaser.GameObjects.Graphics, pose: CharacterPose)
   }
 }
 
+function drawSwoopBat(g: Phaser.GameObjects.Graphics, pose: CharacterPose): void {
+  const p = poseDraw(pose);
+  const cx = 32;
+  const cy = 34 + p.dy;
+  const spread = pose === 'attack' ? 22 : pose === 'move' ? 14 : pose === 'dead' ? 4 : 10;
+  const wingY = pose === 'attack' ? cy - 8 : cy;
+  inkEllipse(g, cx, cy + 2, 20 * p.squash, 14, 0x3a2858);
+  inkTriangle(g, cx - 2, cy, cx - 30, wingY - spread, cx - 6, cy + 8, 0x241433);
+  inkTriangle(g, cx + 2, cy, cx + 30, wingY - spread, cx + 6, cy + 8, 0x241433);
+  g.fillStyle(0x6a3a88, 1);
+  g.fillTriangle(cx - 4, cy - 1, cx - 20, wingY - spread * 0.55, cx - 8, cy + 5);
+  g.fillTriangle(cx + 4, cy - 1, cx + 20, wingY - spread * 0.55, cx + 8, cy + 5);
+  inkTriangle(g, cx - 5, cy - 6, cx - 11, cy - 16, cx - 1, cy - 6, 0x4a3068);
+  inkTriangle(g, cx + 5, cy - 6, cx + 11, cy - 16, cx + 1, cy - 6, 0x4a3068);
+  inkCircle(g, cx, cy - 2, 7.5, 0x4a3068);
+  paintEye(g, cx - 3, cy - 3, pose, 3.6, 4.4);
+  paintEye(g, cx + 3, cy - 3, pose, 3.6, 4.4);
+  if (pose !== 'dead') {
+    g.fillStyle(0xfff6ea, 1);
+    g.fillTriangle(cx - 2.2, cy + 3, cx - 0.6, cy + 8, cx + 0.6, cy + 3);
+    g.fillTriangle(cx + 0.4, cy + 3, cx + 2, cy + 8, cx + 3.2, cy + 3);
+  }
+}
+
 function drawKind(g: Phaser.GameObjects.Graphics, kind: EnemyKind, pose: CharacterPose): void {
   switch (kind) {
     case 'bramble-hopper':
@@ -546,6 +570,9 @@ function drawKind(g: Phaser.GameObjects.Graphics, kind: EnemyKind, pose: Charact
       return;
     case 'umbrella-pigeon':
       drawUmbrellaPigeon(g, pose);
+      return;
+    case 'swoop-bat':
+      drawSwoopBat(g, pose);
       return;
     default: {
       const neverKind: never = kind;
