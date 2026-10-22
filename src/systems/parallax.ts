@@ -44,6 +44,11 @@ function layoutFor(theme: Theme): BackdropLayout {
   }
 }
 
+type RepaintableStrip = Phaser.GameObjects.TileSprite & {
+  dirty: boolean;
+  updateTileTexture: () => void;
+};
+
 function addStrip(
   scene: Phaser.Scene,
   y: number,
@@ -52,12 +57,23 @@ function addStrip(
   depth: number,
   alpha: number,
 ): Phaser.GameObjects.TileSprite {
-  return scene.add
+  const image = scene.add
     .tileSprite(0, y, GAME_WIDTH, height, key)
     .setOrigin(0, 0)
     .setScrollFactor(0)
     .setDepth(depth)
     .setAlpha(alpha);
+  // Chrome sometimes uploads the first TileSprite copy before the source
+  // bitmap is readable. Paint it again on the next frame.
+  scene.time.delayedCall(0, () => {
+    if (!image.scene) {
+      return;
+    }
+    const strip = image as RepaintableStrip;
+    strip.dirty = true;
+    strip.updateTileTexture();
+  });
+  return image;
 }
 
 function addSun(scene: Phaser.Scene, theme: Theme): void {

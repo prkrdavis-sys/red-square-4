@@ -47,12 +47,22 @@ function paintCanvas(
   if (scene.textures.exists(key)) {
     scene.textures.remove(key);
   }
-  const texture = scene.textures.createCanvas(key, w, h);
-  if (!texture) {
+  // Phaser's pixelArt mode takes pooled canvases with willReadFrequently: false.
+  // Chrome then keeps them on the GPU, and TileSprite's copy of that bitmap comes
+  // out blank, so the level draws on an empty sky. A canvas we own, read back on
+  // the CPU, stays copyable.
+  const canvas = document.createElement('canvas');
+  canvas.width = w;
+  canvas.height = h;
+  const ctx = canvas.getContext('2d', { willReadFrequently: true });
+  if (!ctx) {
     return;
   }
-  paint(texture.getContext());
-  texture.refresh();
+  ctx.imageSmoothingEnabled = false;
+  paint(ctx);
+  ctx.getImageData(0, 0, 1, 1);
+  const texture = scene.textures.addCanvas(key, canvas);
+  texture?.refresh();
 }
 
 function palette(theme: Theme): LandscapePalette {
