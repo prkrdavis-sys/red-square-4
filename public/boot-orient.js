@@ -1,20 +1,5 @@
-/* First paint matches shouldForceLandscape. Unlock so a stuck rotate prompt cannot block boot. */
+/* First paint matches shouldForceLandscape. Do not call the Screen Orientation API. */
 (function () {
-  function unlockOrientation() {
-    try {
-      var orientation = screen.orientation;
-      if (!orientation || typeof orientation.unlock !== 'function') {
-        return;
-      }
-      var pending = orientation.unlock();
-      if (pending && typeof pending.catch === 'function') {
-        pending.catch(function () {});
-      }
-    } catch (error) {
-      void error;
-    }
-  }
-
   function isOsLandscape(type, angle) {
     if (typeof type === 'string' && type.indexOf('landscape') === 0) {
       return true;
@@ -28,8 +13,6 @@
     }
     return window.matchMedia('(pointer: coarse)').matches || window.matchMedia('(hover: none)').matches;
   }
-
-  unlockOrientation();
 
   var view = window.visualViewport;
   var width = Math.max(1, Math.round((view && view.width) || window.innerWidth || 1));

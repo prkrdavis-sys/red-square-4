@@ -1,7 +1,6 @@
 import Phaser from 'phaser';
-import { GAME_HEIGHT, GAME_WIDTH, THEMES, themeName, themeSky, type LevelId } from '../config';
+import { GAME_HEIGHT, GAME_WIDTH, THEMES, themeName, themeSky } from '../config';
 import { audio } from '../systems/audio';
-import { isIslandFogged } from '../systems/world-map-layout';
 import { shouldAcceptTap, textStyle, UI } from './menu';
 
 const BUTTON_W = 340;
@@ -12,13 +11,12 @@ const LIST_H = THEMES.length * ROW_H + LIST_PAD * 2;
 
 interface TravelRow {
   world: number;
-  locked: boolean;
   root: Phaser.GameObjects.Container;
   bg: Phaser.GameObjects.Rectangle;
   label: Phaser.GameObjects.Text;
 }
 
-/** Dropdown on the world map that jumps the token to a reached world. */
+/** Dropdown on the world map that jumps the token to any world. */
 export class WorldFastTravelMenu {
   readonly buttonX: number;
   readonly buttonY: number;
@@ -36,7 +34,6 @@ export class WorldFastTravelMenu {
 
   constructor(
     private readonly scene: Phaser.Scene,
-    cleared: readonly LevelId[],
     world: number,
     private readonly onChoose: (world: number) => void,
   ) {
@@ -89,46 +86,37 @@ export class WorldFastTravelMenu {
 
     THEMES.forEach((theme, index) => {
       const worldNumber = index + 1;
-      const locked = isIslandFogged(worldNumber, cleared);
       const y = listY - LIST_H / 2 + LIST_PAD + ROW_H / 2 + index * ROW_H;
       const row = scene.add.container(this.buttonX, y).setScrollFactor(0).setDepth(101).setVisible(false);
       const rowBg = scene.add.rectangle(0, 0, BUTTON_W - 12, ROW_H - 4, UI.buttonFill, 1);
       const swatch = scene.add
-        .rectangle(-BUTTON_W / 2 + 22, 0, 10, 18, themeSky(theme), locked ? 0.35 : 1)
-        .setStrokeStyle(1, 0xfff4d0, locked ? 0.25 : 0.7);
+        .rectangle(-BUTTON_W / 2 + 22, 0, 10, 18, themeSky(theme), 1)
+        .setStrokeStyle(1, 0xfff4d0, 0.7);
       const rowLabel = scene.add
         .text(-BUTTON_W / 2 + 36, 0, `${worldNumber}   ${themeName(theme)}`, textStyle('16px'))
         .setOrigin(0, 0.5);
-      const kids: Phaser.GameObjects.GameObject[] = [rowBg, swatch, rowLabel];
-      if (locked) {
-        kids.push(
-          scene.add.text(BUTTON_W / 2 - 18, 0, 'LOCKED', textStyle('13px', UI.muted)).setOrigin(1, 0.5),
-        );
-      }
-      row.add(kids);
+      row.add([rowBg, swatch, rowLabel]);
       row.setSize(BUTTON_W - 12, ROW_H - 4);
-      if (!locked) {
-        row.setInteractive({
-          hitArea: new Phaser.Geom.Rectangle(0, 0, BUTTON_W - 12, ROW_H - 4),
-          hitAreaCallback: Phaser.Geom.Rectangle.Contains,
-          useHandCursor: true,
-        });
-        row.on('pointerover', () => {
-          this.highlight = worldNumber;
-          this.paint();
-        });
-        row.on('pointerup', (pointer: Phaser.Input.Pointer) => {
-          if (!pointer.wasTouch) {
-            this.choose(worldNumber);
-          }
-        });
-        row.on('pointerdown', (pointer: Phaser.Input.Pointer) => {
-          if (pointer.wasTouch) {
-            this.choose(worldNumber);
-          }
-        });
-      }
-      this.rows.push({ world: worldNumber, locked, root: row, bg: rowBg, label: rowLabel });
+      row.setInteractive({
+        hitArea: new Phaser.Geom.Rectangle(0, 0, BUTTON_W - 12, ROW_H - 4),
+        hitAreaCallback: Phaser.Geom.Rectangle.Contains,
+        useHandCursor: true,
+      });
+      row.on('pointerover', () => {
+        this.highlight = worldNumber;
+        this.paint();
+      });
+      row.on('pointerup', (pointer: Phaser.Input.Pointer) => {
+        if (!pointer.wasTouch) {
+          this.choose(worldNumber);
+        }
+      });
+      row.on('pointerdown', (pointer: Phaser.Input.Pointer) => {
+        if (pointer.wasTouch) {
+          this.choose(worldNumber);
+        }
+      });
+      this.rows.push({ world: worldNumber, root: row, bg: rowBg, label: rowLabel });
     });
 
     this.onKey = (event: KeyboardEvent) => this.handleKey(event);
@@ -174,7 +162,7 @@ export class WorldFastTravelMenu {
       return false;
     }
     const row = this.rows.find((item) => item.world === this.highlight);
-    if (row && !row.locked) {
+    if (row) {
       this.close(false);
       this.onChoose(row.world);
     }
@@ -192,9 +180,7 @@ export class WorldFastTravelMenu {
     this.lastToggleAt = now;
     this.openState = !this.openState;
     if (this.openState) {
-      this.highlight = this.rows.some((row) => row.world === this.world && !row.locked)
-        ? this.world
-        : (this.rows.find((row) => !row.locked)?.world ?? this.world);
+      this.highlight = this.world;
     }
     audio.play(this.scene, 'map');
     this.applyOpenChrome();
@@ -206,7 +192,7 @@ export class WorldFastTravelMenu {
       return;
     }
     const row = this.rows.find((item) => item.world === world);
-    if (!row || row.locked) {
+    if (!row) {
       return;
     }
     const now = performance.now();
@@ -244,15 +230,12 @@ export class WorldFastTravelMenu {
     if (index < 0) {
       index = 0;
     }
-    for (let step = 0; step < count; step += 1) {
-      index = (index + dir + count) % count;
-      const row = this.rows[index];
-      if (row && !row.locked) {
-        this.highlight = row.world;
-        audio.play(this.scene, 'map');
-        this.paint();
-        return;
-      }
+    index = (index + dir + count) % count;
+    const row = this.rows[index];
+    if (row) {
+      this.highlight = row.world;
+      audio.play(this.scene, 'map');
+      this.paint();
     }
   }
 
@@ -273,9 +256,6 @@ export class WorldFastTravelMenu {
     }
     for (const row of this.rows) {
       row.root.setVisible(show);
-      if (row.locked) {
-        continue;
-      }
       if (show) {
         row.root.setInteractive({
           hitArea: new Phaser.Geom.Rectangle(0, 0, BUTTON_W - 12, ROW_H - 4),
@@ -292,11 +272,6 @@ export class WorldFastTravelMenu {
     for (const row of this.rows) {
       const current = row.world === this.world;
       const focused = this.openState && row.world === this.highlight;
-      if (row.locked) {
-        row.bg.setFillStyle(0x1a1014, 1);
-        row.label.setColor(UI.muted);
-        continue;
-      }
       if (focused) {
         row.bg.setFillStyle(UI.buttonFocus, 1);
         row.label.setColor(UI.gold);

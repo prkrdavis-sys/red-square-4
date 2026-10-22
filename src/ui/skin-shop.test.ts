@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { SKINS, skinForLevel } from '../data/skins';
+import { PUMPKIN_SKIN_ID, SKINS, skinById, skinForLevel } from '../data/skins';
 import {
   SKIN_SHOP_PALETTE,
   skinMatchesFilter,
@@ -41,6 +41,7 @@ describe('skin shop view', () => {
     expect(skinShopTone(beetle, mixed)).toBe('broke');
     expect(skinShopTone(king, mixed)).toBe('locked');
     expect(skinShopTone(skinForLevel('2-1')!, mixed)).toBe('locked');
+    expect(skinShopTone(skinById(PUMPKIN_SKIN_ID)!, mixed)).toBe('ready');
   });
 
   it('keeps each tone on its own fill, band, and badge', () => {
@@ -96,6 +97,7 @@ describe('skin shop view', () => {
     expect(skinShopCard(classic, save({ equippedSkin: 'level-1-1', purchasedSkins: ['level-1-1'] })).hint).toBe(
       'Available from the start',
     );
+    expect(skinShopCard(skinById(PUMPKIN_SKIN_ID)!, mixed).hint).toBe('A Halloween gift');
     expect(
       new Set(
         ([wearing, ready, shop, broke, locked] as const).map((card) => SKIN_SHOP_PALETTE[card.tone].fill),
@@ -114,7 +116,7 @@ describe('skin shop view', () => {
     expect(skinMatchesFilter('ready', 'all')).toBe(true);
 
     const counts = skinShopFilterCounts(SKINS, mixed);
-    expect(counts).toEqual({ all: SKINS.length, ready: 2, shop: 2, locked: SKINS.length - 4 });
+    expect(counts).toEqual({ all: SKINS.length, ready: 3, shop: 2, locked: SKINS.length - 5 });
     expect(skinShopFilterLabel('ready', 2)).toBe('READY  2');
     expect(skinShopFilterLabel('shop', 2)).toBe('SHOP  2');
     expect(skinShopFilterLabel('locked', 21)).toBe('LOCKED  21');

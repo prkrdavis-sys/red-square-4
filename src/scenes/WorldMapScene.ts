@@ -36,7 +36,6 @@ import {
   islandAt,
   islandForWorld,
   islandPathPairs,
-  isIslandFogged,
   linkedDock,
   mapFooterTop,
   mapNodePositionForId,
@@ -131,7 +130,7 @@ export class WorldMapScene extends Phaser.Scene {
     this.cameras.main.setRoundPixels(true);
 
     this.buildHud(save);
-    this.fastTravel = new WorldFastTravelMenu(this, save.cleared, parseLevelId(startId).world, (world) => {
+    this.fastTravel = new WorldFastTravelMenu(this, parseLevelId(startId).world, (world) => {
       this.travelToWorld(world);
     });
     this.stick = new MapAnalogStick(this);
@@ -574,7 +573,7 @@ export class WorldMapScene extends Phaser.Scene {
   }
 
   private travelToWorld(world: number): void {
-    if (this.ferrying || this.scene.isPaused() || isIslandFogged(world, loadSave().cleared)) {
+    if (this.ferrying || this.scene.isPaused()) {
       return;
     }
     const landing = islandForWorld(world)?.nodes[1];

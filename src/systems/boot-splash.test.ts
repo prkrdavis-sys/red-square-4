@@ -49,9 +49,12 @@ describe('boot shell', () => {
 
   it('does not ask the browser to rotate', () => {
     expect(html).toContain('boot-orient.js');
-    expect(orient).toContain('unlock');
     expect(orient).not.toMatch(/\.lock\s*\(/);
-    expect(vite).toContain("orientation: 'any'");
+    expect(orient).not.toMatch(/\.unlock\s*\(/);
+    expect(vite).not.toMatch(/orientation:/);
+    expect(main).not.toMatch(/orientation\.(lock|unlock)/);
+    expect(readFileSync(join(ROOT, 'src/systems/forced-landscape.ts'), 'utf8')).not.toMatch(/orientation\.(lock|unlock)/);
+    expect(readFileSync(join(ROOT, 'src/systems/viewport.ts'), 'utf8')).not.toMatch(/orientation\.(lock|unlock)/);
   });
 
   it('keeps one font and one splash layout', () => {

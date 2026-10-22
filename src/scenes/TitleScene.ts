@@ -1,10 +1,13 @@
 import Phaser from 'phaser';
 import { GAME_WIDTH, HALLOWEEN, themeSky } from '../config';
-import { hasCampaignProgress, loadSave, resetSessionLives, resumeLevelId } from '../data/progress';
+import { acknowledgeGiftSkin, hasCampaignProgress, loadSave, pendingGiftSkin, resetSessionLives, resumeLevelId, setEquippedSkin } from '../data/progress';
+import { PUMPKIN_SKIN_ID, skinById } from '../data/skins';
 import { applySettings } from '../data/settings';
 import { audio } from '../systems/audio';
 import { preloadOptionalAssets } from '../systems/optional-assets';
 import { Parallax } from '../systems/parallax';
+import { applySkin } from '../systems/textures';
+import { showSkinGift } from '../ui/skin-gift';
 import { launchOverlay, MenuButton, MenuNav, textStyle, UI } from '../ui/menu';
 
 export class TitleScene extends Phaser.Scene {
@@ -18,6 +21,11 @@ export class TitleScene extends Phaser.Scene {
   create(): void {
     preloadOptionalAssets(this);
     applySettings(this);
+    const giftId = pendingGiftSkin();
+    if (giftId) {
+      setEquippedSkin(giftId);
+      applySkin(this, giftId);
+    }
     const theme = HALLOWEEN ? 'castle' : 'grass';
     this.cameras.main.setBackgroundColor(themeSky(theme));
     this.parallax = new Parallax(this, theme);
@@ -27,8 +35,9 @@ export class TitleScene extends Phaser.Scene {
     }
 
     const heroX = GAME_WIDTH / 2;
-    const shadow = this.add.ellipse(heroX, 216, 92, 22, 0x3a1010, 0.28);
-    this.add.ellipse(heroX, 164, 96, 96, 0xff3d42, 0.16);
+    const wearingPumpkin = loadSave().equippedSkin === PUMPKIN_SKIN_ID;
+    const shadow = this.add.ellipse(heroX, 216, 92, 22, wearingPumpkin ? 0x3a1808 : 0x3a1010, 0.28);
+    this.add.ellipse(heroX, 164, 96, 96, wearingPumpkin ? 0xe86810 : 0xff3d42, 0.16);
     const square = this.add.image(heroX, 160, 'player').setScale(2.35);
     this.tweens.add({
       targets: square,
@@ -126,7 +135,17 @@ export class TitleScene extends Phaser.Scene {
       buttons.push(new MenuButton(this, GAME_WIDTH / 2, firstY + index * spacing, entry.label, entry.action));
     });
 
-    new MenuNav(this, buttons);
+    const nav = new MenuNav(this, buttons);
+    const gift = giftId ? skinById(giftId) : undefined;
+    if (gift) {
+      nav.setEnabled(false);
+      showSkinGift(this, gift, () => {
+        acknowledgeGiftSkin(gift.id);
+        if (this.scene.isActive()) {
+          nav.setEnabled(true);
+        }
+      });
+    }
 
     this.add
       .text(GAME_WIDTH / 2, 678, 'Tap a button     Arrows / WASD     Enter confirm', textStyle('18px', '#e8f0ff'))

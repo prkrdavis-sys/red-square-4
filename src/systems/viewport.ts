@@ -1,5 +1,5 @@
 import type Phaser from 'phaser';
-import { applyForcedLandscape, currentForcedLandscape, releaseOrientationLock } from './forced-landscape';
+import { applyForcedLandscape, currentForcedLandscape } from './forced-landscape';
 
 export interface ViewportBox {
   width: number;
@@ -118,7 +118,6 @@ export function bootViewport(): void {
     return;
   }
   booted = true;
-  releaseOrientationLock();
   applyCurrentViewport();
   window.visualViewport?.addEventListener('resize', onViewportChange);
   window.visualViewport?.addEventListener('scroll', onViewportChange);

@@ -10,9 +10,11 @@ import {
 import { persistReadClient, persistWriteClient } from './persist';
 import {
   DEFAULT_SKIN_ID,
+  GIFT_SKIN_IDS,
   isBossRewardSkin,
   isSkinUnlocked,
   legacyPurchasedSkinIds,
+  pendingGiftSkinId,
   skinById,
 } from './skins';
 
@@ -31,6 +33,7 @@ export interface SaveData {
   equippedSkin: string;
   coins: number;
   purchasedSkins: string[];
+  seenGifts: string[];
 }
 
 let memory: SaveData | null = null;
@@ -49,6 +52,7 @@ function cloneSave(save: SaveData): SaveData {
     ) as SaveData['checkpoints'],
     creatureCards: [...save.creatureCards],
     purchasedSkins: [...save.purchasedSkins],
+    seenGifts: [...save.seenGifts],
   };
 }
 
@@ -63,6 +67,7 @@ function defaultSave(): SaveData {
     equippedSkin: DEFAULT_SKIN_ID,
     coins: 0,
     purchasedSkins: [],
+    seenGifts: [],
   };
 }
 
@@ -139,6 +144,10 @@ function normalizePurchasedSkins(ids: string[]): string[] {
   );
 }
 
+function normalizeSeenGifts(ids: string[]): string[] {
+  return GIFT_SKIN_IDS.filter((id) => ids.includes(id));
+}
+
 function normalizeSave(save: SaveData): SaveData {
   const cleared = uniqueLevels(save.cleared);
   const unlocked = unlockedFrom(cleared, save.unlocked);
@@ -176,6 +185,7 @@ function normalizeSave(save: SaveData): SaveData {
     equippedSkin: normalizeSkin(save.equippedSkin, { cleared, purchasedSkins }),
     coins: normalizeCoins(save.coins),
     purchasedSkins,
+    seenGifts: normalizeSeenGifts(save.seenGifts),
   };
 }
 
@@ -215,6 +225,9 @@ function parseSave(raw: string | null | undefined): SaveData | null {
       : migratePurchases
         ? legacyPurchasedSkinIds(cleared)
         : [];
+    const seenGifts = Array.isArray(parsed.seenGifts)
+      ? parsed.seenGifts.filter((id): id is string => typeof id === 'string')
+      : [];
     return normalizeSave({
       unlocked,
       cleared,
@@ -225,6 +238,7 @@ function parseSave(raw: string | null | undefined): SaveData | null {
       equippedSkin,
       coins,
       purchasedSkins,
+      seenGifts,
     });
   } catch {
     return null;
@@ -254,6 +268,7 @@ function unionSave(a: SaveData, b: SaveData): SaveData {
     equippedSkin: b.equippedSkin === DEFAULT_SKIN_ID ? a.equippedSkin : b.equippedSkin,
     coins: Math.max(a.coins, b.coins),
     purchasedSkins: [...a.purchasedSkins, ...b.purchasedSkins],
+    seenGifts: [...a.seenGifts, ...b.seenGifts],
   });
 }
 
@@ -395,6 +410,22 @@ export function unlockBackrooms(): SaveData {
 export function setEquippedSkin(id: string): SaveData {
   const save = loadSave();
   save.equippedSkin = id;
+  writeSave(save);
+  return loadSave();
+}
+
+export function pendingGiftSkin(save: SaveData = loadSave()): string | undefined {
+  return pendingGiftSkinId(save.seenGifts);
+}
+
+export function acknowledgeGiftSkin(id: string): SaveData {
+  if (!(GIFT_SKIN_IDS as readonly string[]).includes(id)) {
+    return loadSave();
+  }
+  const save = loadSave();
+  if (!save.seenGifts.includes(id)) {
+    save.seenGifts.push(id);
+  }
   writeSave(save);
   return loadSave();
 }

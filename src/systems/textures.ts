@@ -21,6 +21,7 @@ import {
   type HeldItem,
   type HeroPalette,
   type SkinDef,
+  type SkinMotif,
 } from '../data/skins';
 import { createBackroomsTextures } from './backrooms-textures';
 import { createEnemyTextures } from './enemies';
@@ -509,7 +510,174 @@ function paintHeldItem(g: Phaser.GameObjects.Graphics, item: HeldItem, pose: Her
   }
 }
 
+type JackMouth = 'smile' | 'grin' | 'round' | 'frown' | 'flat';
+
+interface JackFrame {
+  cx: number;
+  cy: number;
+  w: number;
+  h: number;
+  eyeY: number;
+  lookX: number;
+  eyes: 'open' | 'shut' | 'cross';
+  mouth: JackMouth;
+}
+
+function jackFrame(pose: HeroPose): JackFrame {
+  switch (pose) {
+    case 'idle':
+      return { cx: 24, cy: 24, w: 40, h: 34, eyeY: 20, lookX: 0, eyes: 'open', mouth: 'smile' };
+    case 'blink':
+      return { cx: 24, cy: 24, w: 40, h: 34, eyeY: 20, lookX: 0, eyes: 'shut', mouth: 'smile' };
+    case 'run-a':
+      return { cx: 22, cy: 24, w: 42, h: 32, eyeY: 19, lookX: 1, eyes: 'open', mouth: 'grin' };
+    case 'run-b':
+      return { cx: 26, cy: 23, w: 38, h: 36, eyeY: 18, lookX: 2, eyes: 'open', mouth: 'grin' };
+    case 'jump':
+      return { cx: 24, cy: 21, w: 40, h: 30, eyeY: 16, lookX: 0, eyes: 'open', mouth: 'round' };
+    case 'fall':
+      return { cx: 24, cy: 26, w: 40, h: 36, eyeY: 23, lookX: 0, eyes: 'open', mouth: 'frown' };
+    case 'dead':
+      return { cx: 24, cy: 26, w: 44, h: 30, eyeY: 20, lookX: 0, eyes: 'cross', mouth: 'flat' };
+    default: {
+      const neverPose: never = pose;
+      return neverPose;
+    }
+  }
+}
+
+function paintJackEye(
+  g: Phaser.GameObjects.Graphics,
+  x: number,
+  y: number,
+  eyes: JackFrame['eyes'],
+): void {
+  const hole = 0x2a0c04;
+  const glow = 0xffe36a;
+  const hot = 0xfff6c0;
+  switch (eyes) {
+    case 'shut':
+      g.fillStyle(hole, 1);
+      g.fillRoundedRect(x - 7, y - 2, 14, 5, 2);
+      g.fillStyle(glow, 1);
+      g.fillRoundedRect(x - 5, y - 1, 10, 2, 1);
+      return;
+    case 'cross':
+      g.lineStyle(3, hole, 1);
+      g.lineBetween(x - 6, y - 6, x + 6, y + 6);
+      g.lineBetween(x + 6, y - 6, x - 6, y + 6);
+      g.lineStyle(1.5, glow, 1);
+      g.lineBetween(x - 4, y - 4, x + 4, y + 4);
+      g.lineBetween(x + 4, y - 4, x - 4, y + 4);
+      return;
+    case 'open':
+      g.fillStyle(hole, 1);
+      g.fillTriangle(x - 7, y - 5, x + 7, y - 5, x, y + 8);
+      g.fillStyle(glow, 1);
+      g.fillTriangle(x - 5, y - 3, x + 5, y - 3, x, y + 5);
+      g.fillStyle(hot, 1);
+      g.fillTriangle(x - 2, y - 1, x + 2, y - 1, x, y + 2);
+      return;
+    default: {
+      const neverEyes: never = eyes;
+      return neverEyes;
+    }
+  }
+}
+
+function paintJackMouth(g: Phaser.GameObjects.Graphics, cx: number, cy: number, mouth: JackMouth): void {
+  const hole = 0x2a0c04;
+  const glow = 0xffe36a;
+  const hot = 0xfff6c0;
+  switch (mouth) {
+    case 'smile':
+    case 'grin': {
+      const span = mouth === 'smile' ? 12 : 8;
+      const drop = mouth === 'smile' ? 7 : 5;
+      const y = cy;
+      g.fillStyle(hole, 1);
+      g.fillTriangle(cx - span, y, cx - span / 2, y + drop + 2, cx, y);
+      g.fillTriangle(cx, y, cx + span / 2, y + drop + 2, cx + span, y);
+      g.fillStyle(glow, 1);
+      g.fillTriangle(cx - span + 2, y + 1, cx - span / 2, y + drop, cx, y + 1);
+      g.fillTriangle(cx, y + 1, cx + span / 2, y + drop, cx + span - 2, y + 1);
+      g.fillStyle(hot, 1);
+      g.fillTriangle(cx - 3, y + 2, cx, y + drop - 1, cx + 3, y + 2);
+      return;
+    }
+    case 'round':
+      g.fillStyle(hole, 1);
+      g.fillEllipse(cx, cy + 2, 12, 12);
+      g.fillStyle(glow, 1);
+      g.fillEllipse(cx, cy + 2, 8, 8);
+      g.fillStyle(hot, 1);
+      g.fillEllipse(cx, cy + 2, 4, 4);
+      return;
+    case 'frown':
+      g.fillStyle(hole, 1);
+      g.fillTriangle(cx - 10, cy + 6, cx + 10, cy + 6, cx, cy - 1);
+      g.fillStyle(glow, 1);
+      g.fillTriangle(cx - 7, cy + 5, cx + 7, cy + 5, cx, cy + 1);
+      return;
+    case 'flat':
+      g.fillStyle(hole, 1);
+      g.fillRoundedRect(cx - 6, cy + 1, 12, 4, 2);
+      return;
+    default: {
+      const neverMouth: never = mouth;
+      return neverMouth;
+    }
+  }
+}
+
+function paintJackHero(g: Phaser.GameObjects.Graphics, pose: HeroPose, skin: SkinDef): void {
+  const frame = jackFrame(pose);
+  const { cx, cy } = frame;
+  const palette = skin.palette;
+  g.fillStyle(palette.ink, 1);
+  g.fillEllipse(cx, cy, frame.w + 4, frame.h + 4);
+  g.fillStyle(palette.body, 1);
+  g.fillEllipse(cx, cy, frame.w, frame.h);
+  g.fillStyle(palette.shade, 1);
+  g.fillEllipse(cx - 10, cy + 1, 12, frame.h - 2);
+  g.fillEllipse(cx, cy + 1, 12, frame.h);
+  g.fillEllipse(cx + 10, cy + 1, 12, frame.h - 2);
+  g.fillStyle(palette.body, 1);
+  g.fillEllipse(cx - 10, cy, 8, frame.h - 8);
+  g.fillEllipse(cx + 10, cy, 8, frame.h - 8);
+  g.fillStyle(palette.gloss, 1);
+  g.fillEllipse(cx - 8, cy - 8, 8, 5);
+  g.fillStyle(0x2f7a28, 1);
+  g.fillRoundedRect(cx - 3, 0, 7, 11, 2);
+  g.fillStyle(0x143816, 1);
+  g.fillRect(cx - 1, 2, 3, 7);
+  g.fillStyle(0x4aaa3a, 1);
+  g.fillEllipse(cx + 6, 4, 9, 5);
+  paintJackEye(g, cx - 8 + frame.lookX, frame.eyeY, frame.eyes);
+  paintJackEye(g, cx + 8 + frame.lookX, frame.eyeY, frame.eyes);
+  paintJackMouth(g, cx + frame.lookX, frame.eyeY + 10, frame.mouth);
+  paintHeroFeet(g, pose, palette);
+}
+
+function paintHeroMotif(g: Phaser.GameObjects.Graphics, pose: HeroPose, skin: SkinDef): boolean {
+  const motif: SkinMotif | undefined = skin.motif;
+  switch (motif) {
+    case 'jack-o-lantern':
+      paintJackHero(g, pose, skin);
+      return true;
+    case undefined:
+      return false;
+    default: {
+      const neverMotif: never = motif;
+      return neverMotif;
+    }
+  }
+}
+
 function paintHeroSquare(g: Phaser.GameObjects.Graphics, pose: HeroPose, skin: SkinDef): void {
+  if (paintHeroMotif(g, pose, skin)) {
+    return;
+  }
   const cx = HERO_SIZE / 2;
   const palette = skin.palette;
   const ornate = skin.heldItem !== 'none';
@@ -597,7 +765,7 @@ export function applySkin(scene: Phaser.Scene, skinId: string): void {
   const skin = skinById(skinId) ?? defaultSkin();
   drawPlayer(scene, skin);
   stampFlakHeroPieces(scene, skin);
-  drawMapToken(scene, skin.palette);
+  drawMapToken(scene, skin);
 }
 
 function drawBaddie(
@@ -3030,18 +3198,51 @@ function drawCartoonStar(scene: Phaser.Scene): void {
   commit(g, 'cartoon-star', 24, 24);
 }
 
-function drawMapToken(scene: Phaser.Scene, skin: HeroPalette): void {
-  clearCanvasTexture(scene, 'map-token');
+function drawJackMapToken(scene: Phaser.Scene, skin: SkinDef): void {
   const g = gfx(scene);
-  g.fillStyle(skin.ink, 1);
+  const palette = skin.palette;
+  g.fillStyle(palette.ink, 1);
+  g.fillEllipse(12, 14, 22, 18);
+  g.fillStyle(palette.body, 1);
+  g.fillEllipse(12, 13, 18, 15);
+  g.fillStyle(0x2f7a28, 1);
+  g.fillRect(10, 2, 4, 6);
+  g.fillStyle(0x2a0c04, 1);
+  g.fillTriangle(6, 11, 11, 11, 8, 16);
+  g.fillTriangle(13, 11, 18, 11, 16, 16);
+  g.fillTriangle(7, 17, 12, 17, 9.5, 20);
+  g.fillTriangle(12, 17, 17, 17, 14.5, 20);
+  g.fillStyle(0xffe36a, 1);
+  g.fillTriangle(7, 12, 10, 12, 8.5, 15);
+  g.fillTriangle(14, 12, 17, 12, 15.5, 15);
+  commit(g, 'map-token', 24, 24);
+}
+
+function drawMapToken(scene: Phaser.Scene, skin: SkinDef): void {
+  clearCanvasTexture(scene, 'map-token');
+  const motif: SkinMotif | undefined = skin.motif;
+  switch (motif) {
+    case 'jack-o-lantern':
+      drawJackMapToken(scene, skin);
+      return;
+    case undefined:
+      break;
+    default: {
+      const neverMotif: never = motif;
+      return neverMotif;
+    }
+  }
+  const g = gfx(scene);
+  const palette = skin.palette;
+  g.fillStyle(palette.ink, 1);
   g.fillRoundedRect(1, 2, 22, 19, 5);
-  g.fillStyle(skin.body, 1);
+  g.fillStyle(palette.body, 1);
   g.fillRoundedRect(3, 4, 18, 15, 3);
-  g.fillStyle(skin.shade, 1);
+  g.fillStyle(palette.shade, 1);
   g.fillRoundedRect(3, 13, 18, 6, { tl: 0, tr: 0, bl: 3, br: 3 });
-  g.fillStyle(skin.gloss, 1);
+  g.fillStyle(palette.gloss, 1);
   g.fillRoundedRect(5, 5, 8, 4, 2);
-  g.fillStyle(skin.ink, 1);
+  g.fillStyle(palette.ink, 1);
   g.fillEllipse(8, 10, 6, 7);
   g.fillEllipse(16, 10, 6, 7);
   g.fillStyle(HERO_EYE, 1);
@@ -3050,7 +3251,7 @@ function drawMapToken(scene: Phaser.Scene, skin: HeroPalette): void {
   g.fillStyle(HERO_PUPIL, 1);
   g.fillCircle(9, 11, 1.6);
   g.fillCircle(17, 11, 1.6);
-  g.fillStyle(skin.boot, 1);
+  g.fillStyle(palette.boot, 1);
   g.fillRoundedRect(5, 20, 6, 3, 1);
   g.fillRoundedRect(13, 20, 6, 3, 1);
   commit(g, 'map-token', 24, 24);

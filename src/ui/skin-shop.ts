@@ -1,6 +1,7 @@
 import { parseLevelId } from '../config';
 import {
   isBossRewardSkin,
+  PUMPKIN_SKIN_ID,
   skinShopStatus,
   type SkinDef,
   type SkinShopStatus,
@@ -202,6 +203,9 @@ function hintFor(skin: SkinDef, tone: SkinShopTone, coins: number): string {
 }
 
 function readyHint(skin: SkinDef): string {
+  if (skin.id === PUMPKIN_SKIN_ID) {
+    return 'A Halloween gift';
+  }
   if (!skin.level) {
     return 'Available from the start';
   }

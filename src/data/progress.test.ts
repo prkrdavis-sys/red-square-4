@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import {
+  acknowledgeGiftSkin,
   addCoins,
   checkpointForLevelStart,
   clearCheckpoint,
@@ -9,14 +10,16 @@ import {
   markCleared,
   nextLevelId,
   parseSaveRaw,
+  pendingGiftSkin,
   purchaseSkin,
   session,
   setCheckpoint,
+  setEquippedSkin,
   unlockBackrooms,
   unlockSecretLevel,
   writeSave,
 } from './progress';
-import { isSkinUnlocked, skinForLevel, DEFAULT_SKIN_ID } from './skins';
+import { isSkinUnlocked, skinForLevel, DEFAULT_SKIN_ID, PUMPKIN_SKIN_ID } from './skins';
 
 function blankSave(overrides: Partial<ReturnType<typeof loadSave>> = {}) {
   return {
@@ -29,6 +32,7 @@ function blankSave(overrides: Partial<ReturnType<typeof loadSave>> = {}) {
     equippedSkin: DEFAULT_SKIN_ID,
     coins: 0,
     purchasedSkins: [],
+    seenGifts: [],
     ...overrides,
   };
 }
@@ -151,6 +155,21 @@ describe('coins and skin shop', () => {
     expect(save?.purchasedSkins).toEqual([]);
     expect(save?.coins).toBe(8);
     expect(save && isSkinUnlocked(skinForLevel('1-1')!, save)).toBe(false);
+    expect(save?.seenGifts).toEqual([]);
+    expect(save && pendingGiftSkin(save)).toBe(PUMPKIN_SKIN_ID);
+  });
+
+  it('equips the pumpkin gift once, then leaves a later choice alone', () => {
+    expect(pendingGiftSkin()).toBe(PUMPKIN_SKIN_ID);
+    setEquippedSkin(PUMPKIN_SKIN_ID);
+    expect(loadSave().equippedSkin).toBe(PUMPKIN_SKIN_ID);
+    acknowledgeGiftSkin(PUMPKIN_SKIN_ID);
+    expect(loadSave().seenGifts).toEqual([PUMPKIN_SKIN_ID]);
+    expect(pendingGiftSkin()).toBeUndefined();
+    setEquippedSkin(DEFAULT_SKIN_ID);
+    expect(loadSave().equippedSkin).toBe(DEFAULT_SKIN_ID);
+    expect(pendingGiftSkin()).toBeUndefined();
+    expect(acknowledgeGiftSkin('not-a-skin').seenGifts).toEqual([PUMPKIN_SKIN_ID]);
   });
 });
 

@@ -31,6 +31,8 @@ export type HeldItem =
   | 'liana-crook'
   | 'conch';
 
+export type SkinMotif = 'jack-o-lantern';
+
 export interface SkinUnlockState {
   cleared: LevelId[];
   purchasedSkins: string[];
@@ -46,9 +48,14 @@ export interface SkinDef {
   palette: HeroPalette;
   accessory: Accessory;
   heldItem: HeldItem;
+  motif?: SkinMotif;
 }
 
 export const DEFAULT_SKIN_ID = 'classic';
+export const PUMPKIN_SKIN_ID = 'pumpkin';
+
+/** Skins granted on the next launch, then announced once. */
+export const GIFT_SKIN_IDS = [PUMPKIN_SKIN_ID] as const;
 
 export const CLASSIC_PALETTE: HeroPalette = {
   ink: 0x1a0808,
@@ -56,6 +63,15 @@ export const CLASSIC_PALETTE: HeroPalette = {
   shade: 0xc41c28,
   gloss: 0xff9aa0,
   boot: 0x2a1814,
+  bootSole: 0x140808,
+};
+
+const PUMPKIN_PALETTE: HeroPalette = {
+  ink: 0x3a1608,
+  body: 0xe86810,
+  shade: 0xb04008,
+  gloss: 0xffc56a,
+  boot: 0x2a140c,
   bootSole: 0x140808,
 };
 
@@ -119,6 +135,14 @@ export const SKINS: SkinDef[] = [
     accessory: 'none',
     heldItem: 'none',
   },
+  {
+    id: PUMPKIN_SKIN_ID,
+    name: "Jack-o'-Lantern",
+    palette: PUMPKIN_PALETTE,
+    accessory: 'none',
+    heldItem: 'none',
+    motif: 'jack-o-lantern',
+  },
   ...CAMPAIGN_LEVEL_IDS.map((level, index) => {
     const seed = LEVEL_SKINS[index];
     if (!seed) {
@@ -170,6 +194,10 @@ export function isSkinUnlocked(skin: SkinDef, save: SkinUnlockState): boolean {
 
 export function unlockedSkinIds(save: SkinUnlockState): string[] {
   return SKINS.filter((skin) => isSkinUnlocked(skin, save)).map((skin) => skin.id);
+}
+
+export function pendingGiftSkinId(seen: readonly string[]): string | undefined {
+  return GIFT_SKIN_IDS.find((id) => !seen.includes(id));
 }
 
 /** Stage 1–3 skins that old saves already earned by clearing, before the coin shop existed. */

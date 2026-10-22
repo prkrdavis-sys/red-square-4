@@ -4,6 +4,8 @@ import {
   isBossRewardSkin,
   isSkinUnlocked,
   legacyPurchasedSkinIds,
+  pendingGiftSkinId,
+  PUMPKIN_SKIN_ID,
   SKINS,
   skinById,
   skinForLevel,
@@ -57,6 +59,13 @@ describe('skin shop', () => {
       expect(skin.heldItem).toBe('none');
     }
     expect(skinById('classic')?.cost).toBeUndefined();
+    const pumpkin = skinById(PUMPKIN_SKIN_ID);
+    expect(pumpkin?.motif).toBe('jack-o-lantern');
+    expect(pumpkin?.cost).toBeUndefined();
+    expect(pumpkin?.level).toBeUndefined();
+    expect(pumpkin && isSkinUnlocked(pumpkin, emptySave)).toBe(true);
+    expect(pendingGiftSkinId([])).toBe(PUMPKIN_SKIN_ID);
+    expect(pendingGiftSkinId([PUMPKIN_SKIN_ID])).toBeUndefined();
   });
 
   it('keeps the default skin free and locks paid skins until they are cleared and bought', () => {

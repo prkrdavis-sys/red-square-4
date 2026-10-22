@@ -82,7 +82,7 @@ export function foregroundLipKey(theme: Theme): string {
   return `fg-${theme}-lip`;
 }
 
-function specsFor(theme: Theme): PropSpec[] {
+function baseKit(theme: Theme): PropSpec[] {
   switch (theme) {
     case 'grass':
       return [
@@ -131,8 +131,8 @@ function specsFor(theme: Theme): PropSpec[] {
         { id: 'coral', w: 118, h: 112, motion: 'still', alpha: 0.86, weight: 1.4, footprint: 2, size: 'large' },
         { id: 'kelp', w: 58, h: 176, motion: 'sway', alpha: 0.82, weight: 1.5, footprint: 1, size: 'large' },
       ];
-    case 'castle': {
-      const kit: PropSpec[] = [
+    case 'castle':
+      return [
         { id: 'rubble', w: 86, h: 48, motion: 'still', alpha: 0.94, weight: 2.0, footprint: 1, size: 'small' },
         { id: 'cobble', w: 110, h: 52, motion: 'still', alpha: 0.94, weight: 1.6, footprint: 2, size: 'small' },
         { id: 'bones', w: 66, h: 40, motion: 'still', alpha: 0.94, weight: 0.8, footprint: 1, size: 'small' },
@@ -143,20 +143,6 @@ function specsFor(theme: Theme): PropSpec[] {
         { id: 'candelabra', w: 66, h: 156, motion: 'flicker', alpha: 0.9, weight: 0.9, footprint: 1, size: 'large' },
         { id: 'gargoyle', w: 90, h: 100, motion: 'still', alpha: 0.9, weight: 0.6, footprint: 2, size: 'large' },
       ];
-      if (!HALLOWEEN) {
-        return kit;
-      }
-      return [
-        ...kit,
-        { id: 'pumpkin', w: 70, h: 64, motion: 'still', alpha: 0.96, weight: 2.8, footprint: 1, size: 'small' },
-        { id: 'jack', w: 68, h: 72, motion: 'flicker', alpha: 0.96, weight: 2.6, footprint: 1, size: 'small' },
-        { id: 'grave', w: 58, h: 86, motion: 'still', alpha: 0.94, weight: 1.9, footprint: 1, size: 'small' },
-        { id: 'candy', w: 84, h: 48, motion: 'still', alpha: 0.95, weight: 1.7, footprint: 1, size: 'small' },
-        { id: 'web', w: 96, h: 110, motion: 'still', alpha: 0.82, weight: 1.4, footprint: 2, size: 'large' },
-        { id: 'lantern', w: 54, h: 160, motion: 'flicker', alpha: 0.92, weight: 1.3, footprint: 1, size: 'large' },
-        { id: 'scarecrow', w: 108, h: 172, motion: 'sway', alpha: 0.9, weight: 1.2, footprint: 2, size: 'large' },
-      ];
-    }
     case 'rainforest':
       return [
         { id: 'tuft', w: 72, h: 56, motion: 'sway', alpha: 0.95, weight: 2.8, footprint: 1, size: 'small' },
@@ -206,35 +192,88 @@ function specsFor(theme: Theme): PropSpec[] {
   }
 }
 
-function paintLip(ctx: CanvasRenderingContext2D, theme: Theme): void {
+const HALLOWEEN_PUMPKIN: PropSpec = {
+  id: 'pumpkin',
+  w: 70,
+  h: 64,
+  motion: 'still',
+  alpha: 0.96,
+  weight: 2.6,
+  footprint: 1,
+  size: 'small',
+};
+const HALLOWEEN_JACK: PropSpec = {
+  id: 'jack',
+  w: 68,
+  h: 72,
+  motion: 'flicker',
+  alpha: 0.96,
+  weight: 2.4,
+  footprint: 1,
+  size: 'small',
+};
+
+function halloweenExtras(theme: Theme): PropSpec[] {
+  const shared = [HALLOWEEN_PUMPKIN, HALLOWEEN_JACK];
   switch (theme) {
     case 'grass':
-      paintGrassLip(ctx);
-      return;
+      return [
+        ...shared,
+        { id: 'scarecrow', w: 108, h: 172, motion: 'sway', alpha: 0.9, weight: 1.4, footprint: 2, size: 'large' },
+        { id: 'corn', w: 84, h: 150, motion: 'sway', alpha: 0.9, weight: 1.5, footprint: 2, size: 'large' },
+      ];
     case 'snow':
-      paintSnowLip(ctx);
-      return;
+      return [
+        ...shared,
+        { id: 'ice-jack', w: 72, h: 78, motion: 'flicker', alpha: 0.94, weight: 1.6, footprint: 1, size: 'small' },
+        { id: 'snow-ghost', w: 70, h: 120, motion: 'sway', alpha: 0.92, weight: 1.4, footprint: 1, size: 'large' },
+      ];
     case 'desert':
-      paintDesertLip(ctx);
-      return;
+      return [
+        ...shared,
+        { id: 'cactus-jack', w: 78, h: 150, motion: 'sway', alpha: 0.9, weight: 1.5, footprint: 2, size: 'large' },
+        { id: 'cairn', w: 80, h: 96, motion: 'still', alpha: 0.94, weight: 1.4, footprint: 1, size: 'small' },
+      ];
     case 'ocean':
-      paintOceanLip(ctx);
-      return;
+      return [
+        ...shared,
+        { id: 'ghost-jelly', w: 78, h: 110, motion: 'bob', alpha: 0.86, weight: 1.5, footprint: 1, size: 'large' },
+        { id: 'buoy', w: 64, h: 120, motion: 'bob', alpha: 0.92, weight: 1.4, footprint: 1, size: 'large' },
+      ];
     case 'castle':
-      paintCastleLip(ctx);
-      return;
+      return [
+        { id: 'pumpkin', w: 70, h: 64, motion: 'still', alpha: 0.96, weight: 2.8, footprint: 1, size: 'small' },
+        { id: 'jack', w: 68, h: 72, motion: 'flicker', alpha: 0.96, weight: 2.6, footprint: 1, size: 'small' },
+        { id: 'grave', w: 58, h: 86, motion: 'still', alpha: 0.94, weight: 1.9, footprint: 1, size: 'small' },
+        { id: 'candy', w: 84, h: 48, motion: 'still', alpha: 0.95, weight: 1.7, footprint: 1, size: 'small' },
+        { id: 'web', w: 96, h: 110, motion: 'still', alpha: 0.82, weight: 1.4, footprint: 2, size: 'large' },
+        { id: 'lantern', w: 54, h: 160, motion: 'flicker', alpha: 0.92, weight: 1.3, footprint: 1, size: 'large' },
+        { id: 'scarecrow', w: 108, h: 172, motion: 'sway', alpha: 0.9, weight: 1.2, footprint: 2, size: 'large' },
+      ];
     case 'rainforest':
-      paintRainforestLip(ctx);
-      return;
+      return [
+        ...shared,
+        { id: 'mask', w: 72, h: 130, motion: 'sway', alpha: 0.92, weight: 1.4, footprint: 1, size: 'large' },
+        { id: 'spore', w: 74, h: 96, motion: 'flicker', alpha: 0.92, weight: 1.5, footprint: 1, size: 'small' },
+      ];
     case 'beach':
-      paintBeachLip(ctx);
-      return;
+      return [
+        ...shared,
+        { id: 'coconut', w: 70, h: 72, motion: 'still', alpha: 0.95, weight: 1.6, footprint: 1, size: 'small' },
+        { id: 'sand-tomb', w: 100, h: 78, motion: 'still', alpha: 0.94, weight: 1.4, footprint: 2, size: 'small' },
+      ];
     case 'rainy-city':
-      paintRainyCityLip(ctx);
-      return;
+      return [
+        ...shared,
+        { id: 'neon-jack', w: 88, h: 140, motion: 'flicker', alpha: 0.9, weight: 1.5, footprint: 2, size: 'large' },
+        { id: 'alley-ghost', w: 72, h: 128, motion: 'sway', alpha: 0.9, weight: 1.4, footprint: 1, size: 'large' },
+      ];
     case 'backrooms':
-      paintBackroomsLip(ctx);
-      return;
+      return [
+        ...shared,
+        { id: 'yellow-jack', w: 70, h: 74, motion: 'flicker', alpha: 0.94, weight: 1.6, footprint: 1, size: 'small' },
+        { id: 'drip-ghost', w: 72, h: 130, motion: 'sway', alpha: 0.88, weight: 1.4, footprint: 1, size: 'large' },
+      ];
     default: {
       const neverTheme: never = theme;
       return neverTheme;
@@ -242,7 +281,64 @@ function paintLip(ctx: CanvasRenderingContext2D, theme: Theme): void {
   }
 }
 
+function kitFor(theme: Theme, halloween: boolean): PropSpec[] {
+  const base = baseKit(theme);
+  if (!halloween) {
+    return base;
+  }
+  return [...base, ...halloweenExtras(theme)];
+}
+
+/** Prop ids for a theme, with or without the seasonal set. */
+export function foregroundPropIds(theme: Theme, halloween = HALLOWEEN): readonly string[] {
+  return kitFor(theme, halloween).map((spec) => spec.id);
+}
+
+function specsFor(theme: Theme): PropSpec[] {
+  return kitFor(theme, HALLOWEEN);
+}
+
+function paintLip(ctx: CanvasRenderingContext2D, theme: Theme): void {
+  switch (theme) {
+    case 'grass':
+      paintGrassLip(ctx);
+      break;
+    case 'snow':
+      paintSnowLip(ctx);
+      break;
+    case 'desert':
+      paintDesertLip(ctx);
+      break;
+    case 'ocean':
+      paintOceanLip(ctx);
+      break;
+    case 'castle':
+      paintCastleLip(ctx);
+      break;
+    case 'rainforest':
+      paintRainforestLip(ctx);
+      break;
+    case 'beach':
+      paintBeachLip(ctx);
+      break;
+    case 'rainy-city':
+      paintRainyCityLip(ctx);
+      break;
+    case 'backrooms':
+      paintBackroomsLip(ctx);
+      break;
+    default: {
+      const neverTheme: never = theme;
+      return neverTheme;
+    }
+  }
+  paintHalloweenFringe(ctx);
+}
+
 function paintProp(ctx: CanvasRenderingContext2D, theme: Theme, id: string, w: number, h: number): void {
+  if (paintSeasonalProp(ctx, theme, id, w, h)) {
+    return;
+  }
   switch (theme) {
     case 'grass':
       paintGrassProp(ctx, id, w, h);
@@ -960,15 +1056,398 @@ function paintCastleLip(ctx: CanvasRenderingContext2D): void {
       fillEllipse(ctx, moss + ox, LIP_H - 8, 12, 4);
     });
   }
-  if (HALLOWEEN) {
-    for (const pumpkin of [36, 118, 210, 292]) {
-      wrapDraw(pumpkin, LIP_W, 16, (ox) => {
-        ctx.fillStyle = css(0xe06810);
-        fillEllipse(ctx, pumpkin + ox, LIP_H - 18, 12, 10);
-        ctx.fillStyle = css(0x2f8a32);
-        ctx.fillRect(pumpkin + ox - 2, LIP_H - 30, 4, 8);
-      });
+}
+
+function paintHalloweenFringe(ctx: CanvasRenderingContext2D): void {
+  if (!HALLOWEEN) {
+    return;
+  }
+  for (const pumpkin of [36, 118, 210, 292]) {
+    wrapDraw(pumpkin, LIP_W, 16, (ox) => {
+      ctx.fillStyle = css(0xe06810);
+      fillEllipse(ctx, pumpkin + ox, LIP_H - 18, 12, 10);
+      ctx.fillStyle = css(0x2f8a32);
+      ctx.fillRect(pumpkin + ox - 2, LIP_H - 30, 4, 8);
+    });
+  }
+}
+
+function paintSeasonalProp(
+  ctx: CanvasRenderingContext2D,
+  theme: Theme,
+  id: string,
+  w: number,
+  h: number,
+): boolean {
+  const cx = w / 2;
+  if (id === 'pumpkin') {
+    paintPumpkinProp(ctx, cx, h, false);
+    return true;
+  }
+  if (id === 'jack') {
+    paintPumpkinProp(ctx, cx, h, true);
+    return true;
+  }
+  switch (theme) {
+    case 'grass':
+      return paintGrassHalloween(ctx, id, cx, h);
+    case 'snow':
+      return paintSnowHalloween(ctx, id, cx, h);
+    case 'desert':
+      return paintDesertHalloween(ctx, id, cx, h);
+    case 'ocean':
+      return paintOceanHalloween(ctx, id, cx, h);
+    case 'castle':
+      return false;
+    case 'rainforest':
+      return paintRainforestHalloween(ctx, id, cx, h);
+    case 'beach':
+      return paintBeachHalloween(ctx, id, cx, h);
+    case 'rainy-city':
+      return paintCityHalloween(ctx, id, cx, h);
+    case 'backrooms':
+      return paintBackroomsHalloween(ctx, id, cx, h);
+    default: {
+      const neverTheme: never = theme;
+      return neverTheme;
     }
+  }
+}
+
+function paintGrassHalloween(ctx: CanvasRenderingContext2D, id: string, cx: number, h: number): boolean {
+  switch (id) {
+    case 'scarecrow':
+      ctx.fillStyle = css(0x6a4a28);
+      ctx.fillRect(cx - 3, 40, 6, h - 40);
+      ctx.strokeStyle = css(0xc4a05a);
+      ctx.lineWidth = 4;
+      ctx.beginPath();
+      ctx.moveTo(cx - 42, 86);
+      ctx.lineTo(cx + 42, 70);
+      ctx.stroke();
+      ctx.fillStyle = css(0x3d9e2f);
+      ctx.fillRect(cx - 16, 58, 32, 28);
+      ctx.fillStyle = css(0xe06810);
+      fillCircle(ctx, cx, 34, 16);
+      ctx.fillStyle = css(0x1a0808);
+      fillCircle(ctx, cx - 6, 32, 2.4);
+      fillCircle(ctx, cx + 6, 32, 2.4);
+      ctx.fillStyle = css(0xc4a05a);
+      ctx.fillRect(cx - 20, 12, 40, 8);
+      ctx.fillRect(cx - 10, 4, 20, 10);
+      return true;
+    case 'corn':
+      ctx.strokeStyle = css(0x2d7a22);
+      ctx.lineWidth = 4;
+      for (const lean of [-16, 0, 14]) {
+        ctx.beginPath();
+        ctx.moveTo(cx + lean * 0.2, h);
+        ctx.quadraticCurveTo(cx + lean, h - 70, cx + lean * 1.4, h - 130);
+        ctx.stroke();
+      }
+      ctx.fillStyle = css(0xf0d24a);
+      fillEllipse(ctx, cx - 10, h - 78, 10, 18);
+      fillEllipse(ctx, cx + 12, h - 96, 9, 16);
+      ctx.fillStyle = css(0x3d9e2f);
+      fillEllipse(ctx, cx - 10, h - 78, 6, 16);
+      return true;
+    default:
+      return false;
+  }
+}
+
+function paintSnowHalloween(ctx: CanvasRenderingContext2D, id: string, cx: number, h: number): boolean {
+  switch (id) {
+    case 'ice-jack':
+      ctx.fillStyle = css(0x9ec8e0);
+      fillEllipse(ctx, cx, h - 24, 30, 24);
+      ctx.fillStyle = css(0xd8f4ff);
+      fillEllipse(ctx, cx - 8, h - 26, 10, 18);
+      fillEllipse(ctx, cx + 8, h - 26, 10, 18);
+      ctx.fillStyle = css(0xffffff);
+      ctx.fillRect(cx - 8, h - 50, 16, 8);
+      ctx.fillStyle = css(0x1a3040);
+      ctx.beginPath();
+      ctx.moveTo(cx - 12, h - 30);
+      ctx.lineTo(cx - 4, h - 30);
+      ctx.lineTo(cx - 8, h - 20);
+      ctx.closePath();
+      ctx.fill();
+      ctx.beginPath();
+      ctx.moveTo(cx + 4, h - 30);
+      ctx.lineTo(cx + 12, h - 30);
+      ctx.lineTo(cx + 8, h - 20);
+      ctx.closePath();
+      ctx.fill();
+      ctx.fillStyle = css(0x7ad0ff, 0.7);
+      fillCircle(ctx, cx, h - 14, 3);
+      return true;
+    case 'snow-ghost':
+      ctx.fillStyle = css(0xf4fbff);
+      ctx.beginPath();
+      ctx.moveTo(cx, h - 8);
+      ctx.quadraticCurveTo(cx - 28, h - 40, cx - 18, h - 78);
+      ctx.quadraticCurveTo(cx, h - 108, cx + 18, h - 78);
+      ctx.quadraticCurveTo(cx + 28, h - 40, cx, h - 8);
+      ctx.fill();
+      ctx.fillStyle = css(0xffffff);
+      fillEllipse(ctx, cx, h - 96, 22, 10);
+      ctx.fillStyle = css(0x243040);
+      fillCircle(ctx, cx - 6, h - 72, 3);
+      fillCircle(ctx, cx + 7, h - 70, 3);
+      return true;
+    default:
+      return false;
+  }
+}
+
+function paintDesertHalloween(ctx: CanvasRenderingContext2D, id: string, cx: number, h: number): boolean {
+  switch (id) {
+    case 'cactus-jack':
+      ctx.fillStyle = css(0x2a7028);
+      ctx.fillRect(cx - 10, h - 120, 20, 112);
+      ctx.fillRect(cx - 28, h - 88, 18, 10);
+      ctx.fillRect(cx - 28, h - 110, 10, 24);
+      ctx.fillRect(cx + 10, h - 78, 18, 10);
+      ctx.fillRect(cx + 18, h - 98, 10, 22);
+      ctx.fillStyle = css(0xff8a1a);
+      ctx.beginPath();
+      ctx.moveTo(cx - 6, h - 78);
+      ctx.lineTo(cx - 1, h - 78);
+      ctx.lineTo(cx - 3.5, h - 70);
+      ctx.fill();
+      ctx.beginPath();
+      ctx.moveTo(cx + 1, h - 78);
+      ctx.lineTo(cx + 6, h - 78);
+      ctx.lineTo(cx + 3.5, h - 70);
+      ctx.fill();
+      ctx.beginPath();
+      ctx.moveTo(cx - 4, h - 62);
+      ctx.lineTo(cx + 4, h - 62);
+      ctx.lineTo(cx, h - 54);
+      ctx.fill();
+      return true;
+    case 'cairn':
+      ctx.fillStyle = css(0xc9953f);
+      fillEllipse(ctx, cx, h - 14, 34, 12);
+      ctx.fillStyle = css(0xe0b05a);
+      fillEllipse(ctx, cx - 6, h - 28, 22, 12);
+      ctx.fillStyle = css(0xa06e24);
+      fillEllipse(ctx, cx + 4, h - 42, 14, 10);
+      ctx.fillStyle = css(0xf4efe4);
+      fillEllipse(ctx, cx + 2, h - 56, 12, 10);
+      ctx.fillStyle = css(0x2a1c10);
+      fillCircle(ctx, cx - 1, h - 58, 1.6);
+      fillCircle(ctx, cx + 5, h - 58, 1.6);
+      return true;
+    default:
+      return false;
+  }
+}
+
+function paintOceanHalloween(ctx: CanvasRenderingContext2D, id: string, cx: number, h: number): boolean {
+  switch (id) {
+    case 'ghost-jelly':
+      ctx.fillStyle = css(0xd8fbff, 0.85);
+      ctx.beginPath();
+      ctx.ellipse(cx, h - 70, 28, 22, 0, Math.PI, 0);
+      ctx.quadraticCurveTo(cx + 22, h - 48, cx, h - 40);
+      ctx.quadraticCurveTo(cx - 22, h - 48, cx - 28, h - 70);
+      ctx.fill();
+      ctx.strokeStyle = css(0x9af0ff, 0.8);
+      ctx.lineWidth = 2;
+      for (const lean of [-16, -6, 6, 16]) {
+        ctx.beginPath();
+        ctx.moveTo(cx + lean * 0.4, h - 42);
+        ctx.quadraticCurveTo(cx + lean, h - 24, cx + lean * 0.6, h - 8);
+        ctx.stroke();
+      }
+      ctx.fillStyle = css(0x1a3048);
+      fillCircle(ctx, cx - 8, h - 64, 2.6);
+      fillCircle(ctx, cx + 8, h - 64, 2.6);
+      return true;
+    case 'buoy':
+      ctx.fillStyle = css(0x163b45);
+      ctx.fillRect(cx - 3, h - 70, 6, 62);
+      ctx.fillStyle = css(0xe06810);
+      fillCircle(ctx, cx, h - 78, 16);
+      ctx.fillStyle = css(0x1a100c);
+      ctx.fillRect(cx - 16, h - 80, 32, 5);
+      ctx.fillStyle = css(0xffe08a);
+      fillCircle(ctx, cx, h - 98, 6);
+      ctx.fillStyle = css(0xff8a1a, 0.45);
+      fillCircle(ctx, cx, h - 98, 12);
+      return true;
+    default:
+      return false;
+  }
+}
+
+function paintRainforestHalloween(ctx: CanvasRenderingContext2D, id: string, cx: number, h: number): boolean {
+  switch (id) {
+    case 'mask':
+      ctx.strokeStyle = css(0x2a7028);
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.moveTo(cx, 8);
+      ctx.quadraticCurveTo(cx + 8, 36, cx, 70);
+      ctx.stroke();
+      ctx.fillStyle = css(0x6a4420);
+      fillEllipse(ctx, cx, h - 48, 26, 34);
+      ctx.fillStyle = css(0xe8d8b0);
+      fillEllipse(ctx, cx, h - 46, 18, 24);
+      ctx.fillStyle = css(0x1a1008);
+      fillEllipse(ctx, cx - 7, h - 52, 5, 7);
+      fillEllipse(ctx, cx + 7, h - 52, 5, 7);
+      ctx.fillStyle = css(0xc43a3a);
+      fillEllipse(ctx, cx, h - 36, 6, 4);
+      return true;
+    case 'spore':
+      ctx.fillStyle = css(0xe8d8b8);
+      fillEllipse(ctx, cx, h - 16, 8, 20);
+      ctx.fillStyle = css(0xff8a1a);
+      fillEllipse(ctx, cx, h - 40, 28, 18);
+      ctx.fillStyle = css(0xffe08a);
+      fillCircle(ctx, cx - 8, h - 44, 3);
+      fillCircle(ctx, cx + 8, h - 38, 2.4);
+      fillCircle(ctx, cx, h - 48, 2);
+      ctx.fillStyle = css(0xfff4c4, 0.45);
+      fillCircle(ctx, cx, h - 40, 16);
+      return true;
+    default:
+      return false;
+  }
+}
+
+function paintBeachHalloween(ctx: CanvasRenderingContext2D, id: string, cx: number, h: number): boolean {
+  switch (id) {
+    case 'coconut':
+      ctx.fillStyle = css(0x2f8a32);
+      ctx.fillRect(cx - 3, h - 62, 6, 14);
+      ctx.fillStyle = css(0x6a3a18);
+      fillEllipse(ctx, cx, h - 28, 26, 22);
+      ctx.fillStyle = css(0x8a5428);
+      fillEllipse(ctx, cx - 6, h - 30, 10, 16);
+      ctx.fillStyle = css(0xffe08a);
+      ctx.beginPath();
+      ctx.moveTo(cx - 10, h - 32);
+      ctx.lineTo(cx - 2, h - 32);
+      ctx.lineTo(cx - 6, h - 22);
+      ctx.fill();
+      ctx.beginPath();
+      ctx.moveTo(cx + 2, h - 32);
+      ctx.lineTo(cx + 10, h - 32);
+      ctx.lineTo(cx + 6, h - 22);
+      ctx.fill();
+      ctx.beginPath();
+      ctx.moveTo(cx - 6, h - 16);
+      ctx.lineTo(cx + 6, h - 16);
+      ctx.lineTo(cx, h - 8);
+      ctx.fill();
+      return true;
+    case 'sand-tomb':
+      ctx.fillStyle = css(0xe0b05a);
+      fillEllipse(ctx, cx, h - 16, 42, 16);
+      ctx.fillStyle = css(0xf4d890);
+      fillEllipse(ctx, cx - 4, h - 28, 28, 14);
+      ctx.fillStyle = css(0x8a5a22);
+      ctx.fillRect(cx - 2, h - 58, 4, 28);
+      ctx.fillRect(cx - 10, h - 50, 20, 4);
+      ctx.fillStyle = css(0xfff4c4);
+      fillEllipse(ctx, cx + 22, h - 14, 8, 5);
+      return true;
+    default:
+      return false;
+  }
+}
+
+function paintCityHalloween(ctx: CanvasRenderingContext2D, id: string, cx: number, h: number): boolean {
+  switch (id) {
+    case 'neon-jack':
+      ctx.fillStyle = css(0x101522);
+      ctx.fillRect(cx - 3, 36, 6, h - 36);
+      ctx.fillStyle = css(0x1a2438);
+      ctx.fillRect(cx - 28, 8, 56, 64);
+      ctx.strokeStyle = css(0xff8a1a);
+      ctx.lineWidth = 3;
+      ctx.strokeRect(cx - 24, 12, 48, 56);
+      ctx.fillStyle = css(0xff8a1a);
+      ctx.beginPath();
+      ctx.moveTo(cx - 12, 28);
+      ctx.lineTo(cx - 4, 28);
+      ctx.lineTo(cx - 8, 40);
+      ctx.fill();
+      ctx.beginPath();
+      ctx.moveTo(cx + 4, 28);
+      ctx.lineTo(cx + 12, 28);
+      ctx.lineTo(cx + 8, 40);
+      ctx.fill();
+      ctx.beginPath();
+      ctx.moveTo(cx - 8, 48);
+      ctx.lineTo(cx + 8, 48);
+      ctx.lineTo(cx, 58);
+      ctx.fill();
+      return true;
+    case 'alley-ghost':
+      ctx.fillStyle = css(0xf4f7ff, 0.92);
+      ctx.beginPath();
+      ctx.moveTo(cx - 22, h - 8);
+      ctx.lineTo(cx - 18, h - 78);
+      ctx.quadraticCurveTo(cx, h - 108, cx + 18, h - 78);
+      ctx.lineTo(cx + 22, h - 8);
+      ctx.closePath();
+      ctx.fill();
+      ctx.fillStyle = css(0xd84cff);
+      fillCircle(ctx, cx - 6, h - 70, 3);
+      fillCircle(ctx, cx + 7, h - 68, 3);
+      ctx.fillStyle = css(0x63e8ff, 0.35);
+      fillEllipse(ctx, cx, h - 6, 24, 5);
+      return true;
+    default:
+      return false;
+  }
+}
+
+function paintBackroomsHalloween(ctx: CanvasRenderingContext2D, id: string, cx: number, h: number): boolean {
+  switch (id) {
+    case 'yellow-jack':
+      ctx.fillStyle = css(0x8a7434);
+      fillEllipse(ctx, cx, h - 24, 28, 22);
+      ctx.fillStyle = css(0xc8b060);
+      fillEllipse(ctx, cx - 8, h - 26, 10, 16);
+      fillEllipse(ctx, cx + 8, h - 26, 10, 16);
+      ctx.fillStyle = css(0x3a3014);
+      ctx.beginPath();
+      ctx.moveTo(cx - 10, h - 28);
+      ctx.lineTo(cx - 2, h - 28);
+      ctx.lineTo(cx - 6, h - 18);
+      ctx.fill();
+      ctx.beginPath();
+      ctx.moveTo(cx + 2, h - 28);
+      ctx.lineTo(cx + 10, h - 28);
+      ctx.lineTo(cx + 6, h - 18);
+      ctx.fill();
+      ctx.fillStyle = css(0xe8d88a, 0.5);
+      ctx.fillRect(cx - 16, h - 8, 32, 4);
+      return true;
+    case 'drip-ghost':
+      ctx.fillStyle = css(0xe8dcc0, 0.9);
+      ctx.beginPath();
+      ctx.moveTo(cx - 20, h - 6);
+      ctx.lineTo(cx - 16, h - 80);
+      ctx.quadraticCurveTo(cx, h - 112, cx + 16, h - 80);
+      ctx.lineTo(cx + 20, h - 6);
+      ctx.closePath();
+      ctx.fill();
+      ctx.fillStyle = css(0xc9b458);
+      fillEllipse(ctx, cx - 8, h - 10, 4, 10);
+      fillEllipse(ctx, cx + 6, h - 8, 3, 12);
+      ctx.fillStyle = css(0x3a3014);
+      fillCircle(ctx, cx - 6, h - 74, 2.6);
+      fillCircle(ctx, cx + 6, h - 72, 2.6);
+      return true;
+    default:
+      return false;
   }
 }
 
@@ -1928,8 +2407,12 @@ export class Foreground {
         .setScale(scale)
         .setFlipX(rand() > 0.5);
       attachMotion(scene, sprite, spec.motion, Math.floor(rand() * 4000), scale);
-      const packed = theme === 'castle' && HALLOWEEN;
-      x += spec.w * scale * (packed ? 0.55 : 0.72) + (packed ? 16 : 36) + rand() * (packed ? 28 : 70);
+      const castlePacked = theme === 'castle' && HALLOWEEN;
+      const seasonal = HALLOWEEN && !castlePacked;
+      const gap = castlePacked ? 16 : seasonal ? 24 : 36;
+      const jitter = castlePacked ? 28 : seasonal ? 48 : 70;
+      const overlap = castlePacked ? 0.55 : seasonal ? 0.64 : 0.72;
+      x += spec.w * scale * overlap + gap + rand() * jitter;
     }
   }
 
