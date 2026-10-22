@@ -327,6 +327,21 @@ describe('biome campaign compilation', () => {
     }
   });
 
+  it('walks the original meadow frog with the bramble hopper in world 1', () => {
+    expect(enemiesForWorld(1).filter((kind) => enemyRole(kind) === 'movement')).toEqual([
+      'bramble-hopper',
+      'meadow-frog',
+    ]);
+    for (const id of CAMPAIGN_LEVEL_IDS) {
+      if (parseLevelId(id).world !== 1) {
+        continue;
+      }
+      const kinds = new Set(getLevel(id).course.enemies.map((enemy) => enemy.kind));
+      expect(kinds.has('meadow-frog'), id).toBe(true);
+      expect(kinds.has('bramble-hopper'), id).toBe(true);
+    }
+  });
+
   it('keeps each enemy roster exclusive to its biome', () => {
     for (const id of CAMPAIGN_LEVEL_IDS) {
       const { world } = parseLevelId(id);

@@ -229,6 +229,7 @@ export class Baddie extends Phaser.Physics.Arcade.Sprite {
     const dx = player.x - this.x;
     if (
       (this.kind === 'bramble-hopper' ||
+        this.kind === 'meadow-frog' ||
         this.kind === 'dune-scarab' ||
         this.kind === 'clockwork-hound' ||
         this.kind === 'howler-ape' ||

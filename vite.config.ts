@@ -146,10 +146,16 @@ export default defineConfig({
         ],
       },
       workbox: {
-        cacheId: 'rs4-20261021',
+        // index.html is not precached. The plugin default, navigateFallback:
+        // 'index.html', emits createHandlerBoundToURL('index.html'), which
+        // throws non-precached-url while the worker is starting. Chrome then
+        // rejects the update and keeps the previous worker, so the tab stays
+        // on the old game. Documents use the NetworkFirst route below.
+        navigateFallback: null,
+        cacheId: 'rs4-20261022',
         importScripts: ['sw-force-reload.js'],
         globPatterns: ['**/*.{js,css,ico,png,svg,json,ogg,mp3,woff2}'],
-        globIgnores: ['**/vendor/**', '**/sw-force-reload.js', '**/*.webmanifest'],
+        globIgnores: ['**/vendor/**', '**/sw-force-reload.js', '**/*.webmanifest', '**/index.html'],
         cleanupOutdatedCaches: true,
         skipWaiting: true,
         clientsClaim: true,
@@ -159,7 +165,7 @@ export default defineConfig({
             urlPattern: ({ request }) => request.mode === 'navigate',
             handler: 'NetworkFirst',
             options: {
-              cacheName: 'rs4-pages',
+              cacheName: 'rs4-documents',
               networkTimeoutSeconds: 3,
             },
           },

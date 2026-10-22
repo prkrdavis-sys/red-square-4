@@ -57,6 +57,12 @@ describe('boot shell', () => {
     expect(readFileSync(join(ROOT, 'src/systems/viewport.ts'), 'utf8')).not.toMatch(/orientation\.(lock|unlock)/);
   });
 
+  it('does not pin the document to a precached shell', () => {
+    expect(vite).toMatch(/navigateFallback:\s*null/);
+    expect(vite).not.toMatch(/cacheName:\s*'rs4-pages'/);
+    expect(readFileSync(join(ROOT, 'public/sw-force-reload.js'), 'utf8')).not.toMatch(/clients\.navigate/);
+  });
+
   it('keeps one font and one splash layout', () => {
     expect(html).toContain('fonts.css');
     expect(html).not.toContain('loading...');

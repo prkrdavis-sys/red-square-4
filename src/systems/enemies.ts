@@ -526,6 +526,9 @@ function drawKind(g: Phaser.GameObjects.Graphics, kind: EnemyKind, pose: Charact
     case 'bramble-hopper':
       drawBrambleHopper(g, pose);
       return;
+    case 'meadow-frog':
+      // Frames are copied from the original Kenney frog in stampMeadowFrog.
+      return;
     case 'acorn-slinger':
       drawAcornSlinger(g, pose);
       return;
@@ -581,8 +584,55 @@ function drawKind(g: Phaser.GameObjects.Graphics, kind: EnemyKind, pose: Charact
   }
 }
 
+/** Pose map from when the Kenney frog was world 1's walker. */
+export const MEADOW_FROG_SOURCES: Record<CharacterPose, string> = {
+  idle: 'kenney-frog-rest',
+  move: 'kenney-frog-jump',
+  attack: 'kenney-frog-idle',
+  hurt: 'kenney-frog-rest',
+  dead: 'kenney-frog-idle',
+};
+
+const MEADOW_FROG_FILES: Record<string, string> = {
+  'kenney-frog-rest': 'assets/characters/kenney/enemies/frog_rest.png',
+  'kenney-frog-jump': 'assets/characters/kenney/enemies/frog_jump.png',
+  'kenney-frog-idle': 'assets/characters/kenney/enemies/frog_idle.png',
+};
+
 export function enemyTextureKey(kind: EnemyKind, pose: CharacterPose): string {
   return `enemy-${kind}-${pose}`;
+}
+
+export function preloadMeadowFrog(scene: Phaser.Scene): void {
+  for (const [key, path] of Object.entries(MEADOW_FROG_FILES)) {
+    if (!scene.textures.exists(key)) {
+      scene.load.image(key, path);
+    }
+  }
+}
+
+function stampMeadowFrog(scene: Phaser.Scene): void {
+  for (const pose of POSES) {
+    const sourceKey = MEADOW_FROG_SOURCES[pose];
+    if (!scene.textures.exists(sourceKey)) {
+      continue;
+    }
+    const image = scene.textures.get(sourceKey).getSourceImage();
+    if (!(image instanceof HTMLImageElement) && !(image instanceof HTMLCanvasElement)) {
+      continue;
+    }
+    const key = enemyTextureKey('meadow-frog', pose);
+    if (scene.textures.exists(key)) {
+      scene.textures.remove(key);
+    }
+    const canvas = scene.textures.createCanvas(key, image.width, image.height);
+    if (!canvas) {
+      continue;
+    }
+    canvas.context.drawImage(image, 0, 0);
+    canvas.refresh();
+    canvas.setFilter(Phaser.Textures.FilterMode.NEAREST);
+  }
 }
 
 export function enemyTextureKeys(kind: EnemyKind): readonly string[] {
@@ -590,7 +640,11 @@ export function enemyTextureKeys(kind: EnemyKind): readonly string[] {
 }
 
 export function createEnemyTextures(scene: Phaser.Scene): void {
+  stampMeadowFrog(scene);
   for (const kind of ENEMY_KINDS) {
+    if (kind === 'meadow-frog') {
+      continue;
+    }
     for (const pose of POSES) {
       const g = gfx(scene);
       drawKind(g, kind, pose);

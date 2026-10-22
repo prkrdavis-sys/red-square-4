@@ -718,9 +718,12 @@ function placeCourseCheckpoints(
 }
 
 function assignEnemyKinds(world: number, stage: number, count: number): EnemyKind[] {
-  const [movement, ranged] = enemiesForWorld(world);
-  const available = stage === 1 ? [movement] : [movement, ranged];
-  return Array.from({ length: count }, (_, index) => available[index % available.length] ?? movement);
+  const roster = enemiesForWorld(world);
+  const walkers = roster.filter((kind) => enemyRole(kind) === 'movement');
+  const ranged = roster.find((kind) => enemyRole(kind) === 'ranged');
+  const walking = walkers.length > 0 ? walkers : [roster[0]];
+  const available = stage === 1 || ranged === undefined ? walking : [...walking, ranged];
+  return Array.from({ length: count }, (_, index) => available[index % available.length] ?? walking[0]);
 }
 
 function assignSafeEnemyKinds(

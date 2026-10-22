@@ -60,6 +60,7 @@ export const BOSS_KINDS: BossKind[] = ['piranha', 'walrus', 'scorpion', 'fish', 
 
 export type EnemyKind =
   | 'bramble-hopper'
+  | 'meadow-frog'
   | 'acorn-slinger'
   | 'skating-hare'
   | 'snowball-finch'
@@ -181,6 +182,7 @@ export function puzzleForTheme(theme: Theme): PuzzleKind {
 export function enemyRole(kind: EnemyKind): EnemyRole {
   switch (kind) {
     case 'bramble-hopper':
+    case 'meadow-frog':
     case 'skating-hare':
     case 'dune-scarab':
     case 'reef-crab':
@@ -225,10 +227,11 @@ export function enemyThreatensTile(kind: EnemyKind, enemyTileX: number, originTi
   return range > 0 && Math.abs(enemyTileX - originTileX) * TILE < range;
 }
 
-export function enemiesForWorld(world: number): readonly [EnemyKind, EnemyKind] {
+/** Index 0 is the primary walker. Index 1 is the ranged enemy. Further entries are extra walkers. */
+export function enemiesForWorld(world: number): readonly [EnemyKind, EnemyKind, ...EnemyKind[]] {
   switch (world) {
     case 1:
-      return ['bramble-hopper', 'acorn-slinger'];
+      return ['bramble-hopper', 'acorn-slinger', 'meadow-frog'];
     case 2:
       return ['skating-hare', 'snowball-finch'];
     case 3:
@@ -244,7 +247,7 @@ export function enemiesForWorld(world: number): readonly [EnemyKind, EnemyKind] 
     case 8:
       return ['alley-cat', 'umbrella-pigeon'];
     default:
-      return ['bramble-hopper', 'acorn-slinger'];
+      return ['bramble-hopper', 'acorn-slinger', 'meadow-frog'];
   }
 }
 

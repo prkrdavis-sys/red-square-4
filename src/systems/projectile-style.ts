@@ -53,6 +53,7 @@ export function projectileStyleForTheme(theme: Theme): ProjectileStyle {
 export function projectileStyleForKind(kind: EnemyKind): ProjectileStyle {
   switch (kind) {
     case 'bramble-hopper':
+    case 'meadow-frog':
     case 'acorn-slinger':
       return 'thorn';
     case 'skating-hare':
