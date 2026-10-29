@@ -4,6 +4,7 @@ import {
   JUMP_REACH_TILES,
   MAP_ROWS,
   enemiesForWorld,
+  type Edition,
   enemyRole,
   enemyThreatensTile,
   hazardForTheme,
@@ -717,8 +718,8 @@ function placeCourseCheckpoints(
   return placed;
 }
 
-function assignEnemyKinds(world: number, stage: number, count: number): EnemyKind[] {
-  const roster = enemiesForWorld(world);
+function assignEnemyKinds(world: number, stage: number, count: number, edition: Edition): EnemyKind[] {
+  const roster = enemiesForWorld(world, edition);
   const walkers = roster.filter((kind) => enemyRole(kind) === 'movement');
   const ranged = roster.find((kind) => enemyRole(kind) === 'ranged');
   const walking = walkers.length > 0 ? walkers : [roster[0]];
@@ -731,9 +732,10 @@ function assignSafeEnemyKinds(
   stage: number,
   spawns: Array<{ x: number }>,
   originXs: number[],
+  edition: Edition,
 ): EnemyKind[] {
-  const movement = enemiesForWorld(world)[0];
-  const assigned = assignEnemyKinds(world, stage, spawns.length);
+  const movement = enemiesForWorld(world, edition)[0];
+  const assigned = assignEnemyKinds(world, stage, spawns.length, edition);
   const threatens = (tileX: number, kind: EnemyKind): boolean =>
     originXs.some((origin) => enemyThreatensTile(kind, tileX, origin));
 
@@ -757,7 +759,7 @@ function assignSafeEnemyKinds(
     assigned[index] = movement;
   }
 
-  for (const needed of new Set(assignEnemyKinds(world, stage, 3))) {
+  for (const needed of new Set(assignEnemyKinds(world, stage, 3, edition))) {
     if (assigned.includes(needed)) {
       continue;
     }
@@ -820,7 +822,13 @@ function swoopBatSpawns(
   return [{ x: fallback, tilesUp, kind: 'swoop-bat' }];
 }
 
-export function compileCourse(world: number, stage: number, spec: CourseSpec, theme: Theme): CompiledCourse {
+export function compileCourse(
+  world: number,
+  stage: number,
+  spec: CourseSpec,
+  theme: Theme,
+  edition: Edition = 'current',
+): CompiledCourse {
   const groundEnemyX = spec.enemies ?? [];
   const airEnemyPositions = spec.airEnemies ?? [];
   const trapXs = spec.traps ?? [];
@@ -844,19 +852,19 @@ export function compileCourse(world: number, stage: number, spec: CourseSpec, th
   }
   occupyTrapThreats(blocked, trapXs, theme, spec.width);
   let noclipTile: number | undefined;
-  if (spec.noclipTile !== undefined) {
+  if (spec.noclipTile !== undefined && edition !== 'classic') {
     noclipTile = safeFloorX(rows, spec.noclipTile, blocked);
     stampCell(rows, noclipTile, GROUND_Y, NOCLIP_CELL);
     occupy(blocked, noclipTile, 2);
   }
   const checkpoints = placeCourseCheckpoints(rows, spec, stage, blocked);
   const originXs = [spawnX, ...checkpoints.map((checkpoint) => checkpoint.x)];
-  const kinds = assignSafeEnemyKinds(world, stage, rawSpawns, originXs);
+  const kinds = assignSafeEnemyKinds(world, stage, rawSpawns, originXs, edition);
   const enemies = rawSpawns.map((spawn, index) => ({
     ...spawn,
-    kind: kinds[index] ?? enemiesForWorld(world)[0],
+    kind: kinds[index] ?? enemiesForWorld(world, edition)[0],
   }));
-  if (HALLOWEEN) {
+  if (edition === 'current' && HALLOWEEN) {
     const fightX = spec.boss ?? spec.mini ?? spec.width;
     enemies.push(
       ...swoopBatSpawns(

@@ -1,7 +1,7 @@
 import Phaser from 'phaser';
 import { GAME_HEIGHT, GAME_WIDTH } from '../config';
 import { loadSave, purchaseSkin, setEquippedSkin } from '../data/progress';
-import { SKINS, type SkinDef } from '../data/skins';
+import { shopSkins, type SkinDef } from '../data/skins';
 import { applySettings } from '../data/settings';
 import { audio } from '../systems/audio';
 import { applySkin, skinThumbKey } from '../systems/textures';
@@ -68,6 +68,7 @@ interface FilterChip {
 
 export class SkinsScene extends Phaser.Scene {
   private returnKey = 'TitleScene';
+  private catalog: SkinDef[] = [];
   private cells: SkinCell[] = [];
   private chips: FilterChip[] = [];
   private filter: SkinShopFilter = 'all';
@@ -110,7 +111,8 @@ export class SkinsScene extends Phaser.Scene {
       this.chips.push(this.makeChip(x, filterY, chipW, chipH, filter));
     });
 
-    SKINS.forEach((skin, i) => {
+    this.catalog = shopSkins();
+    this.catalog.forEach((skin, i) => {
       this.cells.push(this.makeCell(skin, i));
     });
 
@@ -140,7 +142,7 @@ export class SkinsScene extends Phaser.Scene {
       this.input.keyboard?.off('keydown', this.onKey);
     });
 
-    const equippedIndex = SKINS.findIndex((skin) => skin.id === save.equippedSkin);
+    const equippedIndex = this.catalog.findIndex((skin) => skin.id === save.equippedSkin);
     this.index = equippedIndex >= 0 ? equippedIndex : 0;
     this.refresh();
   }
@@ -266,7 +268,7 @@ export class SkinsScene extends Phaser.Scene {
 
   private refresh(): void {
     const save = this.snapshot();
-    const counts = skinShopFilterCounts(SKINS, save);
+    const counts = skinShopFilterCounts(this.catalog, save);
     const visible = this.visibleCells(save);
     const gridTop = GAME_HEIGHT / 2 - PANEL_H / 2 + 136;
     const gridLeft = GAME_WIDTH / 2 - ((COLUMNS - 1) * CELL_W) / 2;

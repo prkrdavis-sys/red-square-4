@@ -1,3 +1,5 @@
+import { isClassicMode } from './data/edition';
+
 export const GAME_WIDTH = 1280;
 export const GAME_HEIGHT = 720;
 export const TILE = 64;
@@ -33,6 +35,20 @@ export const RANGED_ATTACK_RANGE = 620;
 /** Seasonal makeover. Flip off to restore the meadow title and Dread Keep. */
 export const HALLOWEEN = true;
 
+/** Worlds in the six-world v1.0 edition. Later islands stay in the current game only. */
+export const CLASSIC_WORLD_COUNT = 6;
+
+export type Edition = 'current' | 'classic';
+
+export function activeEdition(): Edition {
+  return isClassicMode() ? 'classic' : 'current';
+}
+
+/** Halloween dressing ships with the current game. Classic mode forces the old look. */
+export function isHalloween(): boolean {
+  return HALLOWEEN && !isClassicMode();
+}
+
 export const START_LIVES = 3;
 export const MINI_BOSS_HP = 3;
 export const WORLD_BOSS_HP = 5;
@@ -50,6 +66,18 @@ export type Theme =
 
 /** One theme per overworld island, in world order. The hidden Backrooms is not an island. */
 export const THEMES: Theme[] = ['grass', 'snow', 'desert', 'ocean', 'castle', 'rainforest', 'beach', 'rainy-city'];
+
+export function activeThemes(edition: Edition = activeEdition()): readonly Theme[] {
+  if (edition === 'classic') {
+    return THEMES.slice(0, CLASSIC_WORLD_COUNT);
+  }
+  return THEMES;
+}
+
+/** Title backdrop and song. Classic mode is the meadow; the current game is the Halloween keep. */
+export function titleTheme(): Theme {
+  return isHalloween() ? 'castle' : 'grass';
+}
 
 /** Every playable theme, including hidden ones, for texture and audio generation. */
 export const ALL_THEMES: Theme[] = [...THEMES, 'backrooms'];
@@ -228,7 +256,18 @@ export function enemyThreatensTile(kind: EnemyKind, enemyTileX: number, originTi
 }
 
 /** Index 0 is the primary walker. Index 1 is the ranged enemy. Further entries are extra walkers. */
-export function enemiesForWorld(world: number): readonly [EnemyKind, EnemyKind, ...EnemyKind[]] {
+export function enemiesForWorld(
+  world: number,
+  edition: Edition = 'current',
+): readonly [EnemyKind, EnemyKind, ...EnemyKind[]] {
+  const roster = rosterForWorld(world);
+  if (edition === 'classic') {
+    return [roster[0], roster[1]];
+  }
+  return roster;
+}
+
+function rosterForWorld(world: number): readonly [EnemyKind, EnemyKind, ...EnemyKind[]] {
   switch (world) {
     case 1:
       return ['bramble-hopper', 'acorn-slinger', 'meadow-frog'];
@@ -343,7 +382,7 @@ export function themeSky(theme: Theme): number {
     case 'ocean':
       return 0x145a78;
     case 'castle':
-      return HALLOWEEN ? 0x100814 : 0x140e1c;
+      return isHalloween() ? 0x100814 : 0x140e1c;
     case 'rainforest':
       return 0x1e4a3c;
     case 'beach':
@@ -415,7 +454,7 @@ export function themeName(theme: Theme): string {
     case 'ocean':
       return 'Deep Current';
     case 'castle':
-      return HALLOWEEN ? 'Hallow Keep' : 'Dread Keep';
+      return isHalloween() ? 'Hallow Keep' : 'Dread Keep';
     case 'rainforest':
       return 'Canopy Deep';
     case 'beach':
@@ -521,6 +560,20 @@ export function isBackroomsLevel(id: LevelId): id is BackroomsLevelId {
 /** Off-campaign courses: clearing one never unlocks a next stage. */
 export function isHiddenLevel(id: LevelId): id is SecretLevelId | BackroomsLevelId {
   return isSecretLevel(id) || isBackroomsLevel(id);
+}
+
+export function activeCampaignIds(edition: Edition = activeEdition()): CampaignLevelId[] {
+  if (edition === 'current') {
+    return CAMPAIGN_LEVEL_IDS;
+  }
+  return CAMPAIGN_LEVEL_IDS.filter((id) => parseLevelId(id).world <= CLASSIC_WORLD_COUNT);
+}
+
+export function isPlayableInEdition(id: LevelId, edition: Edition = activeEdition()): boolean {
+  if (edition === 'current') {
+    return true;
+  }
+  return !isHiddenLevel(id) && parseLevelId(id).world <= CLASSIC_WORLD_COUNT;
 }
 
 export function secretLevelId(world: number): SecretLevelId {

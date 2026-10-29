@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import { ALL_THEMES, GAME_HEIGHT, GAME_WIDTH, HALLOWEEN, TILE, type Theme } from '../config';
+import { ALL_THEMES, GAME_HEIGHT, GAME_WIDTH, isHalloween, TILE, type Theme } from '../config';
 
 /** Near-camera dressing may never rise more than three tiles off the bottom of the view. */
 export const FOREGROUND_MAX_TILES = 3;
@@ -290,12 +290,12 @@ function kitFor(theme: Theme, halloween: boolean): PropSpec[] {
 }
 
 /** Prop ids for a theme, with or without the seasonal set. */
-export function foregroundPropIds(theme: Theme, halloween = HALLOWEEN): readonly string[] {
+export function foregroundPropIds(theme: Theme, halloween = isHalloween()): readonly string[] {
   return kitFor(theme, halloween).map((spec) => spec.id);
 }
 
 function specsFor(theme: Theme): PropSpec[] {
-  return kitFor(theme, HALLOWEEN);
+  return kitFor(theme, isHalloween());
 }
 
 function paintLip(ctx: CanvasRenderingContext2D, theme: Theme): void {
@@ -1059,7 +1059,7 @@ function paintCastleLip(ctx: CanvasRenderingContext2D): void {
 }
 
 function paintHalloweenFringe(ctx: CanvasRenderingContext2D): void {
-  if (!HALLOWEEN) {
+  if (!isHalloween()) {
     return;
   }
   for (const pumpkin of [36, 118, 210, 292]) {
@@ -2407,8 +2407,8 @@ export class Foreground {
         .setScale(scale)
         .setFlipX(rand() > 0.5);
       attachMotion(scene, sprite, spec.motion, Math.floor(rand() * 4000), scale);
-      const castlePacked = theme === 'castle' && HALLOWEEN;
-      const seasonal = HALLOWEEN && !castlePacked;
+      const castlePacked = theme === 'castle' && isHalloween();
+      const seasonal = isHalloween() && !castlePacked;
       const gap = castlePacked ? 16 : seasonal ? 24 : 36;
       const jitter = castlePacked ? 28 : seasonal ? 48 : 70;
       const overlap = castlePacked ? 0.55 : seasonal ? 0.64 : 0.72;

@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import { GAME_HEIGHT, HALLOWEEN, THEMES, type Theme } from '../config';
+import { GAME_HEIGHT, isHalloween, THEMES, type Theme } from '../config';
 
 export const LANDSCAPE = {
   stripW: 2560,
@@ -128,7 +128,7 @@ function palette(theme: Theme): LandscapePalette {
         groundTop: 0x2a5c68,
       };
     case 'castle':
-      return HALLOWEEN
+      return isHalloween()
         ? {
             skyTop: 0x100814,
             skyHorizon: 0x6a2810,
@@ -2785,7 +2785,7 @@ function drawClouds(scene: Phaser.Scene, theme: Theme, colors: LandscapePalette)
     for (const cloud of cloudPlan(theme)) {
       stampCloud(ctx, cloud.x, cloud.y, cloud.s, LANDSCAPE.stripW, colors.cloud, colors.cloudShade);
     }
-    if (theme === 'castle' && HALLOWEEN) {
+    if (theme === 'castle' && isHalloween()) {
       paintHalloweenSkyBats(ctx);
     }
   });
@@ -2951,7 +2951,7 @@ function drawKeeps(ctx: CanvasRenderingContext2D, colors: LandscapePalette, far:
       }
       ctx.fillStyle = css(0x1a0810, 0.85);
       ctx.fillRect(ox - 7, texH - 30, 14, 30);
-      if (HALLOWEEN) {
+      if (isHalloween()) {
         ctx.fillStyle = css(0xff8a1a, 0.92);
         ctx.fillRect(ox - keep.w * 0.22, texH - keep.h * 0.62, far ? 5 : 7, far ? 7 : 10);
         ctx.fillRect(ox + keep.w * 0.08, texH - keep.h * 0.48, far ? 5 : 7, far ? 7 : 10);
@@ -3018,7 +3018,7 @@ function drawRange(scene: Phaser.Scene, key: string, theme: Theme, colors: Lands
         ? { ...colors, mountain: colors.far, mountainShade: colors.far, cap: colors.farCap }
         : colors;
       drawKeeps(ctx, keepColors, far, texH);
-      if (HALLOWEEN) {
+      if (isHalloween()) {
         paintHalloweenRidge(ctx, far, texH);
       }
       return;

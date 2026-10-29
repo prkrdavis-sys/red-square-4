@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import { GAME_WIDTH, HALLOWEEN, themeSky } from '../config';
+import { GAME_WIDTH, isHalloween, themeSky, titleTheme } from '../config';
 import { acknowledgeGiftSkin, hasCampaignProgress, loadSave, pendingGiftSkin, resetSessionLives, resumeLevelId, setEquippedSkin } from '../data/progress';
 import { PUMPKIN_SKIN_ID, skinById } from '../data/skins';
 import { applySettings } from '../data/settings';
@@ -21,16 +21,16 @@ export class TitleScene extends Phaser.Scene {
   create(): void {
     preloadOptionalAssets(this);
     applySettings(this);
-    const giftId = pendingGiftSkin();
+    const giftId = isHalloween() ? pendingGiftSkin() : undefined;
     if (giftId) {
       setEquippedSkin(giftId);
       applySkin(this, giftId);
     }
-    const theme = HALLOWEEN ? 'castle' : 'grass';
+    const theme = titleTheme();
     this.cameras.main.setBackgroundColor(themeSky(theme));
     this.parallax = new Parallax(this, theme);
     audio.playTheme(this, theme);
-    if (HALLOWEEN) {
+    if (isHalloween()) {
       this.addHalloweenDressing();
     }
 
@@ -77,14 +77,14 @@ export class TitleScene extends Phaser.Scene {
     });
 
     this.add
-      .text(GAME_WIDTH / 2, HALLOWEEN ? 248 : 258, 'RED SQUARE 4', {
+      .text(GAME_WIDTH / 2, isHalloween() ? 248 : 258, 'RED SQUARE 4', {
         ...textStyle('64px', '#ffffff'),
-        stroke: HALLOWEEN ? '#e07020' : '#7a1212',
+        stroke: isHalloween() ? '#e07020' : '#7a1212',
         strokeThickness: 6,
       })
       .setOrigin(0.5);
 
-    if (HALLOWEEN) {
+    if (isHalloween()) {
       this.add
         .text(GAME_WIDTH / 2, 296, 'HAPPY HALLOWEEN', textStyle('18px', '#ffb25a'))
         .setOrigin(0.5);
@@ -93,7 +93,7 @@ export class TitleScene extends Phaser.Scene {
     this.add
       .text(
         GAME_WIDTH / 2,
-        HALLOWEEN ? 322 : 312,
+        isHalloween() ? 322 : 312,
         'A Mario-inspired platforming campaign',
         textStyle('20px', UI.gold),
       )
@@ -105,7 +105,7 @@ export class TitleScene extends Phaser.Scene {
       this.add
         .text(
           GAME_WIDTH / 2,
-          HALLOWEEN ? 348 : 338,
+          isHalloween() ? 348 : 338,
           `Saved  ·  ${save.cleared.length} cleared  ·  resume ${resumeLevelId(save)}`,
           textStyle('18px', UI.gold),
         )

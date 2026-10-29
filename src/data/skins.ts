@@ -1,4 +1,5 @@
-import { CAMPAIGN_LEVEL_IDS, parseLevelId, type LevelId } from '../config';
+import { CAMPAIGN_LEVEL_IDS, CLASSIC_WORLD_COUNT, parseLevelId, type LevelId } from '../config';
+import { isClassicMode } from './edition';
 
 export interface HeroPalette {
   ink: number;
@@ -169,6 +170,22 @@ export const SKINS: SkinDef[] = [
 
 export function skinById(id: string): SkinDef | undefined {
   return SKINS.find((skin) => skin.id === id);
+}
+
+/** Shop list for the active edition. Purchases of hidden skins stay in the save. */
+export function shopSkins(): SkinDef[] {
+  if (!isClassicMode()) {
+    return SKINS;
+  }
+  return SKINS.filter((skin) => {
+    if (skin.motif === 'jack-o-lantern') {
+      return false;
+    }
+    if (!skin.level) {
+      return true;
+    }
+    return parseLevelId(skin.level).world <= CLASSIC_WORLD_COUNT;
+  });
 }
 
 export function skinForLevel(level: LevelId): SkinDef | undefined {

@@ -1,10 +1,12 @@
 import {
+  activeEdition,
   isBackroomsLevel,
   JUMP_HEIGHT_TILES,
   launchVelocity,
   parseLevelId,
   themePhysics,
   TILE,
+  type Edition,
   type LevelId,
   type Theme,
   worldBossKind,
@@ -168,13 +170,31 @@ function withPuzzles(world: number, stage: number, spec: CourseSpec, secret: boo
   };
 }
 
-function course(world: number, stage: number, spec: CourseSpec): CompiledCourse {
-  return compileCourse(world, stage, withPuzzles(world, stage, spec, false), worldTheme(world));
+interface CourseRecipe {
+  id: LevelId;
+  world: number;
+  stage: number;
+  spec: CourseSpec;
+  secret: boolean;
 }
 
-function secretCourse(world: number, spec: CourseSpec): CompiledCourse {
+const recipes: CourseRecipe[] = [];
+
+function course(world: number, stage: number, spec: CourseSpec, edition: Edition = 'current'): CompiledCourse {
+  const id = `${world}-${stage}` as LevelId;
+  if (edition === 'current') {
+    recipes.push({ id, world, stage, spec, secret: false });
+  }
+  return compileCourse(world, stage, withPuzzles(world, stage, spec, false), worldTheme(world), edition);
+}
+
+function secretCourse(world: number, spec: CourseSpec, edition: Edition = 'current'): CompiledCourse {
+  const id = `${world}-?` as LevelId;
+  if (edition === 'current') {
+    recipes.push({ id, world, stage: 3, spec, secret: true });
+  }
   const spread = withPuzzles(world, 3, spec, true);
-  return compileCourse(world, 3, { ...spread, secret: true }, worldTheme(world));
+  return compileCourse(world, 3, { ...spread, secret: true }, worldTheme(world), edition);
 }
 
 const COURSES: Record<LevelId, CompiledCourse> = {
@@ -2209,10 +2229,28 @@ const NAMES: Record<LevelId, string> = {
   '0-0': 'Level 0',
 };
 
+let classicCourses: Partial<Record<LevelId, CompiledCourse>> | undefined;
+
+function compiledCourse(id: LevelId): CompiledCourse {
+  if (activeEdition() !== 'classic') {
+    return COURSES[id];
+  }
+  if (!classicCourses) {
+    const built: Partial<Record<LevelId, CompiledCourse>> = {};
+    for (const recipe of recipes) {
+      built[recipe.id] = recipe.secret
+        ? secretCourse(recipe.world, recipe.spec, 'classic')
+        : course(recipe.world, recipe.stage, recipe.spec, 'classic');
+    }
+    classicCourses = built;
+  }
+  return classicCourses[id] ?? COURSES[id];
+}
+
 export function getLevel(id: LevelId): LevelDef {
   const { world, stage, secret } = parseLevelId(id);
   const theme = isBackroomsLevel(id) ? 'backrooms' : worldTheme(world);
-  const compiled = COURSES[id];
+  const compiled = compiledCourse(id);
   return {
     id,
     world,

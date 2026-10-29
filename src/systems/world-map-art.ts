@@ -1,10 +1,11 @@
 import Phaser from 'phaser';
-import { HALLOWEEN, themeName, type Theme } from '../config';
+import { isHalloween, themeName, type Theme } from '../config';
 import type { SaveData } from '../data/progress';
 import {
   MAP_HEIGHT,
   MAP_ISLANDS,
   MAP_WIDTH,
+  visibleIslands,
   boatRoutes,
   ferryControl,
   isIslandFogged,
@@ -46,7 +47,7 @@ function islandPalette(theme: Theme): IslandPalette {
     case 'ocean':
       return { shore: 0x2d6b7a, grass: 0x2a9d6e, shade: 0x0c4844, highlight: 0x3ecf8e, accent: 0x7bebf3, dark: 0x072e32 };
     case 'castle':
-      return HALLOWEEN
+      return isHalloween()
         ? { shore: 0x2a1c32, grass: 0x3e2948, shade: 0x140814, highlight: 0x6a3a58, accent: 0xe07020, dark: 0x100814 }
         : { shore: 0x2a1c32, grass: 0x3e2948, shade: 0x140814, highlight: 0x5a3d66, accent: 0x6e4a7a, dark: 0x08060e };
     case 'rainforest':
@@ -239,7 +240,7 @@ function paintThemeProps(ctx: CanvasRenderingContext2D, island: IslandDef, cx: n
       ctx.lineTo(cx + 20, cy + 90);
       ctx.closePath();
       ctx.fill();
-      if (HALLOWEEN) {
+      if (isHalloween()) {
         drawMapPumpkin(ctx, cx - 90, cy + 36);
         drawMapPumpkin(ctx, cx + 130, cy + 48);
         drawMapPumpkin(ctx, cx - 20, cy + 70);
@@ -384,7 +385,7 @@ export function drawBoatLanes(scene: Phaser.Scene): Phaser.GameObjects.Graphics 
 export function placeWorldMapArt(scene: Phaser.Scene, save: SaveData): { ocean: Phaser.GameObjects.TileSprite; fogs: Phaser.GameObjects.Image[] } {
   const ocean = scene.add.tileSprite(0, 0, MAP_WIDTH, MAP_HEIGHT, OCEAN_KEY).setOrigin(0, 0).setDepth(0);
   const fogs: Phaser.GameObjects.Image[] = [];
-  for (const island of MAP_ISLANDS) {
+  for (const island of visibleIslands()) {
     const img = scene.add.image(island.cx, island.cy, islandKey(island.world)).setDepth(1);
     const label = scene.add
       .text(island.cx, island.cy - island.ry + 22, `WORLD ${island.world}`, {
@@ -417,7 +418,7 @@ export function placeWorldMapArt(scene: Phaser.Scene, save: SaveData): { ocean: 
       fogs.push(fog);
     }
   }
-  for (const island of MAP_ISLANDS) {
+  for (const island of visibleIslands()) {
     if (island.arrival) {
       scene.add.image(island.arrival.x, island.arrival.y, 'map-dock').setDepth(8);
     }

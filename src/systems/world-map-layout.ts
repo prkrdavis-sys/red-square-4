@@ -1,8 +1,8 @@
 import {
   CAMPAIGN_LEVEL_IDS,
+  CLASSIC_WORLD_COUNT,
   GAME_HEIGHT,
   SECRET_LEVEL_IDS,
-  THEMES,
   isBackroomsLevel,
   parseLevelId,
   secretLevelId,
@@ -10,6 +10,7 @@ import {
   type LevelId,
   type Theme,
 } from '../config';
+import { isClassicMode } from '../data/edition';
 
 export const MAP_WIDTH = 5200;
 export const MAP_HEIGHT = 2600;
@@ -234,12 +235,24 @@ const DRAFTS: IslandDraft[] = [
 
 export const MAP_ISLANDS: IslandDef[] = DRAFTS.map(buildIsland);
 
+/** Islands the player can see and walk. Classic mode stops at world 6 and hides later content. */
+export function visibleIslands(): IslandDef[] {
+  if (!isClassicMode()) {
+    return MAP_ISLANDS;
+  }
+  return MAP_ISLANDS.filter((island) => island.world <= CLASSIC_WORLD_COUNT).map((island) => ({
+    ...island,
+    secret: undefined,
+    departure: island.world === CLASSIC_WORLD_COUNT ? undefined : island.departure,
+  }));
+}
+
 export function mapFooterTop(): number {
   return GAME_HEIGHT - 120;
 }
 
 export function islandForWorld(world: number): IslandDef | undefined {
-  return MAP_ISLANDS[world - 1];
+  return visibleIslands().find((island) => island.world === world);
 }
 
 export function inEllipse(x: number, y: number, cx: number, cy: number, rx: number, ry: number): boolean {
@@ -264,11 +277,11 @@ export function islandDocks(island: IslandDef): DockDef[] {
 }
 
 export function allDocks(): DockDef[] {
-  return MAP_ISLANDS.flatMap(islandDocks);
+  return visibleIslands().flatMap(islandDocks);
 }
 
 export function islandAt(x: number, y: number): IslandDef | undefined {
-  for (const island of MAP_ISLANDS) {
+  for (const island of visibleIslands()) {
     if (inEllipse(x, y, island.cx, island.cy, island.rx, island.ry)) {
       return island;
     }
@@ -380,9 +393,14 @@ export function linkedDock(dock: DockDef): DockDef | undefined {
 }
 
 export function boatWorldPairs(): Array<[number, number]> {
+  const islands = visibleIslands();
   const pairs: Array<[number, number]> = [];
-  for (let world = 1; world < THEMES.length; world += 1) {
-    pairs.push([world, world + 1]);
+  for (let index = 0; index < islands.length - 1; index += 1) {
+    const from = islands[index];
+    const to = islands[index + 1];
+    if (from?.departure && to?.arrival) {
+      pairs.push([from.world, to.world]);
+    }
   }
   return pairs;
 }
@@ -427,7 +445,8 @@ export function quadBezier(from: MapPoint, control: MapPoint, to: MapPoint, t: n
 
 export function islandPathPairs(): Array<[CampaignLevelId, CampaignLevelId]> {
   const pairs: Array<[CampaignLevelId, CampaignLevelId]> = [];
-  for (let world = 1; world <= THEMES.length; world += 1) {
+  for (const island of visibleIslands()) {
+    const world = island.world;
     pairs.push([`${world}-1` as CampaignLevelId, `${world}-2` as CampaignLevelId]);
     pairs.push([`${world}-2` as CampaignLevelId, `${world}-3` as CampaignLevelId]);
     pairs.push([`${world}-3` as CampaignLevelId, `${world}-4` as CampaignLevelId]);
@@ -468,6 +487,9 @@ export function isIslandFogged(world: number, cleared: readonly LevelId[]): bool
 }
 
 export function hasSecretCourse(world: number): boolean {
+  if (isClassicMode()) {
+    return false;
+  }
   return SECRET_LEVEL_IDS.some((id) => parseLevelId(id).world === world);
 }
 

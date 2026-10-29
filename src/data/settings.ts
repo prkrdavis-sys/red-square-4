@@ -2,12 +2,16 @@ import Phaser from 'phaser';
 
 const STORAGE_KEY = 'red-square-4-settings-v1';
 
+export { isClassicMode } from './edition';
+
 export interface GameSettings {
   volume: number;
   music: boolean;
   sfx: boolean;
   screenshake: boolean;
   fullscreen: boolean;
+  /** Six-world v1.0: original enemies, meadow title, and pre-Halloween backdrops. */
+  classic: boolean;
 }
 
 type SettingsListener = (scene: Phaser.Scene) => void;
@@ -15,7 +19,7 @@ type SettingsListener = (scene: Phaser.Scene) => void;
 const applyListeners: SettingsListener[] = [];
 
 export function defaultSettings(): GameSettings {
-  return { volume: 0.8, music: true, sfx: true, screenshake: true, fullscreen: false };
+  return { volume: 0.8, music: true, sfx: true, screenshake: true, fullscreen: false, classic: false };
 }
 
 function clampVolume(value: number): number {
@@ -50,6 +54,7 @@ export function loadSettings(): GameSettings {
       sfx: readFlag(parsed.sfx, !muted),
       screenshake: parsed.screenshake !== false,
       fullscreen: parsed.fullscreen === true,
+      classic: parsed.classic === true,
     };
   } catch {
     return defaultSettings();

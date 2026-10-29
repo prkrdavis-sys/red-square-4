@@ -2,7 +2,9 @@ import {
   ALL_LEVEL_IDS,
   BACKROOMS_LEVEL_ID,
   CAMPAIGN_LEVEL_IDS,
+  activeCampaignIds,
   isHiddenLevel,
+  isPlayableInEdition,
   isSecretLevel,
   parseLevelId,
   type LevelId,
@@ -87,11 +89,12 @@ export function nextLevelId(id: LevelId): LevelId | undefined {
   if (isHiddenLevel(id)) {
     return undefined;
   }
-  const index = CAMPAIGN_LEVEL_IDS.indexOf(id);
-  if (index < 0 || index >= CAMPAIGN_LEVEL_IDS.length - 1) {
+  const ids = activeCampaignIds();
+  const index = ids.indexOf(id as (typeof ids)[number]);
+  if (index < 0 || index >= ids.length - 1) {
     return undefined;
   }
-  return CAMPAIGN_LEVEL_IDS[index + 1];
+  return ids[index + 1];
 }
 
 export function cycleUnlockedLevel(
@@ -351,10 +354,20 @@ export async function hydrateSave(): Promise<SaveData> {
 }
 
 export function resumeLevelId(save: SaveData = loadSave()): LevelId {
-  if (save.unlocked.includes(save.lastPlayed)) {
-    return save.lastPlayed;
+  const candidate = save.unlocked.includes(save.lastPlayed)
+    ? save.lastPlayed
+    : fallbackLastPlayed(save.unlocked, save.cleared);
+  if (isPlayableInEdition(candidate)) {
+    return candidate;
   }
-  return fallbackLastPlayed(save.unlocked, save.cleared);
+  const unlocked = save.unlocked.filter((id) => isPlayableInEdition(id));
+  const cleared = save.cleared.filter((id) => isPlayableInEdition(id));
+  if (unlocked.length === 0) {
+    return '1-1';
+  }
+  const open = unlocked.filter((id) => !cleared.includes(id));
+  const pool = open.length > 0 ? open : unlocked;
+  return pool.reduce((best, id) => (furtherLevel(id, best) === id ? id : best));
 }
 
 export function setLastPlayed(id: LevelId): SaveData {

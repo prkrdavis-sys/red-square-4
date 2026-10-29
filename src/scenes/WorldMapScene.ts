@@ -7,6 +7,7 @@ import {
   GAME_WIDTH,
   SECRET_LEVEL_IDS,
   THEMES,
+  activeCampaignIds,
   isBackroomsLevel,
   parseLevelId,
   stageThreeId,
@@ -22,6 +23,7 @@ import {
   setLastPlayed,
   worldCollectibleCount,
 } from '../data/progress';
+import { isClassicMode } from '../data/edition';
 import { applySettings } from '../data/settings';
 import { getLevel } from '../levels/worlds';
 import { audio } from '../systems/audio';
@@ -90,11 +92,13 @@ export class WorldMapScene extends Phaser.Scene {
     this.ferrying = false;
     this.cameras.main.setBackgroundColor(0x0a3a68);
     const save = loadSave();
-    const visibleIds: LevelId[] = [
-      ...CAMPAIGN_LEVEL_IDS,
-      ...SECRET_LEVEL_IDS.filter((id) => save.unlocked.includes(id)),
-      ...(save.unlocked.includes(BACKROOMS_LEVEL_ID) ? [BACKROOMS_LEVEL_ID] : []),
-    ];
+    const visibleIds: LevelId[] = isClassicMode()
+      ? [...activeCampaignIds()]
+      : [
+          ...CAMPAIGN_LEVEL_IDS,
+          ...SECRET_LEVEL_IDS.filter((id) => save.unlocked.includes(id)),
+          ...(save.unlocked.includes(BACKROOMS_LEVEL_ID) ? [BACKROOMS_LEVEL_ID] : []),
+        ];
     this.nodes = visibleIds.map((id) => {
       const parsed = parseLevelId(id);
       const pos = mapNodePositionForId(id);
@@ -210,29 +214,31 @@ export class WorldMapScene extends Phaser.Scene {
       pathGfx.lineStyle(6, save.cleared.includes(fromId) ? 0xf5d76e : 0x445566, 1);
       pathGfx.lineBetween(a.x, a.y, b.x, b.y);
     }
-    for (const secretId of SECRET_LEVEL_IDS) {
-      const parsed = parseLevelId(secretId);
+    if (!isClassicMode()) {
+      for (const secretId of SECRET_LEVEL_IDS) {
+        const parsed = parseLevelId(secretId);
         const from = mapNodePositionForId(stageThreeId(parsed.world));
-      const unlocked = save.unlocked.includes(secretId);
-      if (!unlocked) {
-        const stub = secretStubEnd(parsed.world);
-        if (!stub) {
+        const unlocked = save.unlocked.includes(secretId);
+        if (!unlocked) {
+          const stub = secretStubEnd(parsed.world);
+          if (!stub) {
+            continue;
+          }
+          pathGfx.lineStyle(5, 0xc8a8ff, 0.95);
+          this.strokeDashed(pathGfx, from.x, from.y, stub.x, stub.y, 7, 6);
           continue;
         }
-        pathGfx.lineStyle(5, 0xc8a8ff, 0.95);
-        this.strokeDashed(pathGfx, from.x, from.y, stub.x, stub.y, 7, 6);
-        continue;
+        const dest = nodeAt(secretId);
+        if (!dest) {
+          continue;
+        }
+        pathGfx.lineStyle(10, 0x6b4423, 0.85);
+        pathGfx.lineBetween(from.x, from.y, dest.x, dest.y);
+        pathGfx.lineStyle(6, save.cleared.includes(secretId) ? 0xf5d76e : 0x9b7cff, 1);
+        pathGfx.lineBetween(from.x, from.y, dest.x, dest.y);
       }
-      const dest = nodeAt(secretId);
-      if (!dest) {
-        continue;
-      }
-      pathGfx.lineStyle(10, 0x6b4423, 0.85);
-      pathGfx.lineBetween(from.x, from.y, dest.x, dest.y);
-      pathGfx.lineStyle(6, save.cleared.includes(secretId) ? 0xf5d76e : 0x9b7cff, 1);
-      pathGfx.lineBetween(from.x, from.y, dest.x, dest.y);
+      this.drawBackroomsRoad(pathGfx, save);
     }
-    this.drawBackroomsRoad(pathGfx, save);
   }
 
   /** Nothing is drawn until Level 0 is found; then a mustard trail, gold once escaped. */

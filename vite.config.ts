@@ -1,6 +1,6 @@
 import fs from 'node:fs';
 import path from 'node:path';
-import { defineConfig, type Plugin } from 'vite';
+import { defineConfig, type Plugin } from 'vitest/config';
 import { VitePWA } from 'vite-plugin-pwa';
 
 const SAVE_FILE = path.resolve('.red-square-save.json');
@@ -183,5 +183,12 @@ export default defineConfig({
   },
   build: {
     target: 'es2022',
+  },
+  test: {
+    environment: 'happy-dom',
+    alias: {
+      phaser: path.resolve('node_modules/phaser/dist/phaser.esm.js'),
+    },
+    setupFiles: ['src/test/phaser-canvas.setup.ts'],
   },
 });

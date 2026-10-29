@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import { GAME_HEIGHT, GAME_WIDTH, THEMES, themeName, themeSky } from '../config';
+import { activeThemes, GAME_HEIGHT, GAME_WIDTH, themeName, themeSky } from '../config';
 import { audio } from '../systems/audio';
 import { shouldAcceptTap, textStyle, UI } from './menu';
 
@@ -7,7 +7,6 @@ const BUTTON_W = 340;
 const BUTTON_H = 44;
 const ROW_H = 36;
 const LIST_PAD = 8;
-const LIST_H = THEMES.length * ROW_H + LIST_PAD * 2;
 
 interface TravelRow {
   world: number;
@@ -24,6 +23,7 @@ export class WorldFastTravelMenu {
   private world = 1;
   private highlight = 1;
   private lastToggleAt = Number.NEGATIVE_INFINITY;
+  private readonly listHeight: number;
   private readonly rows: TravelRow[] = [];
   private readonly label: Phaser.GameObjects.Text;
   private readonly chevron: Phaser.GameObjects.Text;
@@ -37,8 +37,10 @@ export class WorldFastTravelMenu {
     world: number,
     private readonly onChoose: (world: number) => void,
   ) {
-    this.world = world;
-    this.highlight = world;
+    const themes = activeThemes();
+    this.listHeight = themes.length * ROW_H + LIST_PAD * 2;
+    this.world = Math.min(Math.max(1, world), themes.length);
+    this.highlight = this.world;
     this.buttonX = 16 + BUTTON_W / 2;
     this.buttonY = 48;
 
@@ -71,22 +73,22 @@ export class WorldFastTravelMenu {
       }
     });
 
-    const listY = this.buttonY + BUTTON_H / 2 + 6 + LIST_H / 2;
+    const listY = this.buttonY + BUTTON_H / 2 + 6 + this.listHeight / 2;
     this.listBg = scene.add
-      .rectangle(this.buttonX, listY, BUTTON_W, LIST_H, UI.panelFill, 0.98)
+      .rectangle(this.buttonX, listY, BUTTON_W, this.listHeight, UI.panelFill, 0.98)
       .setScrollFactor(0)
       .setDepth(100)
       .setVisible(false);
     this.listFrame = scene.add
-      .rectangle(this.buttonX, listY, BUTTON_W, LIST_H, UI.panelFill, 0)
+      .rectangle(this.buttonX, listY, BUTTON_W, this.listHeight, UI.panelFill, 0)
       .setStrokeStyle(3, UI.panelStroke, 1)
       .setScrollFactor(0)
       .setDepth(100)
       .setVisible(false);
 
-    THEMES.forEach((theme, index) => {
+    themes.forEach((theme, index) => {
       const worldNumber = index + 1;
-      const y = listY - LIST_H / 2 + LIST_PAD + ROW_H / 2 + index * ROW_H;
+      const y = listY - this.listHeight / 2 + LIST_PAD + ROW_H / 2 + index * ROW_H;
       const row = scene.add.container(this.buttonX, y).setScrollFactor(0).setDepth(101).setVisible(false);
       const rowBg = scene.add.rectangle(0, 0, BUTTON_W - 12, ROW_H - 4, UI.buttonFill, 1);
       const swatch = scene.add
@@ -247,7 +249,7 @@ export class WorldFastTravelMenu {
     if (show) {
       this.blocker.setInteractive();
       this.listBg.setInteractive({
-        hitArea: new Phaser.Geom.Rectangle(0, 0, BUTTON_W, LIST_H),
+        hitArea: new Phaser.Geom.Rectangle(0, 0, BUTTON_W, this.listHeight),
         hitAreaCallback: Phaser.Geom.Rectangle.Contains,
       });
     } else {

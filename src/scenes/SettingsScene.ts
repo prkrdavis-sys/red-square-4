@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
-import { GAME_HEIGHT, GAME_WIDTH } from '../config';
+import { ALL_LEVEL_IDS, GAME_HEIGHT, GAME_WIDTH, isPlayableInEdition, type LevelId } from '../config';
 import { applySettings, loadSettings, setFullscreen, writeSettings } from '../data/settings';
+import { refreshEditionArt } from '../systems/textures';
 import { addPanel, beginOverlay, closeOverlay, dimScreen, dismissOnOutside, MenuButton, MenuNav, textStyle } from '../ui/menu';
 
 interface OverlayData {
@@ -22,11 +23,13 @@ function volumeBar(volume: number): string {
 
 export class SettingsScene extends Phaser.Scene {
   private returnKey = 'TitleScene';
+  private classicAtOpen = false;
   private musicBtn!: MenuButton;
   private sfxBtn!: MenuButton;
   private volumeBtn!: MenuButton;
   private shakeBtn!: MenuButton;
   private fullBtn!: MenuButton;
+  private classicBtn!: MenuButton;
 
   constructor() {
     super('SettingsScene');
@@ -34,27 +37,33 @@ export class SettingsScene extends Phaser.Scene {
 
   create(data: OverlayData): void {
     this.returnKey = data.returnKey ?? 'TitleScene';
+    this.classicAtOpen = loadSettings().classic;
     beginOverlay(this);
     dimScreen(this, 0.62, () => this.goBack());
-    const panel = addPanel(this, GAME_WIDTH / 2, GAME_HEIGHT / 2, 620, 590, 'SETTINGS');
+    const panel = addPanel(this, GAME_WIDTH / 2, GAME_HEIGHT / 2, 680, 680, 'SETTINGS');
     dismissOnOutside(this, panel, () => this.goBack());
 
     const cx = GAME_WIDTH / 2;
-    this.musicBtn = new MenuButton(this, cx, 228, '', () => this.toggle('music'));
-    this.sfxBtn = new MenuButton(this, cx, 290, '', () => this.toggle('sfx'));
-    this.volumeBtn = new MenuButton(this, cx, 352, '', () => this.nudgeVolume(1));
+    this.musicBtn = new MenuButton(this, cx, 196, '', () => this.toggle('music'));
+    this.sfxBtn = new MenuButton(this, cx, 254, '', () => this.toggle('sfx'));
+    this.volumeBtn = new MenuButton(this, cx, 312, '', () => this.nudgeVolume(1));
     this.volumeBtn.onAdjust = (dir) => this.nudgeVolume(dir);
-    this.shakeBtn = new MenuButton(this, cx, 414, '', () => this.toggle('screenshake'));
-    this.fullBtn = new MenuButton(this, cx, 476, '', () => this.toggleFullscreen());
-    const back = new MenuButton(this, cx, 538, 'BACK', () => this.goBack());
+    this.shakeBtn = new MenuButton(this, cx, 370, '', () => this.toggle('screenshake'));
+    this.fullBtn = new MenuButton(this, cx, 428, '', () => this.toggleFullscreen());
+    this.classicBtn = new MenuButton(this, cx, 486, '', () => this.toggleClassic());
+    const back = new MenuButton(this, cx, 544, 'BACK', () => this.goBack());
 
     this.refresh();
     applySettings(this);
 
-    new MenuNav(this, [this.musicBtn, this.sfxBtn, this.volumeBtn, this.shakeBtn, this.fullBtn, back], () => this.goBack());
+    new MenuNav(
+      this,
+      [this.musicBtn, this.sfxBtn, this.volumeBtn, this.shakeBtn, this.fullBtn, this.classicBtn, back],
+      () => this.goBack(),
+    );
 
     this.add
-      .text(cx, 172, 'Tap to change  ·  Arrows / Enter  ·  Esc back', textStyle('18px', '#d0c0b8'))
+      .text(cx, 148, 'Tap to change  ·  Arrows / Enter  ·  Esc back', textStyle('18px', '#d0c0b8'))
       .setOrigin(0.5)
       .setDepth(80);
 
@@ -71,6 +80,7 @@ export class SettingsScene extends Phaser.Scene {
     this.volumeBtn.setLabel(`VOLUME  ${volumeBar(settings.volume)}  ${Math.round(settings.volume * 100)}%`);
     this.shakeBtn.setLabel(toggleLabel('SCREEN SHAKE', settings.screenshake));
     this.fullBtn.setLabel(toggleLabel('FULLSCREEN', this.scale.isFullscreen));
+    this.classicBtn.setLabel(toggleLabel('CLASSIC v1.0', settings.classic));
   }
 
   private nudgeVolume(dir: -1 | 1): void {
@@ -91,7 +101,36 @@ export class SettingsScene extends Phaser.Scene {
     setFullscreen(this, !this.scale.isFullscreen);
   }
 
+  private toggleClassic(): void {
+    writeSettings({ classic: !loadSettings().classic });
+    this.refresh();
+  }
+
   private goBack(): void {
+    if (loadSettings().classic !== this.classicAtOpen) {
+      this.restartForEdition();
+      return;
+    }
     closeOverlay(this, this.returnKey);
+  }
+
+  private restartForEdition(): void {
+    refreshEditionArt(this);
+    const returnKey = this.returnKey;
+    const rawLevel = this.game.canvas.dataset.levelId;
+    const levelId =
+      rawLevel && (ALL_LEVEL_IDS as readonly string[]).includes(rawLevel) ? (rawLevel as LevelId) : undefined;
+    this.scene.stop();
+    if (returnKey === 'PlayScene') {
+      this.scene.stop('PlayScene');
+      if (levelId && isPlayableInEdition(levelId)) {
+        this.scene.start('PlayScene', { levelId });
+        return;
+      }
+      this.scene.start('WorldMapScene');
+      return;
+    }
+    this.scene.stop(returnKey);
+    this.scene.start(returnKey);
   }
 }

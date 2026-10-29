@@ -3,7 +3,7 @@ import {
   MOVER_HEIGHT,
   TERRAIN_HAZARD_KINDS,
   THEMES,
-  HALLOWEEN,
+  isHalloween,
   TILE,
   enemiesForWorld,
   type BossKind,
@@ -846,7 +846,7 @@ function drawSolidTile(scene: Phaser.Scene, theme: Theme): void {
   g.fillRect(28, 44, 8, 5);
   g.fillRect(46, 26, 5, 5);
   if (theme === 'castle') {
-    g.lineStyle(2, HALLOWEEN ? 0xe07020 : 0x1a0c20, HALLOWEEN ? 0.55 : 0.8);
+    g.lineStyle(2, isHalloween() ? 0xe07020 : 0x1a0c20, isHalloween() ? 0.55 : 0.8);
     g.lineBetween(2, 40, TILE - 2, 40);
     g.lineBetween(TILE / 2, 18, TILE / 2, TILE - 2);
   } else if (theme === 'rainforest') {
@@ -876,7 +876,7 @@ function drawFillTile(scene: Phaser.Scene, theme: Theme): void {
   g.fillRect(36, 28, 8, 5);
   g.fillRect(20, 44, 5, 5);
   if (theme === 'castle') {
-    g.lineStyle(2, HALLOWEEN ? 0xe07020 : 0x1a0c20, HALLOWEEN ? 0.4 : 0.55);
+    g.lineStyle(2, isHalloween() ? 0xe07020 : 0x1a0c20, isHalloween() ? 0.4 : 0.55);
     g.lineBetween(0, 32, TILE, 32);
     g.lineBetween(TILE / 2, 0, TILE / 2, TILE);
   }
@@ -3443,6 +3443,20 @@ export function createGameTextures(scene: Phaser.Scene): void {
     drawArenaTorch(scene, theme);
     drawArenaGate(scene, theme);
   }
+}
+
+/** Repaint art that changes between the current game and classic v1.0. */
+export function refreshEditionArt(scene: Phaser.Scene): void {
+  for (const key of ['tile-castle-solid', 'tile-castle-fill']) {
+    if (scene.textures.exists(key)) {
+      scene.textures.remove(key);
+    }
+  }
+  drawSolidTile(scene, 'castle');
+  drawFillTile(scene, 'castle');
+  createLandscapeTextures(scene);
+  createForegroundTextures(scene);
+  createWorldMapTextures(scene);
 }
 
 export function solidTileKey(theme: Theme): string {

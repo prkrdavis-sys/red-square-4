@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import { GAME_HEIGHT, GAME_WIDTH, type LevelId } from '../config';
+import { GAME_HEIGHT, GAME_WIDTH, isPlayableInEdition, type LevelId } from '../config';
 import { cycleUnlockedLevel, loadSave, resetSessionLives, resumeLevelId } from '../data/progress';
 import { applySettings } from '../data/settings';
 import {
@@ -234,7 +234,9 @@ export class CoopScene extends Phaser.Scene {
     if (this.connecting) {
       return;
     }
-    const next = cycleUnlockedLevel(this.selectedLevel, loadSave().unlocked, direction);
+    const unlocked = loadSave().unlocked.filter((id) => isPlayableInEdition(id));
+    const pool = unlocked.length > 0 ? unlocked : (['1-1'] as LevelId[]);
+    const next = cycleUnlockedLevel(this.selectedLevel, pool, direction);
     if (next === this.selectedLevel) {
       return;
     }

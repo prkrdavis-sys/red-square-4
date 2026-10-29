@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import { GAME_HEIGHT, GAME_WIDTH, HALLOWEEN, type Theme } from '../config';
+import { GAME_HEIGHT, GAME_WIDTH, isHalloween, type Theme } from '../config';
 import { BR_FAR_KEY, BR_NEAR_KEY, BR_VIEW_H } from './backrooms-scenery';
 import { cloudKey, ensureOceanPackTextures, farKey, hillKey, LANDSCAPE, mountainKey, skyKey } from './landscapes';
 
@@ -129,7 +129,7 @@ function addSun(scene: Phaser.Scene, theme: Theme): void {
       scene.add.ellipse(GAME_WIDTH / 2, -8, 420, 70, 0xd8fbff, 0.12).setScrollFactor(0).setDepth(-49);
       break;
     case 'castle':
-      if (HALLOWEEN) {
+      if (isHalloween()) {
         scene.add.circle(1088, 92, 86, 0xff7a18, 0.18).setScrollFactor(0).setDepth(-48);
         scene.add.circle(1088, 92, 42, 0xff9a2a, 1).setScrollFactor(0).setDepth(-48);
         scene.add.circle(1076, 82, 12, 0xffd27a, 0.55).setScrollFactor(0).setDepth(-48);
