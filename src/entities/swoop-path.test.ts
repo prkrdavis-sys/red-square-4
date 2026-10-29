@@ -2,14 +2,20 @@ import { describe, expect, it } from 'vitest';
 import { sampleSwoop, swoopParameter, swoopPath, swoopPointAt, SWOOP_DURATION_MS } from './swoop-path';
 
 describe('swoop path', () => {
-  it('ends on the locked target and dips below the straight line', () => {
+  it('ends on the locked target along a straight line', () => {
     const path = swoopPath({ x: 100, y: 80 }, { x: 420, y: 200 });
     expect(sampleSwoop(path, 0)).toEqual({ x: 100, y: 80 });
     expect(sampleSwoop(path, 1)).toEqual({ x: 420, y: 200 });
     const mid = sampleSwoop(path, swoopParameter(path, 0.5));
-    expect(mid.y).toBeGreaterThan((80 + 200) / 2);
-    expect(path.control.y).toBeGreaterThan(path.start.y);
-    expect(path.control.y).toBeGreaterThan(path.end.y);
+    expect(mid.x).toBeCloseTo(260);
+    expect(mid.y).toBeCloseTo(140);
+    const low = Math.min(path.start.y, path.end.y);
+    const high = Math.max(path.start.y, path.end.y);
+    for (let step = 0; step <= 8; step += 1) {
+      const point = sampleSwoop(path, step / 8);
+      expect(point.y).toBeGreaterThanOrEqual(low - 0.01);
+      expect(point.y).toBeLessThanOrEqual(high + 0.01);
+    }
   });
 
   it('keeps the committed curve when the player has moved', () => {

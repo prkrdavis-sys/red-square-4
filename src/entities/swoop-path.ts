@@ -13,15 +13,11 @@ export const SWOOP_DURATION_MS = 800;
 
 const ARC_STEPS = 24;
 
-/** Quadratic dive that ends on the point locked when the swoop starts. */
+/** Straight dive that ends on the point locked when the swoop starts. */
 export function swoopPath(from: SwoopVec, target: SwoopVec): SwoopPath {
-  const midX = (from.x + target.x) / 2;
-  const midY = (from.y + target.y) / 2;
-  const span = Math.hypot(target.x - from.x, target.y - from.y);
-  const dip = Math.max(56, span * 0.28);
   return {
     start: { x: from.x, y: from.y },
-    control: { x: midX, y: midY + dip },
+    control: { x: (from.x + target.x) / 2, y: (from.y + target.y) / 2 },
     end: { x: target.x, y: target.y },
   };
 }

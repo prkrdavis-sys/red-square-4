@@ -17,6 +17,8 @@ const SWOOP_WINDUP_MS = 450;
 const SWOOP_RECOVER_MS = 520;
 const SWOOP_COOLDOWN_MS = 900;
 const SWOOP_FIRST_HOLD_MS = 500;
+const SWOOP_HOVER_MS = 1700;
+const SWOOP_HOVER_PX = 7;
 
 type SwoopPhase = 'hover' | 'windup' | 'swoop' | 'recover';
 
@@ -143,12 +145,10 @@ export class Baddie extends Phaser.Physics.Arcade.Sprite {
   }
 
   private tickSwoop(player: Phaser.Physics.Arcade.Sprite): void {
-    const step = Math.min(48, Math.max(8, this.scene.game.loop.delta));
-    this.swoopMs += step;
-    const bob = Math.sin(this.scene.time.now / 280) * 10;
+    this.swoopMs += Math.min(50, this.scene.game.loop.delta);
     switch (this.swoopPhase) {
       case 'hover':
-        this.glideTo(this.swoopHomeX, this.swoopHomeY + bob, step);
+        this.placeSwoop(this.swoopHomeX, this.hoverY());
         this.setFlipX(player.x > this.x);
         this.present('idle');
         if (
@@ -161,7 +161,7 @@ export class Baddie extends Phaser.Physics.Arcade.Sprite {
         }
         return;
       case 'windup':
-        this.glideTo(this.swoopHomeX, this.swoopHomeY + bob * 0.35, step);
+        this.placeSwoop(this.swoopHomeX, this.hoverY());
         this.setFlipX(player.x > this.x);
         this.present('attack');
         this.setTint(Math.sin(this.swoopMs / 60) > 0 ? 0xffb25a : 0xfff3c4);
@@ -180,7 +180,7 @@ export class Baddie extends Phaser.Physics.Arcade.Sprite {
           return;
         }
         const point = swoopPointAt(curve, this.swoopMs);
-        this.glideTo(point.x, point.y, step);
+        this.placeSwoop(point.x, point.y);
         this.setFlipX(curve.end.x >= curve.start.x);
         this.present('attack');
         if (this.swoopMs >= SWOOP_DURATION_MS) {
@@ -193,10 +193,9 @@ export class Baddie extends Phaser.Physics.Arcade.Sprite {
       }
       case 'recover': {
         const t = Math.min(1, this.swoopMs / SWOOP_RECOVER_MS);
-        const arc = Math.sin(t * Math.PI) * -36;
         const x = this.recoverFromX + (this.swoopHomeX - this.recoverFromX) * t;
-        const y = this.recoverFromY + (this.swoopHomeY - this.recoverFromY) * t + arc;
-        this.glideTo(x, y, step);
+        const y = this.recoverFromY + (this.swoopHomeY - this.recoverFromY) * t;
+        this.placeSwoop(x, y);
         this.setFlipX(this.swoopHomeX >= this.recoverFromX);
         this.present('move');
         if (t >= 1) {
@@ -214,9 +213,14 @@ export class Baddie extends Phaser.Physics.Arcade.Sprite {
     }
   }
 
-  private glideTo(x: number, y: number, stepMs: number): void {
-    const dt = Math.max(stepMs, 8) / 1000;
-    this.arcadeBody.setVelocity((x - this.x) / dt, (y - this.y) / dt);
+  private hoverY(): number {
+    const cycle = (this.scene.time.now + this.swoopHomeX * 3) / SWOOP_HOVER_MS;
+    return this.swoopHomeY + Math.sin(cycle * Math.PI * 2) * SWOOP_HOVER_PX;
+  }
+
+  private placeSwoop(x: number, y: number): void {
+    this.setPosition(x, y);
+    this.arcadeBody.reset(x, y);
   }
 
   private tickMovement(
